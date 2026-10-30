@@ -4,6 +4,10 @@ Everything the app needs from her art, measured from capri-desktop 0.7.7. Check 
 
 ## Using the templates
 
+**Ready-made Krita files:** `krita/` has one `.kra` per animation with the three layers below already set up and the two helper layers locked. Remake them (this overwrites them, drawings included) with:
+
+`powershell -File characters\lucy\make-krita-files.ps1 -Out characters\lucy\krita`
+
 `templates/` has one guide PNG per animation, the same size as Capri's sheet. In Krita, layers from top to bottom:
 
 1. Your drawing
