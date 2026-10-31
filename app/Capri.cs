@@ -884,7 +884,7 @@ namespace CapriDesktop
         private double nextPopIn = -1;
         private double popOut = -1;
         private int popClicks;
-        private static readonly string[] PopLines = { "Boo. Just checking on you.", "Hi! Don't mind me.", "Peekaboo.", "Miss me? I missed you.", "Hey, you. Having fun?", "Surprise. I got bored without you." };
+        private static readonly string[] PopLines = Character.PopLines;
         private const double NudgeGap = 7200;
         private double noticed = -1;
         private int noticedClicks;
