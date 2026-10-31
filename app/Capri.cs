@@ -4439,7 +4439,7 @@ namespace CapriDesktop
         private void ReadHeart()
         {
             Tune shown = player.Tune;
-            if (heartBusy || shown == null || !shown.Spotify || shown.Key == heartRead) return;
+            if (heartBusy || shown == null || !shown.Hearts || shown.Key == heartRead) return;
             heartBusy = true;
             heartRead = shown.Key;
             string key = shown.Key;
@@ -4447,7 +4447,7 @@ namespace CapriDesktop
             ThreadPool.QueueUserWorkItem(delegate
             {
                 bool? has = null;
-                try { has = Tunes.Hearted(); } catch (Exception) { }
+                try { has = shown.Spotify ? Tunes.Hearted() : YouTubeMusic.Liked(); } catch (Exception) { }
                 Post(delegate { heartBusy = false; if (has.HasValue) player.Hearted(key, has.Value, asked); });
             });
         }
@@ -8990,6 +8990,9 @@ namespace CapriDesktop
                                 if (!miniRead.Join(10000)) throw new Exception("Reading Windows' media session hung.");
                                 checks.Add(miniLive == null ? "LIMIT mini player live read: Windows' media session has nothing with a title on this PC right now, so only the stand-in songs above were shown" : "PASS mini player live read: Windows' media session has a song " + (miniLive.Playing ? "playing" : "paused") + " in " + Tunes.AppName(miniLive.App) + ", with its title and artist" + (miniLive.Length > 0 ? " and a " + MiniPlayer.Clock(miniLive.Length) + " timeline" : " and no timeline"));
                             }
+                            string youTubeMusicWrong = YouTubeMusic.Check();
+                            if (youTubeMusicWrong != null) throw new Exception(youTubeMusicWrong);
+                            checks.Add("PASS YouTube Music (Lucy): its songs get the mini player's heart, filled from its API, and its window opens from it; \"like this song\" likes it there and on Spotify; \"play numb on YouTube Music\" plays it in the app, or opens its search");
                             Point petSpot = Point.Empty;
                             for (int py = frame.Height / 4; py < frame.Height * 3 / 4 && petSpot.IsEmpty; py += 3)
                                 for (int px = 30; px < frame.Width - 30 && petSpot.IsEmpty; px += 3)

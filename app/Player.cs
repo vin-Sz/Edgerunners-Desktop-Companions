@@ -40,6 +40,7 @@ namespace CapriDesktop
         internal object Session;
 
         internal bool Spotify { get { return App.IndexOf("spotify", StringComparison.OrdinalIgnoreCase) >= 0; } }
+        internal bool Hearts { get { return Spotify || YouTubeMusic.Owns(App); } }
 
         // The same song in the same app.
         internal string Key { get { return App + "\n" + Title + "\n" + Artist; } }
@@ -78,6 +79,7 @@ namespace CapriDesktop
         {
             // What Windows calls the app, the name she shows, and its program.
             { "spotify", "Spotify", "Spotify" },
+            { "ytmdesktop", "YouTube Music", "ytmdesktop" },
             { "^chrome", "Chrome", "chrome" },
             { "msedge", "Edge", "msedge" },
             { "firefox|^308046B0AF4A39CB$", "Firefox", "firefox" },
@@ -212,6 +214,7 @@ namespace CapriDesktop
 
         private static bool SendToSession(Tune tune, string what)
         {
+            if ((what == "like" || what == "unlike") && tune != null && YouTubeMusic.Owns(tune.App)) return YouTubeMusic.SetLiked(what == "like");
             if (what == "like" || what == "unlike") return LikeOnSpotify(what == "like");
             GlobalSystemMediaTransportControlsSession session = tune == null ? null : tune.Session as GlobalSystemMediaTransportControlsSession;
             if (session != null)
@@ -257,6 +260,7 @@ namespace CapriDesktop
                 if (best == null || (tune.Title.Length > 0 && (window.Title ?? "").IndexOf(tune.Title, StringComparison.OrdinalIgnoreCase) >= 0)) best = window;
             }
             if (best != null) return Bring(best.Handle);
+            if (YouTubeMusic.Owns(tune.App)) return YouTubeMusic.Show();
             if (!tune.Spotify) return false;
             Hands.Run("spotify:");
             return true;
@@ -545,7 +549,7 @@ namespace CapriDesktop
         {
             base.OnMouseDown(e);
             if (e.Button != MouseButtons.Left || tune == null) return;
-            int part = PartAt(OnPlate(e.Location), scale, tune.Spotify);
+            int part = PartAt(OnPlate(e.Location), scale, tune.Hearts);
             if (part == 0) { Grab(PointToScreen(e.Location)); return; }
             held = part;
             Capture = true;
@@ -558,7 +562,7 @@ namespace CapriDesktop
             if (grabbing) { Haul(PointToScreen(e.Location)); return; }
             if (tune == null) return;
             if (scrub >= 0) { scrub = Fraction(OnPlate(e.Location).X); Redraw(); return; }
-            int part = PartAt(OnPlate(e.Location), scale, tune.Spotify);
+            int part = PartAt(OnPlate(e.Location), scale, tune.Hearts);
             Cursor = part == 0 ? Cursors.SizeAll : Look.Pointer;
             if (part != hover) { hover = part; Redraw(); }
         }
@@ -575,7 +579,7 @@ namespace CapriDesktop
             if (tune == null) return;
             if (e.Button == MouseButtons.Right) { Raise("menu"); return; }
             if (to >= 0) { SeekTo(to); return; }
-            if (was != 0 && was == PartAt(OnPlate(e.Location), scale, tune.Spotify)) Press(was);
+            if (was != 0 && was == PartAt(OnPlate(e.Location), scale, tune.Hearts)) Press(was);
         }
 
         protected override void OnMouseLeave(EventArgs e)
@@ -648,7 +652,7 @@ namespace CapriDesktop
                 shown.Playing = !shown.Playing;
                 Raise(shown.Playing ? "play" : "pause");
             }
-            else if (part == PlayerPart.Heart && shown.Spotify) { liked = !liked; heartAt = now; Raise(liked ? "like" : "unlike"); }
+            else if (part == PlayerPart.Heart && shown.Hearts) { liked = !liked; heartAt = now; Raise(liked ? "like" : "unlike"); }
             else return;
             if (Visible) Redraw();
         }
@@ -818,7 +822,7 @@ namespace CapriDesktop
                 }
                 foreach (int part in new[] { PlayerPart.Menu, PlayerPart.Previous, PlayerPart.Next, PlayerPart.Heart })
                 {
-                    if (hover != part || (part == PlayerPart.Heart && !tune.Spotify)) continue;
+                    if (hover != part || (part == PlayerPart.Heart && !tune.Hearts)) continue;
                     PointF lit = Middle(part, s);
                     using (Brush glowing = new SolidBrush(Color.FromArgb(30, 255, 255, 255))) graphics.FillEllipse(glowing, lit.X - 15 * s, lit.Y - 15 * s, 30 * s, 30 * s);
                 }
@@ -826,7 +830,7 @@ namespace CapriDesktop
                 DrawSkip(graphics, Middle(PlayerPart.Previous, s), s, !tune.CanBack ? Look.Dim : hover == PlayerPart.Previous ? Look.Cyan : Look.Ink, false);
                 DrawSkip(graphics, Middle(PlayerPart.Next, s), s, !tune.CanSkip ? Look.Dim : hover == PlayerPart.Next ? Look.Cyan : Look.Ink, true);
                 DrawPlay(graphics, Middle(PlayerPart.PlayPause, s), s, hover == PlayerPart.PlayPause, tune.Playing);
-                if (tune.Spotify) DrawHeart(graphics, Middle(PlayerPart.Heart, s), s, hover == PlayerPart.Heart, liked);
+                if (tune.Hearts) DrawHeart(graphics, Middle(PlayerPart.Heart, s), s, hover == PlayerPart.Heart, liked);
                 DrawClose(graphics, Middle(PlayerPart.Close, s), s, hover == PlayerPart.Close);
                 if (glitch != 0) Tear(image, graphics, glow, w, h, s, glitch);
             }

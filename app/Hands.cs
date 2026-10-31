@@ -1393,6 +1393,8 @@ namespace CapriDesktop
             if ((!question || polite) && Regex.IsMatch(text, Remembering + @"(?: of)?(?: (?:that|this|it))?$", RegexOptions.IgnoreCase)) { tool = "remember"; args.Text = ""; return true; }
             noted = Regex.Match(text, @"^(?:i (?:want|need|would like) (?:you|u) to\s+)?forget(?:\s+(?:that|about|the note about|my note about|what i said about))?\s+([^,;]+)", RegexOptions.IgnoreCase);
             if (noted.Success && !question && !Regex.IsMatch(noted.Groups[1].Value.Trim(), @"^(it|that|this|about (it|that|this)|i asked|i said|what i said|the last thing|me|you|everything i said)\b", RegexOptions.IgnoreCase)) { tool = "remember"; args.Action = "forget"; args.Text = noted.Groups[1].Value.Trim(); return true; }
+            string liking = YouTubeMusic.Liking(text);
+            if (liking != null) { tool = "media"; args.Action = liking; return true; }
             string loud, step;
             bool spotify;
             if (Loudness(text, out loud, out step, out spotify))
@@ -1403,7 +1405,7 @@ namespace CapriDesktop
                 if (spotify && (loud == "volume_up" || loud == "volume_down")) args.App = "spotify";
                 return true;
             }
-            Match found = Regex.Match(text, @"^(?:open|launch|start|go to|fire up|load up)\s+(spotify|youtube)\s*(?:,|and|&)?\s*(?:then\s+)?(?:play|shuffle|put on|blast)\s+(.+)$", RegexOptions.IgnoreCase);
+            Match found = Regex.Match(text, @"^(?:open|launch|start|go to|fire up|load up)\s+(spotify|youtube music|youtube)\s*(?:,|and|&)?\s*(?:then\s+)?(?:play|shuffle|put on|blast)\s+(.+)$", RegexOptions.IgnoreCase);
             if (found.Success) text = "play " + found.Groups[2].Value + " on " + found.Groups[1].Value;
             if (Regex.IsMatch(text, @"\b(and|then|but)\s+(open|launch|play|close|quit|pause|don't|do not)\b", RegexOptions.IgnoreCase)) return false;
             found = Regex.Match(text, @"^(open|launch|start|run|load up|boot up|fire up)\s+(up\s+)?(.+)$", RegexOptions.IgnoreCase);
@@ -1419,7 +1421,7 @@ namespace CapriDesktop
             found = Regex.Match(text, @"^(?:google|look up)\s+(.+)$", RegexOptions.IgnoreCase);
             if (found.Success && !Regex.IsMatch(found.Groups[1].Value, @"^(it|this|that|something|stuff|for me)$", RegexOptions.IgnoreCase)) { tool = "open_website"; args.Site = "google"; args.Search = found.Groups[1].Value.Trim(); return true; }
             if (Regex.IsMatch(text, LookupWords, RegexOptions.IgnoreCase) && !Regex.IsMatch(Regex.Replace(text, @"\bnear me\b", ""), @"\b(my|your|you|me|i)\b", RegexOptions.IgnoreCase)) { tool = "open_website"; args.Site = "google"; args.Search = text; return true; }
-            found = Regex.Match(text, @"^(?:play|shuffle|put on|blast)\s+(.+?)(\s+on\s+(spotify|youtube))?$", RegexOptions.IgnoreCase);
+            found = Regex.Match(text, @"^(?:play|shuffle|put on|blast)\s+(.+?)(\s+on\s+(spotify|youtube music|youtube))?$", RegexOptions.IgnoreCase);
             if (found.Success)
             {
                 string target = found.Groups[1].Value.Trim();
@@ -1628,7 +1630,7 @@ namespace CapriDesktop
                 int level;
                 bool leveled = int.TryParse(args.Level, out level) && level >= 0 && level <= 100;
                 if (args.Action == "volume_set") return leveled;
-                return Regex.IsMatch(args.Action ?? "", @"\A(play_pause|pause|resume|next|previous|volume_up|volume_down|mute|unmute|now_playing)\z") && (string.IsNullOrEmpty(args.Level) || leveled);
+                return Regex.IsMatch(args.Action ?? "", @"\A(play_pause|pause|resume|next|previous|volume_up|volume_down|mute|unmute|now_playing|like|unlike)\z") && (string.IsNullOrEmpty(args.Level) || leveled);
             }
             if (tool == "app_window") return Named(args.Name) && Regex.IsMatch(args.Action ?? "", @"\A(switch_to|minimize|close)\z");
             if (tool == "use_computer") return Named(args.Task);
@@ -1638,7 +1640,7 @@ namespace CapriDesktop
             if (tool == "nap") return string.IsNullOrEmpty(args.Action) || args.Action == "sleep" || args.Action == "wake";
             if (tool == "move_yourself") return Regex.IsMatch(args.Action ?? "", @"\A(come_here|other_screen|sit|sit_on|lie_down|sit_up|stand_up|walk_around|wander|hang|ride_cursor|hop_off|hide|show|move_mainframe)\z") && (args.Action != "sit_on" || Named(args.Window));
             if (tool == "animate") return Regex.IsMatch(args.Name ?? "", @"\A(idle|glitch|grin|blink|dance|stop_dancing)\z");
-            return tool == "play_music" && Named(args.Song) && (string.IsNullOrEmpty(args.Kind) || Regex.IsMatch(args.Kind, @"\A(song|playlist|album|artist)\z")) && (string.IsNullOrEmpty(args.App) || args.App == "spotify" || args.App == "youtube");
+            return tool == "play_music" && Named(args.Song) && (string.IsNullOrEmpty(args.Kind) || Regex.IsMatch(args.Kind, @"\A(song|playlist|album|artist)\z")) && (string.IsNullOrEmpty(args.App) || args.App == "spotify" || args.App == "youtube" || args.App == "youtube music");
         }
 
         // "Open Discord and Spotify" opens both, so nobody has to ask for each app on its own. Anything she doesn't know goes to her brain.
@@ -1978,6 +1980,7 @@ namespace CapriDesktop
                 return muting ? "Muted the PC." : "Unmuted the PC.";
             }
             if (action == "now_playing") return Playing();
+            if (action == "like" || action == "unlike") return YouTubeMusic.LikePlaying(action == "like");
             return "There's no media action called " + action + ".";
         }
 
@@ -2232,6 +2235,8 @@ namespace CapriDesktop
         private static string PlayMusic(string song, string app, string kind)
         {
             if (string.IsNullOrWhiteSpace(song)) return "What should I play?";
+            bool music = app == "youtube music";
+            if (music) app = "youtube";
             song = song.Trim();
             if (Regex.IsMatch(song, @"^((what('|\u2019)?s|what is)\s+)?((currently|now)\s+)?playing( now)?$|^(this|that|the current) (song|track)$", RegexOptions.IgnoreCase)) return Playing();
             if (Regex.IsMatch(song, @"^(play\s+)?(me\s+)?((some|any|a|random|good)\s+)?(music|songs?|tunes|tracks?|something)(\s+for me)?$", RegexOptions.IgnoreCase)) { song = Pick(); kind = "song"; }
@@ -2267,6 +2272,7 @@ namespace CapriDesktop
             string where = Searches[0, 1] + Uri.EscapeDataString(look);
             System.Text.RegularExpressions.Match list = Regex.Match(kind == "song" ? "" : Fetch(where + "&sp=EgIQAw%253D%253D") ?? "", @"""watchEndpoint"":\{""videoId"":""([A-Za-z0-9_-]{11})"",""playlistId"":""([A-Za-z0-9_-]+)""");
             string video = list.Success ? null : Find(Fetch(where), "\"videoId\":\"([A-Za-z0-9_-]{11})\"");
+            if (music && YouTubeMusic.Play(list.Success ? list.Groups[1].Value : video, list.Success ? list.Groups[2].Value : null, look)) return list.Success || video != null ? "Playing " + named + " on YouTube Music." : "Couldn't find " + named + " to play, so YouTube Music is open on a search for it.";
             if (!list.Success && video == null) { Run(where); return "Couldn't find " + named + " to play, so YouTube is open on a search for it."; }
             Run(list.Success ? "https://www.youtube.com/watch?v=" + list.Groups[1].Value + "&list=" + list.Groups[2].Value : "https://www.youtube.com/watch?v=" + video);
             return (app == "spotify" ? "Spotify isn't installed, so playing " : "Playing ") + named + " on YouTube.";

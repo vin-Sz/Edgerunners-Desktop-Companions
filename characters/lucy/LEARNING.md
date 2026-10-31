@@ -5,6 +5,41 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 31 Oct: YouTube Music support (`app/YouTubeMusic.cs`)
+
+**What changed:** the Music Bar's heart works for YouTube Music for Desktop. "Like this song" works in chat for it and for Spotify. "Play numb on YouTube Music" plays in the app. "Open the player" finds its window.
+
+**Idea: an API is a door an app leaves open for other programs.** Spotify has none for likes, so Lachy's code finds Spotify's heart button on screen (UI Automation) or presses its keyboard shortcut. Your YouTube Music app has a small web server built in, on `http://127.0.0.1:13091`. `127.0.0.1` means "this PC", so nothing goes to the internet. Lucy sends it requests like `POST /track/like` with `true`, and it answers. That's sturdier than clicking buttons, which break when an app moves them.
+
+**Idea: GET asks, POST does.** `GET /track/state` only asks ("is this song liked?"). `POST /track/like` changes something. Most web APIs follow this split.
+
+**Idea: hooks, in practice.** Lachy's files got small changes like these:
+- `Player.cs`: a new `Hearts` (Spotify *or* YouTube Music) in the places that used to say `Spotify` for the heart. Plus one line each in like and open: "if it's YouTube Music, ask `YouTubeMusic.cs`".
+- `Hands.cs`: "youtube music" added next to "youtube" in two patterns, plus a few one-line "ask `YouTubeMusic.cs`" lines.
+- `Capri.cs`: the self-test calls `YouTubeMusic.Check()`. The real checks live in our file.
+
+**Idea: tests swap out the real world.** `YouTubeMusic.Call` is a *variable holding a function*. Normally it holds `Ask`, which really talks to the app. The self-test puts a fake in it that writes down what was sent and gives canned answers. So the test checks Lucy's side without needing the app, the internet or a real song. Lachy's code does the same with `Hands.Run` and `Tunes.Send`.
+
+**Idea: `@"..."` strings.** In a normal C# string, `\` starts a code like `\n` (new line). Regex patterns are full of `\s` and `\d`, so they use `@"..."`, where `\` is just `\`. I forgot one `@`, and the compiler said "unrecognized escape sequence". Same lesson as last time: read the error's line and column, then look right there.
+
+**Try it (optional):** in `YouTubeMusic.cs`, find `Liking`. Add your own way of saying it, like `love` next to `like|heart`. Then add a line for it to the `asks` list in `Check()`, so the self-test checks it too.
+
+---
+
+## Why: Lucy's code goes in Lucy's files, even when Capri has the same thing built in
+
+You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get its own file?
+
+**Because `Player.cs` is Lachy's.** He wrote it and keeps changing it, and every sync brings his changes into our copy. If our code sits inside his file, sooner or later his change lands right next to ours and Git can't choose: a merge conflict, in code you didn't write.
+
+**So the rule for this fork:** Lucy's code goes in files Lachy doesn't have (`Character.cs`, `YouTubeMusic.cs`). His files only get small *hooks*, one line saying "ask our file". If a hook ever conflicts, it's one obvious line.
+
+**The cost:** it's less tidy. Spotify is in one place and YouTube Music in another. In a single project you'd put them together. In a fork that keeps pulling updates, staying out of the owner's way matters more, especially when capri-desktop's team ships features you'll want too.
+
+**When it changes:** if Lachy takes a feature into capri-desktop, it becomes his code and he decides where it goes. Our file then goes away.
+
+---
+
 ## 31 Oct: her other lines move into `Character.cs`
 
 **What changed:** her "no" line, her error line, her Halloween lines and the `LUCY: ` name in her chat log now come from `app/Character.cs`. The Mac/Linux app uses the same file now too (`cross/Capri.Cross.csproj` got one line saying "also compile `Character.cs`").

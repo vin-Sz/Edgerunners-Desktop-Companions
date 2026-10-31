@@ -43,6 +43,13 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [ ] "Hey Capri" → "Hey Lucy" (see `lines.md`)
 - [ ] Rename what you see from Capri to Lucy (window titles, menus, installer, messages), but not the internal code names
 
+**YouTube Music** (`app/YouTubeMusic.cs`, for YouTube Music for Desktop / ytmdesktop2)
+- [x] Mini player heart, "like this song" (also for Spotify), "play X on YouTube Music", "Open the player" for its window
+- [ ] Turn on its API: in YouTube Music for Desktop's settings, the API section (port 13091, no login needed). Without it the heart won't stick and songs open on youtube.com instead
+- [ ] Try it for real and run the self-test. Not checked yet: that Windows calls its media session `net.venipa.ytmdesktop` (if not, the heart won't show for it, and `Owns` needs the right name), and that starting it again brings its window up from the tray
+- [ ] Not yet: "like this song" in ElevenLabs voice chat (Agent.cs has its own tool list), and "play X" without saying YouTube Music still goes to Spotify. Making YouTube Music your default is one small change, if you want it
+- [ ] Maybe offer it to Lachy for capri-desktop; then it's his code, and our file goes away
+
 **Later, maybe**
 - [ ] Netrunner look in place of Capri's glitch effects, like the crimson tendrils when she starts (`Tendrils` in `Talk.cs`)
 - [ ] Choosing the character inside the app instead of when building
