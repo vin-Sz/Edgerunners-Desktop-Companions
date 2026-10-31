@@ -1,0 +1,51 @@
+# The app's own identity: Lucy Desktop. Every -Character build uses these, whichever character it wears, so the app
+# never clashes with a real Capri on the same PC and switching characters never moves settings or autostart.
+# Same format as a character's names.txt: "Capri's code" => "ours", exact words, applied to a copy of the code.
+# What stays Capri's on purpose: Capri.exe (the program's file name), downloads of Capri's voice pack and HD voice from
+# her releases, links to Lachy's website and help, and "Capri-Desktop" as the name it gives websites.
+
+# Where it keeps settings and installs itself (%LOCALAPPDATA%\Lucy Desktop), its single-copy lock, autostart and uninstall entries
+"LocalApplicationData), "Capri"" => "LocalApplicationData), "Lucy Desktop""
+""Local\\Capri." => ""Local\\LucyDesktop."
+"internal const string Name = "Capri";" => "internal const string Name = "Lucy Desktop";"
+"Uninstall\\Capri.Desktop"" => "Uninstall\\LucyDesktop""
+"key.SetValue("DisplayName", "Capri")" => "key.SetValue("DisplayName", "Lucy Desktop")"
+""Capri.lnk"" => ""Lucy Desktop.lnk""
+"AssemblyTitle("Capri")" => "AssemblyTitle("Lucy Desktop")"
+"AssemblyProduct("Capri")" => "AssemblyProduct("Lucy Desktop")"
+"info.ProductName == "Capri"" => "info.ProductName == "Lucy Desktop""
+
+# Updates come from this repository's releases (see characters/lucy/NOTES.md, "Releases")
+""https://api.github.com/repos/lachydotmcg/capri-desktop/releases/latest"" => ""https://api.github.com/repos/vin-Sz/lucy-desktop/releases/latest""
+"StartsWith("/lachydotmcg/capri-desktop/releases/download/"" => "StartsWith("/vin-Sz/lucy-desktop/releases/download/""
+""Capri-Setup" => ""LucyDesktop-Setup"
+""Capri-Uninstall-" => ""LucyDesktop-Uninstall-"
+
+# The app's name in messages, the updater and the installer
+", "Capri", true)" => ", "Lucy Desktop", true)"
+", "Capri", false)" => ", "Lucy Desktop", false)"
+""Capri v"" => ""Lucy Desktop v""
+""Downloading Capri " => ""Downloading Lucy Desktop "
+""Restart to update to Capri " => ""Restart to update to Lucy Desktop "
+""Capri update ready"" => ""Lucy Desktop update ready""
+"This release has no Capri installer." => "This release has no Lucy Desktop installer."
+"The update signer doesn't match Capri." => "The update signer doesn't match Lucy Desktop."
+"Capri is still closing" => "Lucy Desktop is still closing"
+"Capri updated but couldn't restart" => "Lucy Desktop updated but couldn't restart"
+"Capri couldn't update" => "Lucy Desktop couldn't update"
+"The Capri application payload" => "The Lucy Desktop application payload"
+"Capri has been removed" => "Lucy Desktop has been removed"
+"Capri couldn't install" => "Lucy Desktop couldn't install"
+"Capri could not be removed" => "Lucy Desktop could not be removed"
+"Capri could not finish" => "Lucy Desktop could not finish"
+"Capri is installed" => "Lucy Desktop is installed"
+"isn't this Capri" => "isn't this Lucy Desktop"
+"removing Capri again" => "removing Lucy Desktop again"
+"Making a little room for Capri" => "Making a little room for Lucy Desktop"
+"Open Capri when finished" => "Open Lucy Desktop when finished"
+"Install Capri" => "Install Lucy Desktop"
+"Remove Capri" => "Remove Lucy Desktop"
+"INSTALL CAPRI" => "INSTALL LUCY DESKTOP"
+"REMOVE CAPRI" => "REMOVE LUCY DESKTOP"
+"CAPRI COULDN'T INSTALL" => "LUCY DESKTOP COULDN'T INSTALL"
+""CAPRI\n" => ""LUCY DESKTOP\n"

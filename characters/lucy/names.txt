@@ -4,6 +4,7 @@
 # The build says when a phrase isn't found any more, like after a sync that reworded it.
 # Not yet: "Capri Mainframe" is in her prompt too, and the self-test checks her prompt; it changes with her personality.
 
+"Text = "Capri";" => "Text = "Lucy";"
 "CAPRI >" => "LUCY >"
 "CAPRI  /  " => "LUCY  /  "
 "Hide Capri" => "Hide Lucy"

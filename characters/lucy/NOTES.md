@@ -44,7 +44,17 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [x] Her name in menus, the tray, her talk box, the mini player and messages: `names.txt` here, applied by `-Character lucy` to a copy of the code, so Capri's files don't change. Windows only for now
 - [ ] "Capri Mainframe" → "Lucy Mainframe": it's in her prompt too, so it goes with her personality (the self-test checks the prompt)
 - [ ] The installer's names (`Setup.cs`, its own build line)
-- [ ] **Her own identity, before anyone installs Lucy** (needs your decisions): her updater downloads *Capri's* releases from capri-desktop, so a Lucy build would offer to "update" into Capri. Her autostart entry, window locks and settings are named Capri too, so she'd clash with the real Capri on the same PC. Decide: Lucy releases on your GitHub, or no updater; and her own name for settings and autostart
+- [x] **The app's own identity: Lucy Desktop** (`characters/app.txt`, used by every `-Character` build). Settings and install in `%LOCALAPPDATA%\Lucy Desktop`, its own autostart entry, Start menu shortcut, uninstall entry and single-copy lock, so it runs next to a real Capri without touching it. Updates come from this repository's releases. Still Capri's on purpose: the file name `Capri.exe`, her voice pack and HD voice downloads, and links to Lachy's website. Windows only; Mac/Linux still use Capri's
+- [ ] Not yet renamed: the speaker "Capri" in her chat history (`Brain.cs` `Transcribe`), which the self-test may check
+
+## Releases
+
+- **Make one:** GitHub → Actions → **Release Lucy Desktop** → Run workflow, with the number (1 for the first). GitHub builds it with `-Character lucy` and publishes `LucyDesktop-Setup-<version>.exe` and `SHA256SUMS.txt` (`.github/workflows/release-lucy.yml`). Not run yet: the first run is its test
+- **Versions:** Capri's version plus our own fourth number: `0.7.7.1`, `0.7.7.2`, … and after a Capri update `0.7.8.1`. Each one is newer than all before it, so the updater always offers the latest
+- **The updater** in an installed Lucy Desktop checks this repository's latest release every few hours. It only takes an installer whose checksum matches `SHA256SUMS.txt`, since ours isn't signed like Lachy's
+- **Until the first release** it says "Couldn't check for updates" in Mainframe, because there's nothing to find yet
+- **Windows will warn** ("Windows protected your PC", unknown publisher) the first time someone runs the installer, because it isn't signed. More info → Run anyway. Signing costs money every year; not worth it for a fan project unless you share it widely
+- **Don't release before** the self-test passes with `-Character lucy`
 - [x] The Obsidian vault note is `Lucy Memories.md` (`Character.VaultNote`)
 
 **YouTube Music** (`app/YouTubeMusic.cs`, for YouTube Music for Desktop / ytmdesktop2)

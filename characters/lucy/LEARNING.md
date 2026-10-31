@@ -5,6 +5,20 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 1 Nov: the app becomes Lucy Desktop, with its own releases
+
+**What changed:** a `-Character lucy` build is now its own app, **Lucy Desktop**, not a Capri in disguise. It has its own settings folder, autostart entry, Start menu entry and uninstall entry, so it runs next to your real Capri without either one noticing. Its updater looks at *your* GitHub releases, and the **Release Lucy Desktop** button on GitHub (Actions tab) makes one. Details are under "Releases" in `NOTES.md`.
+
+**Why the app has a name of its own, apart from the character:** the character is a skin (art, name, lines, voice). The app is the program, with your own features in it. If the settings folder were named after the character, switching characters would lose your settings. So the app is always Lucy Desktop, and the character inside can change.
+
+**Idea: identity is more than the name you see.** Windows tells programs apart by things you never see: the folder they keep settings in, the name of their autostart entry, the name of a *mutex* (a lock that makes sure only one copy runs: start Capri twice and the second one just wakes the first). If two apps share these, they fight over them. That's why `characters/app.txt` renames those, not just the words on screen.
+
+**Idea: versions are compared number by number.** `0.7.7.2` is newer than `0.7.7.1`, and `0.7.8.1` is newer than both, because the third number is checked before the fourth. That's why our releases add a fourth number to Capri's: Capri's numbers only go up, so ours do too. The release workflow also writes that number into the program itself, so an installed copy knows it's `0.7.7.1` and doesn't offer itself as an update.
+
+**Idea: checksums.** A checksum (SHA-256) is a fingerprint of a file: change one byte and it's completely different. The release lists the installer's fingerprint in `SHA256SUMS.txt`, and the updater only runs a download whose fingerprint matches. That way a broken or swapped download never runs. (Lachy also *signs* his, which proves who made it. That costs money, so ours uses the checksum alone.)
+
+---
+
 ## 1 Nov: building Lucy with `-Character lucy`
 
 **What changed:** `ci/build-windows.ps1 -Character lucy` builds *Lucy*. Each drawing you put in `characters/lucy/sprites/` (same name as Capri's, like `idle.png`) replaces Capri's, and the rest stays Capri's. Her name replaces Capri's in 42 places you see: menus, tray, talk box, messages. Without `-Character`, the build is plain Capri, like Lachy's.
@@ -17,7 +31,7 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 **Why not "Capri Mainframe" yet:** those words are also in her prompt, and the self-test checks her prompt's fingerprint (a SHA-256). Changing it now would make the self-test stop there. It changes together with her personality.
 
-**Try it (optional):** add a line to `names.txt`, like `"Capri update ready" => "Lucy update ready"`, then build with `-Character lucy`. Then add one with a typo on the left and read the warning the build gives.
+**Try it (optional):** add a line to `names.txt`, like `"Capri is asleep" => "Lucy is asleep"` (find a real phrase with Ctrl+Shift+F in `app\`), then build with `-Character lucy`. Then add one with a typo on the left and read the warning the build gives.
 
 ---
 
