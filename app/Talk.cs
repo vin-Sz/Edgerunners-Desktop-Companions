@@ -2240,7 +2240,7 @@ namespace CapriDesktop
     {
         private const int Columns = 36;
         private const int MostRows = 7;
-        private const string Speaker = "CAPRI: ";
+        private const string Speaker = Character.Speaker;
         private readonly Timer ticks = new Timer();
         private readonly System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
         private readonly List<JobStep> steps = new List<JobStep>();
@@ -2536,7 +2536,7 @@ namespace CapriDesktop
         private Point lastFeet;
         private Rectangle lastArea;
         private const int Columns = 34;
-        private const string Speaker = "CAPRI: ";
+        private const string Speaker = Character.Speaker;
 
         internal SpeechBox() : base("Capri says") { Cursor = Look.Pointer; }
 

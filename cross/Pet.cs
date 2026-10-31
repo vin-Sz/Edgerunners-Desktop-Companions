@@ -282,7 +282,7 @@ namespace CapriDesktop
         private double nextWander = -1;
         // Check in on me, like on Windows and on by default: now and then she glitches in at the top of her screen to say hi,
         // even when hidden, and hides again afterwards if she was. Pop-ins sets how often.
-        internal static readonly string[] PopLines = { "Boo. Just checking on you.", "Hi! Don't mind me.", "Peekaboo.", "Miss me? I missed you.", "Hey, you. Having fun?", "Surprise. I got bored without you." };
+        internal static readonly string[] PopLines = Character.PopLines;
         internal static readonly string[] PopNames = { "Rarely", "Sometimes", "Often" };
         private static readonly double[,] PopPaces = { { 1200, 1200 }, { 480, 720 }, { 180, 300 } };
         private const string PopHeard = "(pops in)";

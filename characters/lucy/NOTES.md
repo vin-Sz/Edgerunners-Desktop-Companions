@@ -10,6 +10,7 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 | `personality.md` | Her personality, as plain text in markdown. It becomes `DefaultPersonality` in `app/Brain.cs` |
 | `lines.md` | Her netrunner tags and the lines Capri says straight from the code, rewritten for Lucy |
 | `ART.md` | Everything her drawings must match, animation by animation |
+| `LEARNING.md` | One short entry per code change: what, why, and one idea worth knowing |
 | `templates/` | Guide images to draw on, one per animation (made by `make-templates.ps1`) |
 | `sprites/` | *(later)* her animations, same file names and sizes as `assets/sprites` |
 | `voice/` | *(later)* her spoken greetings |
@@ -34,7 +35,9 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [ ] Lucy's art, voice and icon
 
 **Step 3: text in the app**
-- [ ] A new `app/Character.cs` holding her personality and lines, with small one-line changes in `Brain.cs` pointing at it
+- [x] A new `app/Character.cs` holding her lines, with one-line pointers in Capri's files (`Brain.cs`, `Capri.cs`, `Talk.cs`, and `cross/Pet.cs`, `cross/Talk.cs` for Mac/Linux): pop-ups, Halloween, her "no", her error line, `LUCY: ` in her chat log
+- [ ] Her lines still waiting for your OK: the drafts at the top of `lines.md` (Cyberpunk spotted, lag)
+- [ ] Her personality in `Character.cs` too, once you've tried it in the app (the item in Step 1). Her prompt also says "a glitch tag like [SIGNAL CORRUPTED]" (`Brain.cs`), which changes with it
 - [ ] Update the personality checks in the smoke test (`Capri.cs`): `todaysPersona` (a SHA-256 of the whole prompt) and its length, 5659 since 0.7.7, next to it, and the check a little before it that looks for Capri phrases like "a playful chaos gremlin". Also any tests that check lines word for word
 - [ ] Leave `Safety` and `Machinery` in `Brain.cs` as they are: Lachy asks forks to keep her safety rules. `Safety` has a little Capri wording ("your chaos lives on the screen"); decide later whether that's fine for Lucy or worth asking Lachy about
 - [ ] "Hey Capri" → "Hey Lucy" (see `lines.md`)

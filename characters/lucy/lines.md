@@ -1,7 +1,7 @@
 # Lucy's lines
 
 Lines Capri says that are written straight into the code, with a Lucy version for each.
-Draft: the app doesn't use this file yet. Locations are from capri-desktop 0.7.7 and may move after an update. This entire folder is to avoid merging conflicts with the update.
+The app doesn't read this file. Lines marked **in the app** are copied into `app/Character.cs`, so change them there too. Locations are from capri-desktop 0.7.7 and may move after an update. This entire folder is to avoid merging conflicts with the update.
 
 ## Netrunner tags (replace [SIGNAL CORRUPTED])
 
@@ -11,7 +11,27 @@ Draft: the app doesn't use this file yet. Locations are from capri-desktop 0.7.7
 - [NET DISCONECTED]
 - [TRACE BLOCKED]
 
-## When something fails or she turns a request down
+## Drafts waiting for you
+
+Claude's drafts for lines `lines.md` didn't have yet. Change anything, then tick the box and they go into `Character.cs`.
+
+- [ ] **When she spots Cyberpunk running** (`Capri.cs` `HomeGameLines`, and `cross/Pet.cs`)
+
+| Capri | Lucy (draft) |
+| --- | --- |
+| Night City?! You're taking me home, choom. | Night City. ...Didn't think I'd miss it. |
+| Ooh, Cyberpunk. Go wreck some corpos for me. | Cyberpunk, huh. Give Arasaka hell for me. |
+| [SIGNAL CORRUPTED] ...wait. I know that skyline. | [TRACE BLOCKED] ...I know that skyline. Too well. |
+
+- [ ] **When your PC is lagging** (`Capri.cs` `LagLines`, and `cross/Pet.cs`)
+
+| Capri | Lucy (draft) |
+| --- | --- |
+| Your CPU's cooking, choom. Careful, I might go cyberpsycho. | Your CPU's running hot, choom. Ease off before something fries. |
+| Everything's lagging. One more tab and I go full cyberpsycho. | Everything's lagging. One more tab and I'm jacking out. |
+| [SIGNAL CORRUPTED] ...this lag is making me cyberpsycho. Close something. | [ICE DETECTED] ...this lag. Close something, choom. |
+
+## When something fails or she turns a request down (**in the app**)
 
 | Where | Capri | Lucy |
 | --- | --- | --- |
@@ -33,7 +53,7 @@ Capri used to have ready-made safety replies (`Safety.Deflect`, `Safety.Refusals
 | | [TRACE BLOCKED] ...no. I've lost enough people. Ask me something else. |
 | HelpLine | Hey. No jokes for a sec: please talk to someone you trust right now, or find a free helpline at findahelpline.com. I want you around, choom. |
 
-## When she pops in to check on you (`Capri.cs` `PopLines`, and the same list in `cross/Pet.cs` for Mac and Linux)
+## When she pops in to check on you (`Capri.cs` `PopLines`, and the same list in `cross/Pet.cs` for Mac and Linux) (**in the app**)
 
 | Capri | Lucy |
 | --- | --- |
@@ -44,7 +64,7 @@ Capri used to have ready-made safety replies (`Safety.Deflect`, `Safety.Refusals
 | Hey, you. Having fun? | Hey. Having fun? |
 | Surprise. I got bored without you. | Got quiet without you. |
 
-## Halloween (new in 0.7.7, `Brain.cs` `HalloweenLines`)
+## Halloween (new in 0.7.7, `Brain.cs` `HalloweenLines`) (**in the app**)
 
 On 31 October her startup hello is one of these, or she says one once that day if she's already running. The smoke test checks each line contains "Happy Halloween".
 
@@ -56,7 +76,7 @@ On 31 October her startup hello is one of these, or she says one once that day i
 
 ## Other things to check later
 
-- `Talk.cs` `Speaker = "CAPRI: "` (twice): the name shown in her chat log → `LUCY: `
+- ~~`Talk.cs` `Speaker = "CAPRI: "` (twice): the name shown in her chat log → `LUCY: `~~ **in the app**
 - **"Hey Capri"** (new in 0.7.6, off by default): the wake word. The phrase it listens for is `Phrases` in `WakeWord` in `app/Ears.cs` (`"▁HE Y ▁CA P RI"`, the speech model's word pieces). "Hey Lucy" needs new pieces from the model's own `bpe.model`, and `Boost` and `Threshold` were tuned for "Hey Capri", so it needs testing again. The name "Hey Capri" also shows in the SECURITY window and messages
 - `assets/voice/hello-morning.wav`, `hello-late.wav`, `hello-miss.wav`: her spoken greetings, need new recordings or removing
 - `Hands.cs` `MoonSong` is already "I Really Want to Stay at Your House". It fits Lucy perfectly, keep it

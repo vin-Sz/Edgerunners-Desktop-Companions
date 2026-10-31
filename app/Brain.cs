@@ -279,7 +279,7 @@ namespace CapriDesktop
 
         internal static string Sightless(Cloud remote) { return remote.Model + " can't see screens. In Capri Mainframe, pick a model that can" + (remote.Kind == "nvidia" ? ", like nvidia/nemotron-3.5-super-vl-120b-a12b." : "."); }
         private const string Parts = "@capri-image@";
-        internal const string Declined = "[SIGNAL CORRUPTED] Lost that one in the static. Ask me something else?";
+        internal const string Declined = CapriDesktop.Character.Declined;
         internal const string Stuck = " If you're stuck, just join the Discord, choom. It's under Help in my right-click menu.";
         internal const string Offline = "My brain's offline. Right-click me, open Capri Mainframe and press Set up her brain, or press Free key there for a free NVIDIA key." + Stuck;
         private static readonly string[] Favourites = { "gemma4:e4b", "gemma4:e2b", "qwen3:4b-instruct-2507", "qwen3.5:4b", "qwen3:4b", "llama3.2:3b", "qwen3:1.7b", "llama3.2:1b", "gemma3:1b" };
@@ -533,7 +533,7 @@ namespace CapriDesktop
         // Her lines for a holiday on its day, by their clock, or null on an ordinary day. Halloween so far (Lachy, 30 Oct).
         internal static string[] Holiday(DateTime day) { return day.Month == 10 && day.Day == 31 ? HalloweenLines : null; }
 
-        internal static readonly string[] HalloweenLines = { "Happy Halloween, choom!", "Happy Halloween, choom. Trick or treat?", "Boo! Happy Halloween, choom." };
+        internal static readonly string[] HalloweenLines = CapriDesktop.Character.HalloweenLines;
 
         internal const string NotesHead = "# What Capri remembers about you\n> She reads this every time you chat. Edit or delete anything here.\n\n";
         private static readonly object noting = new object();
@@ -2007,7 +2007,7 @@ namespace CapriDesktop
             if (web != null && remote != null && web.Response == null) return "Can't reach " + remote.Company + ", choom. Check your internet, then try me again.";
             if (web != null && web.Status == WebExceptionStatus.Timeout) return "Took too long to think, choom. My brain runs on your PC, so open games slow me down. Close one, or " + FreeKeyHow + ".";
             if (web != null && web.Response == null) return Offline;
-            return "[SIGNAL CORRUPTED] Something in my head just sparked. Try me again?";
+            return CapriDesktop.Character.Sparked;
         }
 
         internal static string BrainMenu = "under BRAIN in Capri Mainframe";
