@@ -670,7 +670,7 @@ namespace CapriDesktop
                 showVault();
                 showing = false;
                 Button pickVault = DialogButton("Browse", 392, 42, 112, Look.Dim);
-                Label vaultNote = Hint(capri.Vault.Length > 0 ? "She saves her memories to " + System.IO.Path.GetFileName(Companion.NotesIn(capri.Vault)) + "." : vaults.Count > 0 ? "Pick one of your Obsidian vaults and her memories go in a Capri Memories note there." : "No Obsidian vaults found on this PC. Open one in Obsidian first, or Browse to a note.", 78, 34);
+                Label vaultNote = Hint(capri.Vault.Length > 0 ? "She saves her memories to " + System.IO.Path.GetFileName(Companion.NotesIn(capri.Vault)) + "." : vaults.Count > 0 ? "Pick one of your Obsidian vaults and her memories go in a " + System.IO.Path.GetFileNameWithoutExtension(Companion.VaultNote) + " note there." : "No Obsidian vaults found on this PC. Open one in Obsidian first, or Browse to a note.", 78, 34);
                 Action<string> useVault = delegate(string chosen)
                 {
                     vaultNote.Text = capri.SetVault(chosen);

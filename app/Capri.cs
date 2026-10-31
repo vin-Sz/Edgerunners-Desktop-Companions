@@ -3803,7 +3803,7 @@ namespace CapriDesktop
             return "Connected. She saves her memories to " + Path.GetFileName(notes) + " in " + folder + ".";
         }
 
-        internal const string VaultNote = "Capri Memories.md";
+        internal const string VaultNote = Character.VaultNote;
 
         internal static System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> ObsidianVaults()
         {
