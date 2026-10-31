@@ -62,6 +62,16 @@ namespace CapriDesktop
         [DataMember] internal bool NotOnTop;
         // Security's toggles 1 to 10 as 1s and 0s, like Windows. Missing in settings from before it, which get Trusted.
         [DataMember] internal string Permissions;
+        // Which provider makes her voice: elevenlabs, local or off. Missing in settings from before it, which were ElevenLabs.
+        // Silent stays apart: it quiets the provider they picked without forgetting it.
+        [DataMember] internal string VoiceProvider;
+        [DataMember] internal string LocalVoiceUrl;
+        [DataMember] internal string LocalVoiceModel;
+        [DataMember] internal string LocalVoiceName;
+        [DataMember] internal string LocalVoiceFormat;
+        // A server of their own that thinks for her instead of Ollama (llama-server, LM Studio, vLLM, TGI), and its model.
+        [DataMember] internal string BrainServer;
+        [DataMember] internal string ServerModel;
     }
 
     // The bits of GitHub's latest release she reads to tell them about an update.
@@ -246,6 +256,9 @@ namespace CapriDesktop
         private bool away;
         private bool opened;
         private readonly Voice voice = new Voice();
+        private readonly LocalSpeaker localVoice = new LocalSpeaker();
+        private readonly QuietSpeaker noVoice = new QuietSpeaker();
+        private ISpeaker elevenLabs;
         private VoiceListing voices;
         private string voiceProblem;
         private bool listing;
@@ -264,6 +277,7 @@ namespace CapriDesktop
         private readonly Presence presence;
         private MenuItem discordItem;
         private MenuItem securityMenu;
+        private bool fingers;
         private readonly List<MenuItem> securityPicks = new List<MenuItem>();
         private readonly List<MenuItem> securityToggles = new List<MenuItem>();
         private MenuItem memoriesItem;
@@ -275,6 +289,7 @@ namespace CapriDesktop
         // What she says about a new version once she's free.
         internal string UpdateNews;
         private bool pulling;
+        private string pullingName = Starter;
         private volatile int pulled = -1;
         private bool dancing;
         private Action outro;
@@ -442,7 +457,9 @@ namespace CapriDesktop
             fresh = Program.Smoke == null && !File.Exists(Path.Combine(folder, "cross.json"));
             Saved = Program.Smoke != null ? new Settings() : Load();
             // Security, like Windows: Mac and Linux have the first five toggles' features, and settings from before it get Trusted.
-            Security.Has = delegate(int toggle) { return toggle <= Security.Power; };
+            // Her mouse and keyboard jobs too, once /dev/uinput lets her make her own (Fingers). The smoke test keeps the five.
+            fingers = Program.Smoke == null && Fingers.Problem == null;
+            Security.Has = delegate(int toggle) { return toggle <= Security.Power || (toggle == Security.Mouse && fingers); };
             Security.Load(Saved.Permissions);
             Security.Changed = delegate { Saved.Permissions = Security.Saved; Save(); if (ContextMenu != null) Sync(); };
             LoginFile = Program.Smoke != null ? Path.Combine(Program.Smoke, OperatingSystem.IsMacOS() ? "capri.plist" : "capri.desktop") : Limbs.LoginFile();
@@ -480,6 +497,11 @@ namespace CapriDesktop
             Hands.Nap = NapTool;
             Hands.MoveSelf = MoveTool;
             Hands.Animate = AnimateTool;
+            if (Program.Smoke == null)
+            {
+                Hands.Work = delegate(string job, string asked) { return Chores.Run(Brain, job, asked); };
+                Chores.Mouse = delegate { return Dispatcher.UIThread.Invoke(MouseShare); };
+            }
             if (Program.Smoke == null) presence = new Presence(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
             // A cloud key they saved thinks for her instead of Ollama, on the model they picked.
             string brainKey = ReadSecret(BrainKeyFile);
@@ -488,8 +510,16 @@ namespace CapriDesktop
                 Brain.Remote = new Cloud(brainKey, Saved.CloudModel);
                 Brain.Model = Saved.CloudModel;
             }
+            Brain.Server = Brain.ServerAddress(Saved.BrainServer);
+            if (Brain.Remote == null && Brain.Server != null && !string.IsNullOrEmpty(Saved.ServerModel)) Brain.Model = Saved.ServerModel;
             voice.Key = ReadVoiceKey();
             voice.VoiceId = string.IsNullOrEmpty(Saved.VoiceId) ? null : Saved.VoiceId;
+            elevenLabs = new ElevenLabsSpeaker(voice);
+            Saved.VoiceProvider = Speakers.Known(Saved.VoiceProvider);
+            localVoice.Url = Saved.LocalVoiceUrl;
+            localVoice.Model = Saved.LocalVoiceModel;
+            localVoice.Speaker = Saved.LocalVoiceName;
+            localVoice.Format = LocalSpeaker.Known(Saved.LocalVoiceFormat);
             if (Program.Smoke == null) { Voice.Playback = Limbs.Speak; Voice.Silence = Limbs.Hush; }
             if (Program.Smoke == null)
             {
@@ -804,7 +834,7 @@ namespace CapriDesktop
             if (OperatingSystem.IsLinux()) system += " " + (Environment.GetEnvironmentVariable("XDG_SESSION_TYPE") ?? "?") + " " + (Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "?");
             Cloud remote = Brain.Remote;
             string brain = remote != null ? remote.Name + " " + remote.Model : Brain.Model != null ? "Ollama " + Brain.Model : "none";
-            string head = "Capri v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + " | " + system + " | brain: " + brain + " | voice: " + (voice.Key != null ? "ElevenLabs" : "none");
+            string head = "Capri v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + " | " + system + " | brain: " + brain + " | voice: " + (Speaker.Ready ? Speaker.Name : "none");
             string[] lines = new string[0];
             try { if (Brain.LogPath != null && File.Exists(Brain.LogPath)) lines = File.ReadAllLines(Brain.LogPath); } catch (IOException) { }
             int from = Math.Max(0, lines.Length - 25);
@@ -872,6 +902,32 @@ namespace CapriDesktop
         internal string UpdateChoice { get { return updateItem != null && ContextMenu != null && ContextMenu.Items.Contains(updateItem) ? updateItem.Header as string : null; } }
 
         internal string UpdatePage { get { return updatePage; } }
+
+        internal void CopyFingersSetup()
+        {
+            Avalonia.Input.Platform.IClipboard board = Clipboard;
+            if (board == null) return;
+            try { board.SetTextAsync(Fingers.Setup); }
+            catch (Exception) { return; }
+            Talk.Answer("(mouse setup)", "Copied a command for you. Paste it in a terminal, type your password, then close and open me again so I can use your mouse and keyboard.");
+        }
+
+        // Where the mouse is, 0 to 1 across the bounding box of every screen, which is how her mouse and her screenshots map too.
+        private double[] MouseShare()
+        {
+            PixelPoint? at = Mouse();
+            if (at == null) return null;
+            int left = int.MaxValue, top = int.MaxValue, right = int.MinValue, bottom = int.MinValue;
+            foreach (Screen screen in Screens.All)
+            {
+                left = Math.Min(left, screen.Bounds.X);
+                top = Math.Min(top, screen.Bounds.Y);
+                right = Math.Max(right, screen.Bounds.Right);
+                bottom = Math.Max(bottom, screen.Bounds.Bottom);
+            }
+            if (right <= left || bottom <= top) return null;
+            return new[] { (at.Value.X - left) / (double)(right - left - 1), (at.Value.Y - top) / (double)(bottom - top - 1) };
+        }
 
         internal void CopyErrors()
         {
@@ -1566,7 +1622,7 @@ namespace CapriDesktop
             settings.Items.Add(discordItem);
             // Security, like Windows' SECURITY window (Lachy, 29 Oct): Lockdown, Guarded, Trusted and Blackwall set the toggles
             // under them, and flipping one makes it Custom. Each toggle has its plain line. Off means she asks first and does it
-            // on your yes. Mac and Linux have the first five; her mouse and keyboard jobs and "Hey Capri" are Windows-only so far.
+            // on your yes. Mac and Linux have the first five, and Linux her mouse and keyboard jobs once uinput is set up; "Hey Capri" is Windows-only so far.
             securityMenu = new MenuItem { Header = "Security: " + Security.PresetName };
             for (int i = 0; i <= Security.Custom; i++)
             {
@@ -1589,6 +1645,14 @@ namespace CapriDesktop
                 item.Click += delegate { Security.Set(toggle, !Security.On(toggle)); };
                 securityToggles.Add(item);
                 securityMenu.Items.Add(item);
+            }
+            if (Program.Smoke == null && !fingers && OperatingSystem.IsLinux())
+            {
+                securityMenu.Items.Add(new Separator());
+                MenuItem setup = new MenuItem { Header = "Set up mouse and keyboard..." };
+                ToolTip.SetTip(setup, "Copies the one command that lets her make her own mouse and keyboard through /dev/uinput.");
+                setup.Click += delegate { CopyFingersSetup(); };
+                securityMenu.Items.Add(setup);
             }
             settings.Items.Add(securityMenu);
             settings.Items.Add(notes);
@@ -1760,12 +1824,13 @@ namespace CapriDesktop
         {
             if (!Speaks)
             {
-                Talk.Answer("(voice check)", voice.Ready ? "My voice is off, choom. Settings > Voice > Use ElevenLabs turns it back on." : "Add an ElevenLabs key under Settings > Voice to hear that, choom.");
+                Talk.Answer("(voice check)", Unspoken);
                 return;
             }
             int ticket = ++asking;
             voice.Stop();
-            string id = voice.VoiceId;
+            ISpeaker speaker = Speaker;
+            string id = speaker == elevenLabs ? voice.VoiceId : Saved.VoiceProvider + "\n" + localVoice.Url + "\n" + localVoice.Model + "\n" + localVoice.Speaker + "\n" + localVoice.Format;
             byte[] said = styleVoice == id ? styleSaid : null;
             Talk.Thinking("(voice check)");
             ThreadPool.QueueUserWorkItem(delegate
@@ -1774,7 +1839,7 @@ namespace CapriDesktop
                 string problem = null;
                 try
                 {
-                    if (said == null) said = voice.Speak(StyleLine);
+                    if (said == null) said = speaker.Speak(StyleLine);
                     wav = VoiceFx.Styled(said, StyleLine);
                 }
                 catch (VoiceException error) { problem = Mac(error.Message); }
@@ -2346,9 +2411,17 @@ namespace CapriDesktop
         private void RefreshBrains()
         {
             if (Brain.Remote != null) { ShowCloud(); ListCloud(); return; }
+            string server = Brain.Server;
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string[] found = null;
+                if (server != null)
+                {
+                    try { found = Brain.ServerModels(server); }
+                    catch (Exception) { }
+                    Dispatcher.UIThread.Post(delegate { ShowServer(found); });
+                    return;
+                }
                 try { found = Brain.InstalledModels(); }
                 catch (Exception) { }
                 Dispatcher.UIThread.Post(delegate { ShowBrains(found); });
@@ -2362,7 +2435,7 @@ namespace CapriDesktop
             if (found == null) brainMenu.Items.Add(new MenuItem { Header = NoOllama, IsEnabled = false });
             else if (found.Length == 0)
             {
-                MenuItem fetch = new MenuItem { Header = pulling ? "Downloading " + Starter + (pulled >= 0 ? ": " + pulled + "%" : "...") : PullChoice, IsEnabled = !pulling };
+                MenuItem fetch = new MenuItem { Header = pulling ? Pulling : PullChoice, IsEnabled = !pulling };
                 fetch.Click += delegate { PullBrain(); };
                 brainMenu.Items.Add(fetch);
             }
@@ -2374,6 +2447,16 @@ namespace CapriDesktop
                     pick.Click += delegate { PickBrain(model); };
                     brainMenu.Items.Add(pick);
                 }
+            brainMenu.Items.Add(new Separator());
+            if (found != null)
+            {
+                MenuItem more = new MenuItem { Header = pulling ? Pulling : "Download a model (Ollama or Hugging Face)...", IsEnabled = !pulling };
+                more.Click += delegate { AskPull(); };
+                brainMenu.Items.Add(more);
+            }
+            MenuItem own = new MenuItem { Header = "Use my own server (OpenAI API)..." };
+            own.Click += delegate { AskServer(); };
+            brainMenu.Items.Add(own);
             // A cloud key thinks for her instead, for PCs that can't run Ollama's models well. NVIDIA's is free.
             brainMenu.Items.Add(new Separator());
             MenuItem free = new MenuItem { Header = "Get a free NVIDIA key" };
@@ -2382,6 +2465,100 @@ namespace CapriDesktop
             paste.Click += delegate { AskBrainKey(); };
             brainMenu.Items.Add(free);
             brainMenu.Items.Add(paste);
+        }
+
+        private string Pulling { get { return "Downloading " + pullingName + (pulled >= 0 ? ": " + pulled + "%" : "..."); } }
+
+        // On their own server the Brain menu lists its models, and can change its address or go back to Ollama.
+        internal void ShowServer(string[] found)
+        {
+            string server = Brain.Server;
+            if (Brain.Remote != null || server == null) return;
+            brainMenu.Items.Clear();
+            brainMenu.Items.Add(new MenuItem { Header = "My server at " + server, IsEnabled = false });
+            if (found == null) brainMenu.Items.Add(new MenuItem { Header = "Can't reach it. Is it running?", IsEnabled = false });
+            else if (found.Length == 0) brainMenu.Items.Add(new MenuItem { Header = "It lists no models", IsEnabled = false });
+            else
+                foreach (string name in found)
+                {
+                    string model = name;
+                    MenuItem pick = new MenuItem { Header = model, ToggleType = MenuItemToggleType.Radio, GroupName = "server", IsChecked = model == Brain.Model };
+                    pick.Click += delegate { PickServerModel(model); };
+                    brainMenu.Items.Add(pick);
+                }
+            brainMenu.Items.Add(new Separator());
+            MenuItem change = new MenuItem { Header = "Change server address..." };
+            change.Click += delegate { AskServer(); };
+            MenuItem back = new MenuItem { Header = "Stop using my server and use Ollama" };
+            back.Click += delegate { LeaveServer(); };
+            brainMenu.Items.Add(change);
+            brainMenu.Items.Add(back);
+        }
+
+        internal void AskPull()
+        {
+            ComeBack();
+            Talk.AskFor(BrainHeard, "Type a model and press Enter: an Ollama one like qwen3:4b, or a Hugging Face GGUF like hf.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF:Q4_K_M or its huggingface.co link.", delegate(string typed)
+            {
+                string name = Brain.PullName(typed);
+                if (name == null) { Talk.Answer(BrainHeard, "That isn't a model name I can download. Try qwen3:4b or hf.co/user/repo."); return; }
+                PullBrain(name);
+            });
+        }
+
+        internal void AskServer()
+        {
+            ComeBack();
+            Talk.AskFor("(brain server)", "Type your server's address, like http://localhost:8080 for llama-server or http://localhost:1234 for LM Studio, and press Enter.", UseServer);
+        }
+
+        internal void UseServer(string typed)
+        {
+            string server = Brain.ServerAddress(typed);
+            if (server == null) { Talk.Answer("(brain server)", "That address doesn't work. Try http://localhost:8080."); return; }
+            int ticket = ++asking;
+            Talk.Thinking("(brain server)");
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string[] found = null;
+                try { found = Brain.ServerModels(server); }
+                catch (Exception) { }
+                Dispatcher.UIThread.Post(delegate
+                {
+                    if (found == null || found.Length == 0)
+                    {
+                        if (ticket == asking) Talk.Answer("(brain server)", found == null ? "Can't reach a server at " + server + ". Is it running?" : "Your server at " + server + " lists no models. Load one in it first.");
+                        return;
+                    }
+                    Brain.Cancel();
+                    Brain.Server = server;
+                    Saved.BrainServer = server;
+                    string model = Array.IndexOf(found, Saved.ServerModel) >= 0 ? Saved.ServerModel : found[0];
+                    if (Brain.Remote == null) Brain.Model = model;
+                    Saved.ServerModel = model;
+                    Save();
+                    if (ticket == asking) Talk.Answer("(brain server)", "I'm thinking with " + model + " on your server now." + (Brain.Remote != null ? " Your cloud key still comes first until you forget it." : ""));
+                });
+            });
+        }
+
+        internal void PickServerModel(string model)
+        {
+            if (string.IsNullOrEmpty(model) || model == Brain.Model) return;
+            Brain.Cancel();
+            Brain.Model = model;
+            Saved.ServerModel = model;
+            Save();
+        }
+
+        internal void LeaveServer()
+        {
+            Brain.Cancel();
+            Brain.Server = null;
+            Saved.BrainServer = null;
+            if (Brain.Remote == null) Brain.Model = null;
+            Save();
+            FindBrain();
         }
 
         // On a cloud key the Brain menu lists that key's chat models, and can go back to Ollama.
@@ -2488,16 +2665,19 @@ namespace CapriDesktop
         }
 
         // Ollama has no models yet: she pulls her own brain, shows how far it's got on the Brain menu, then picks it and says so.
-        internal void PullBrain()
+        internal void PullBrain() { PullBrain(Starter); }
+
+        internal void PullBrain(string tag)
         {
             if (pulling) return;
             pulling = true;
             pulled = -1;
-            Talk.Answer(BrainHeard, "Downloading my brain, " + Starter + ". It's a few GB, so give me a while. Right-click me > Brain shows how far it's got.");
+            pullingName = tag;
+            Talk.Answer(BrainHeard, "Downloading my brain, " + tag + ". It can be a few GB, so give me a while. Right-click me > Brain shows how far it's got.");
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string problem = null;
-                try { Brain.Pull(Starter, delegate(string status, long done, long total) { pulled = (int)(done * 100 / Math.Max(1, total)); }, delegate { return false; }); }
+                try { Brain.Pull(tag, delegate(string status, long done, long total) { pulled = (int)(done * 100 / Math.Max(1, total)); }, delegate { return false; }); }
                 catch (Exception error)
                 {
                     System.Net.WebException web = error as System.Net.WebException;
@@ -2508,8 +2688,8 @@ namespace CapriDesktop
                     pulling = false;
                     pulled = -1;
                     if (problem != null) { Talk.Answer(BrainHeard, problem); return; }
-                    Brain.Model = Starter;
-                    Saved.Model = Starter;
+                    Saved.Model = tag;
+                    if (Brain.Remote == null && Brain.Server == null) Brain.Model = tag;
                     Save();
                     Talk.Answer(BrainHeard, "My brain's in. Talk to me, choom.");
                 });
@@ -3167,16 +3347,27 @@ namespace CapriDesktop
         internal void FindBrain()
         {
             string saved = Saved.Model;
+            string server = Brain.Server;
+            string serverSaved = Saved.ServerModel;
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string model = null;
-                try { model = Brain.PickModel(Brain.InstalledModels(), saved, null); }
+                try
+                {
+                    if (server == null) model = Brain.PickModel(Brain.InstalledModels(), saved, null);
+                    else
+                    {
+                        string[] listed = Brain.ServerModels(server);
+                        model = Array.IndexOf(listed, serverSaved) >= 0 ? serverSaved : listed.Length > 0 ? listed[0] : null;
+                    }
+                }
                 catch (Exception) { }
                 Dispatcher.UIThread.Post(delegate
                 {
-                    if (Brain.Model != null || model == null) return;
+                    if (Brain.Model != null || model == null || Brain.Server != server) return;
                     Brain.Model = model;
-                    Saved.Model = model;
+                    if (server == null) Saved.Model = model;
+                    else Saved.ServerModel = model;
                     Save();
                 });
             });
@@ -3260,11 +3451,33 @@ namespace CapriDesktop
             return true;
         }
 
-        internal bool Speaks { get { return voice.Ready && !Saved.Silent; } }
+        internal ISpeaker Speaker
+        {
+            get
+            {
+                string picked = Speakers.Known(Saved.VoiceProvider);
+                return picked == Speakers.Local ? localVoice : picked == Speakers.Off ? (ISpeaker)noVoice : elevenLabs;
+            }
+        }
+
+        internal bool Speaks { get { return Speaker.Ready && !Saved.Silent; } }
+
+        // Why a voice check stays quiet, for the provider they picked.
+        private string Unspoken
+        {
+            get
+            {
+                string picked = Speakers.Known(Saved.VoiceProvider);
+                if (picked == Speakers.Off) return "My voice provider is off, choom. Settings > Voice > Provider picks one.";
+                if (picked == Speakers.Local) return localVoice.Ready ? "My voice is off, choom. Settings > Voice > Speak replies turns it back on." : "Set your local voice server under Settings > Voice to hear that, choom.";
+                return voice.Ready ? "My voice is off, choom. Settings > Voice > Use ElevenLabs turns it back on." : "Add an ElevenLabs key under Settings > Voice to hear that, choom.";
+            }
+        }
 
         private void Reply(int ticket, string heard, string said)
         {
             if (!Speaks || Voice.Spoken(said).Length == 0) { Talk.Answer(heard, said); TypeAlong(said, ticket); return; }
+            ISpeaker speaker = Speaker;
             Talk.Thinking(heard);
             bool[] shown = { false };
             DispatcherTimer.RunOnce(delegate
@@ -3278,8 +3491,8 @@ namespace CapriDesktop
             {
                 byte[] wav = null;
                 string problem = null;
-                // ElevenLabs hands back a finished WAV, so her pitch, speed, robot and glitch go on here, like on Windows.
-                try { wav = VoiceFx.Styled(voice.Speak(said), said); }
+                // Every provider hands back a finished WAV, so her pitch, speed, robot and glitch go on here, like on Windows.
+                try { wav = VoiceFx.Styled(speaker.Speak(said), said); }
                 catch (VoiceException error) { problem = Mac(error.Message); }
                 catch (Exception error) { problem = Voice.Short("Voice glitched: " + error.Message); }
                 Dispatcher.UIThread.Post(delegate
@@ -3466,7 +3679,71 @@ namespace CapriDesktop
             return voice.VoiceId;
         }
 
-        internal string VoiceStatus { get { return (voice.Key == null ? "no key" : "key " + Voice.Tail(voice.Key)) + " | " + (VoiceName() ?? "no voice") + " | " + (Speaks ? "speaking" : "quiet"); } }
+        internal string VoiceStatus
+        {
+            get
+            {
+                string picked = Speakers.Known(Saved.VoiceProvider);
+                string quiet = Speaks ? "speaking" : "quiet";
+                if (picked == Speakers.Off) return "off | no voice | " + quiet;
+                if (picked == Speakers.Local) return "local " + LocalWhere + " | " + (string.IsNullOrEmpty(localVoice.Speaker) ? "server's voice" : localVoice.Speaker) + " | " + quiet;
+                return (voice.Key == null ? "no key" : "key " + Voice.Tail(voice.Key)) + " | " + (VoiceName() ?? "no voice") + " | " + quiet;
+            }
+        }
+
+        private string LocalWhere
+        {
+            get
+            {
+                try { return LocalSpeaker.Where(LocalSpeaker.Endpoint(localVoice.Address)); }
+                catch (VoiceException) { return "not set"; }
+            }
+        }
+
+        internal void SetVoiceProvider(string picked)
+        {
+            picked = Speakers.Known(picked);
+            if (picked == Saved.VoiceProvider) return;
+            voice.Stop();
+            Saved.VoiceProvider = picked;
+            voiceProblem = null;
+            Save();
+        }
+
+        internal void AskLocalVoice(string part)
+        {
+            ComeBack();
+            string heard = part == "url" ? "(local voice server)" : part == "model" ? "(local voice model)" : "(local voice)";
+            string ask = part == "url" ? "Type your local voice server's address, like " + LocalSpeaker.Default + ", and press Enter. A dash goes back to " + LocalSpeaker.Default + "."
+                : part == "model" ? "Type the model your server should use, like kokoro, and press Enter. A dash leaves it to the server."
+                : "Type the voice your server should use, like af_heart, and press Enter. A dash leaves it to the server.";
+            Talk.AskFor(heard, ask, delegate(string typed)
+            {
+                if (SetLocalVoice(part, typed)) Talk.Answer(heard, "Saved. Settings > Voice > Test voice to hear me through it.");
+            });
+        }
+
+        // A blank or a dash clears the model or voice, so the server picks its own.
+        internal bool SetLocalVoice(string part, string typed)
+        {
+            string value = (typed ?? "").Trim();
+            if (value == "-") value = "";
+            if (part == "url")
+            {
+                if (value.Length > 0)
+                {
+                    try { LocalSpeaker.Endpoint(value); }
+                    catch (VoiceException error) { Talk.Answer("(local voice server)", error.Message); return false; }
+                }
+                localVoice.Url = Saved.LocalVoiceUrl = value.Length == 0 ? null : value;
+            }
+            else if (part == "model") localVoice.Model = Saved.LocalVoiceModel = value.Length == 0 ? null : value;
+            else if (part == "format") localVoice.Format = Saved.LocalVoiceFormat = LocalSpeaker.Known(value);
+            else localVoice.Speaker = Saved.LocalVoiceName = value.Length == 0 ? null : value;
+            voiceProblem = null;
+            Save();
+            return true;
+        }
 
         internal bool VoiceWorking { get { return Speaks && voiceProblem == null; } }
 
@@ -3554,6 +3831,29 @@ namespace CapriDesktop
         {
             if (voiceMenu == null) return;
             voiceMenu.Items.Clear();
+            string picked = Speakers.Known(Saved.VoiceProvider);
+            MenuItem provider = new MenuItem { Header = "Provider: " + (picked == Speakers.Local ? localVoice.Name : picked == Speakers.Off ? "Off" : "ElevenLabs") };
+            string[] pickable = { Speakers.ElevenLabs, Speakers.Local, Speakers.Off };
+            string[] pickNames = { "ElevenLabs", localVoice.Name + " (OpenAI speech API)", "Off" };
+            for (int i = 0; i < pickable.Length; i++)
+            {
+                string one = pickable[i];
+                MenuItem pick = new MenuItem { Header = pickNames[i], ToggleType = MenuItemToggleType.Radio, GroupName = "voice provider", IsChecked = one == picked };
+                pick.Click += delegate { SetVoiceProvider(one); };
+                provider.Items.Add(pick);
+            }
+            voiceMenu.Items.Add(provider);
+            voiceMenu.Items.Add(new Separator());
+            if (picked == Speakers.Off)
+            {
+                voiceMenu.Items.Add(new MenuItem { Header = "No voice provider. She types her replies.", IsEnabled = false });
+                return;
+            }
+            if (picked == Speakers.Local)
+            {
+                RefreshLocalVoice();
+                return;
+            }
             if (voice.Key == null)
             {
                 MenuItem add = new MenuItem { Header = "Add ElevenLabs key..." };
@@ -3590,6 +3890,37 @@ namespace CapriDesktop
             remove.Click += delegate { ForgetVoice(); };
             voiceMenu.Items.Add(renew);
             voiceMenu.Items.Add(remove);
+            if (voiceProblem != null) voiceMenu.Items.Add(new MenuItem { Header = voiceProblem, IsEnabled = false });
+        }
+
+        private void RefreshLocalVoice()
+        {
+            MenuItem speak = new MenuItem { Header = "Speak replies", ToggleType = MenuItemToggleType.CheckBox, IsChecked = Speaks, IsEnabled = localVoice.Ready };
+            speak.Click += delegate { SetSpeak(Saved.Silent); };
+            voiceMenu.Items.Add(speak);
+            voiceMenu.Items.Add(new Separator());
+            MenuItem server = new MenuItem { Header = "Server: " + (string.IsNullOrEmpty(localVoice.Url) ? LocalSpeaker.Default + " (Kokoro's usual)" : localVoice.Url) + "..." };
+            server.Click += delegate { AskLocalVoice("url"); };
+            MenuItem model = new MenuItem { Header = "Model: " + (string.IsNullOrEmpty(localVoice.Model) ? "server's default" : localVoice.Model) + "..." };
+            model.Click += delegate { AskLocalVoice("model"); };
+            MenuItem name = new MenuItem { Header = "Voice: " + (string.IsNullOrEmpty(localVoice.Speaker) ? "server's default" : localVoice.Speaker) + "..." };
+            name.Click += delegate { AskLocalVoice("voice"); };
+            bool pcm = localVoice.Format == LocalSpeaker.Pcm;
+            MenuItem format = new MenuItem { Header = "Format: " + (pcm ? "PCM" : "WAV") };
+            MenuItem wav = new MenuItem { Header = "WAV", ToggleType = MenuItemToggleType.Radio, GroupName = "local voice format", IsChecked = !pcm };
+            wav.Click += delegate { SetLocalVoice("format", LocalSpeaker.Wav); };
+            MenuItem raw = new MenuItem { Header = "PCM (16-bit, 24 kHz)", ToggleType = MenuItemToggleType.Radio, GroupName = "local voice format", IsChecked = pcm };
+            raw.Click += delegate { SetLocalVoice("format", LocalSpeaker.Pcm); };
+            format.Items.Add(wav);
+            format.Items.Add(raw);
+            voiceMenu.Items.Add(server);
+            voiceMenu.Items.Add(model);
+            voiceMenu.Items.Add(name);
+            voiceMenu.Items.Add(format);
+            voiceMenu.Items.Add(new Separator());
+            MenuItem test = new MenuItem { Header = "Test voice", IsEnabled = Speaks };
+            test.Click += delegate { HearStyle(); };
+            voiceMenu.Items.Add(test);
             if (voiceProblem != null) voiceMenu.Items.Add(new MenuItem { Header = voiceProblem, IsEnabled = false });
         }
 
