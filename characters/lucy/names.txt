@@ -1,0 +1,26 @@
+# Her name where you see it. Building with -Character lucy changes each "Capri's words" => "hers" below, exactly as written
+# (spaces and capitals count), in a copy of the code that only the build uses. Capri's files stay as Lachy wrote them.
+# Only whole phrases, never "Capri" alone: the code also uses that name for things you don't see, like the updater.
+# The build says when a phrase isn't found any more, like after a sync that reworded it.
+# Not yet: "Capri Mainframe" is in her prompt too, and the self-test checks her prompt; it changes with her personality.
+
+"CAPRI >" => "LUCY >"
+"CAPRI  /  " => "LUCY  /  "
+"Hide Capri" => "Hide Lucy"
+"Show Capri" => "Show Lucy"
+"Quit Capri" => "Quit Lucy"
+"Capri · " => "Lucy · "
+"Capri desktop companion" => "Lucy desktop companion"
+"Capri is riding your cursor" => "Lucy is riding your cursor"
+"Talk to Capri" => "Talk to Lucy"
+"Say something to Capri" => "Say something to Lucy"
+"CAPRI IS CONTROLLING" => "LUCY IS CONTROLLING"
+"Capri is working on your task" => "Lucy is working on your task"
+"Capri says" => "Lucy says"
+"Capri mini player" => "Lucy mini player"
+"Capri is replying slowly" => "Lucy is replying slowly"
+"Capri could not start" => "Lucy could not start"
+"Capri closed while starting" => "Lucy closed while starting"
+"Capri started fresh" => "Lucy started fresh"
+"outside Capri" => "outside Lucy"
+"Capri is still running" => "Lucy is still running"

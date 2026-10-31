@@ -29,7 +29,7 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [x] A GitHub Action (`.github/workflows/sync-upstream.yml`) that merges capri-desktop into `main` when it updates
 
 **Step 2: art and voice**
-- [ ] Build script: build with `-Character lucy`, taking each file from this folder when it's there and Capri's otherwise, so sprites can be swapped one at a time
+- [x] Build script: `ci/build-windows.ps1 -Character lucy` (Mac/Linux: `dotnet build -p:Character=lucy`) takes each file in `sprites/` and `voice/` here, and `icon.ico`, when it's there and Capri's otherwise, so sprites can be swapped one at a time. A sheet of the wrong size stops the build with a message (`characters/Use-Character.ps1`). Not yet: the installer's `chip.png`, and the Mac/Linux icon
 - [x] Check the sprite list and sizes again after the patch: the perch is new (60 frames, narrower frames) and `perch_music` was added. `ART.md` and the templates are updated
 - [x] Again for 0.7.7: `perch_talk` and seven `laydown_*` sheets (372 or 440 × 250 px). `ART.md` and the templates are updated
 - [ ] Lucy's art, voice and icon
@@ -41,7 +41,11 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [ ] Update the personality checks in the smoke test (`Capri.cs`): `todaysPersona` (a SHA-256 of the whole prompt) and its length, 5659 since 0.7.7, next to it, and the check a little before it that looks for Capri phrases like "a playful chaos gremlin". Also any tests that check lines word for word
 - [ ] Leave `Safety` and `Machinery` in `Brain.cs` as they are: Lachy asks forks to keep her safety rules. `Safety` has a little Capri wording ("your chaos lives on the screen"); decide later whether that's fine for Lucy or worth asking Lachy about
 - [ ] "Hey Capri" → "Hey Lucy" (see `lines.md`)
-- [ ] Rename what you see from Capri to Lucy (window titles, menus, installer, messages), but not the internal code names
+- [x] Her name in menus, the tray, her talk box, the mini player and messages: `names.txt` here, applied by `-Character lucy` to a copy of the code, so Capri's files don't change. Windows only for now
+- [ ] "Capri Mainframe" → "Lucy Mainframe": it's in her prompt too, so it goes with her personality (the self-test checks the prompt)
+- [ ] The installer's names (`Setup.cs`, its own build line)
+- [ ] **Her own identity, before anyone installs Lucy** (needs your decisions): her updater downloads *Capri's* releases from capri-desktop, so a Lucy build would offer to "update" into Capri. Her autostart entry, window locks and settings are named Capri too, so she'd clash with the real Capri on the same PC. Decide: Lucy releases on your GitHub, or no updater; and her own name for settings and autostart
+- [x] The Obsidian vault note is `Lucy Memories.md` (`Character.VaultNote`)
 
 **YouTube Music** (`app/YouTubeMusic.cs`, for YouTube Music for Desktop / ytmdesktop2)
 - [x] Mini player heart, "like this song" (also for Spotify), "play X on YouTube Music", "Open the player" for its window

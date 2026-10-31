@@ -5,6 +5,22 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 1 Nov: building Lucy with `-Character lucy`
+
+**What changed:** `ci/build-windows.ps1 -Character lucy` builds *Lucy*. Each drawing you put in `characters/lucy/sprites/` (same name as Capri's, like `idle.png`) replaces Capri's, and the rest stays Capri's. Her name replaces Capri's in 42 places you see: menus, tray, talk box, messages. Without `-Character`, the build is plain Capri, like Lachy's.
+
+**Idea: change a copy, not the original.** For her name, the build copies the code into the output folder, swaps the phrases from `characters/lucy/names.txt` in the *copy*, and compiles that. Lachy's files never change, so a sync can't conflict over her name. That's the hook idea taken one step further: here there's no hook in his code at all, except the one line that calls our script. One catch: a compile error then points at the copy (`out\...\character-lucy\Talk.cs`). Fix it in `app\`, not in the copy.
+
+**Idea: fail early, with a reason.** Her animations cut each sheet into frames using sizes fixed in the code. A sheet of the wrong size wouldn't crash; she'd just look broken in a confusing way. So the build checks each drawing's size first and stops with "idle.png is 900x384 px, but Capri's is 960x384". Checking right where the mistake comes in is much kinder than finding it later.
+
+**Idea: dot-sourcing.** `. script.ps1` (with a dot and a space in front) runs a PowerShell script *inside* the one that called it, so it can change that script's variables (`$resources`, `$sources`). Without the dot, a script gets its own private variables.
+
+**Why not "Capri Mainframe" yet:** those words are also in her prompt, and the self-test checks her prompt's fingerprint (a SHA-256). Changing it now would make the self-test stop there. It changes together with her personality.
+
+**Try it (optional):** add a line to `names.txt`, like `"Capri update ready" => "Lucy update ready"`, then build with `-Character lucy`. Then add one with a typo on the left and read the warning the build gives.
+
+---
+
 ## 31 Oct: YouTube Music support (`app/YouTubeMusic.cs`)
 
 **What changed:** the Music Bar's heart works for YouTube Music for Desktop. "Like this song" works in chat for it and for Spotify. "Play numb on YouTube Music" plays in the app. "Open the player" finds its window.
