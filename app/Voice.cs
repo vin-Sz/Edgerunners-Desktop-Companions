@@ -4,7 +4,6 @@ using System.IO;
 #if !CROSS
 using System.Diagnostics;
 using System.IO.Compression;
-using System.Media;
 using System.Reflection;
 using System.Threading;
 #endif
@@ -58,6 +57,12 @@ namespace CapriDesktop
     internal sealed class Voice
     {
         internal static string Host = "https://api.elevenlabs.io";
+        // Her lines off a call use v4 unless they pick another (Lachy, 1 Nov), and fall back to the model every account can use.
+        internal const string DefaultModel = "eleven_v4_turbo";
+        internal const string CallModel = "eleven_flash_v2_5";
+        // Her voice chat agent's stability, similarity and speed as JSON, so she's the same person on a call and off it.
+        internal volatile string Settings;
+        internal static int Patience = 20000;
         private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("Capri.ElevenLabs");
         internal volatile string Key;
         internal volatile string VoiceId;
@@ -66,7 +71,11 @@ namespace CapriDesktop
         internal static Action<byte[]> Playback;
         internal static Action Silence;
 #else
-        private SoundPlayer player;
+        private readonly Speaker player;
+
+        internal Voice() : this(new Speaker(false)) { }
+
+        internal Voice(Speaker output) { player = output; }
 #endif
         internal static volatile int Loudness = 100;
 
@@ -109,6 +118,9 @@ namespace CapriDesktop
 
         internal static string Spoken(string said)
         {
+#if !CROSS
+            said = FileFinder.Spoken(said);
+#endif
             string words = Regex.Replace(Regex.Replace(said ?? "", @"\[[^\]]*\]", " ").Replace("*", ""), @"\s+", " ").Trim();
             return Regex.IsMatch(words, @"[\p{L}\p{Nd}]") ? words : "";
         }
@@ -154,8 +166,8 @@ namespace CapriDesktop
             request.UserAgent = "Capri-Desktop";
             request.Headers["xi-api-key"] = key;
             request.ServicePoint.Expect100Continue = false;
-            request.Timeout = 20000;
-            request.ReadWriteTimeout = 20000;
+            request.Timeout = Patience;
+            request.ReadWriteTimeout = Patience;
             return request;
         }
 
@@ -289,13 +301,25 @@ namespace CapriDesktop
             if (key == null || id == null) throw new VoiceException("No voice picked.");
             StringBuilder body = new StringBuilder("{\"text\":");
             body.Append(Quote(Sayable(text)));
-            if (!string.IsNullOrEmpty(model)) body.Append(",\"model_id\":").Append(Quote(model));
+            string words = body.ToString();
+            body.Append(",\"model_id\":").Append(Quote(string.IsNullOrEmpty(model) ? DefaultModel : model));
+            string settings = Settings;
+            if (settings != null) body.Append(",\"voice_settings\":").Append(settings);
             body.Append('}');
             // The same line twice in a row, like the voice sliders' check line, plays the audio she already has instead of spending credits again.
             string asked = key + "\n" + id + "\n" + body;
             Tuple<string, byte[]> last = lastSaid;
             if (last != null && last.Item1 == asked) return last.Item2;
-            byte[] wav = Clean(Send(Open("/v1/text-to-speech/" + Uri.EscapeDataString(id) + "?output_format=wav_24000", key, "POST"), Encoding.UTF8.GetBytes(body.ToString())));
+            string address = "/v1/text-to-speech/" + Uri.EscapeDataString(id) + "?output_format=wav_24000";
+            byte[] wav;
+            try { wav = Clean(Send(Open(address, key, "POST"), Encoding.UTF8.GetBytes(body.ToString()))); }
+            catch (VoiceException error)
+            {
+                // A model or setting this account or voice can't use shouldn't cost her her voice.
+                if (error.Status != 400 && error.Status != 404 && error.Status != 422 || (settings == null && !string.IsNullOrEmpty(model))) throw;
+                string plain = words + ",\"model_id\":" + Quote(string.IsNullOrEmpty(model) ? CallModel : model) + "}";
+                wav = Clean(Send(Open(address, key, "POST"), Encoding.UTF8.GetBytes(plain)));
+            }
             lastSaid = Tuple.Create(asked, wav);
             return wav;
         }
@@ -408,13 +432,21 @@ namespace CapriDesktop
 
         internal void Play(byte[] wav)
         {
-            wav = Louder(wav);
 #if CROSS
-            if (Playback != null) Playback(wav);
+            if (Playback != null) Playback(Louder(wav));
 #else
-            Stop();
-            player = new SoundPlayer(new MemoryStream(wav));
-            player.Play();
+            lock (PcEars.VoiceGate)
+            {
+                if (PcEars.Capturing) { Brain.Log("Voice playback", -1, "Speech held while she records the PC's sound."); return; }
+                Stop();
+                int rate;
+                short[] samples = Samples(wav, out rate);
+                if (samples.Length == 0) throw new VoiceException("Her voice returned no PCM samples to play.");
+                if (Loudness == 0) Brain.Log("Voice playback", -1, "Her voice volume is 0%; speech is muted, while her other sounds have their own volume.");
+                else if (Speaker.Loudness(samples, 0, samples.Length) == 0) Brain.Log("Voice playback", -1, "Her voice returned silent PCM: " + samples.Length + " samples at " + rate + " Hz.");
+                player.Open(rate);
+                player.Play(samples);
+            }
 #endif
         }
 
@@ -423,10 +455,7 @@ namespace CapriDesktop
 #if CROSS
             if (Silence != null) Silence();
 #else
-            if (player == null) return;
-            player.Stop();
-            player.Dispose();
-            player = null;
+            player.Close();
 #endif
         }
     }
@@ -2633,7 +2662,6 @@ namespace CapriDesktop
     {
         internal const string Style = "HD";
         internal const string Build = "qwentts-5916bf7-ctx";
-        // Placeholder links: the engine (qwentts.cpp 5916bf7 with Capri's --ctx-size patch) and the talker (the 1.7B Base cut to Q5_K_M) aren't hosted yet.
         private const string Hosted = "https://github.com/lachydotmcg/capri-desktop/releases/download/hd-voice-1/";
         internal static string EngineUrl = Hosted + Build + "-win-vulkan-x64.zip";
         internal static string EngineSha = "6d9042bc6af4b8c8e9bc31e85166a81c0baea8c83ff9e647f452ce61f7134a22";
@@ -2649,12 +2677,17 @@ namespace CapriDesktop
         // 0.7.4 and 0.7.5 ran her HD voice on llama.cpp b11781: 1.5 GB that nothing uses now.
         internal const string OldEngine = "engine-b11781";
         internal static readonly string[] OldFiles = { "Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf", "mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf" };
-        internal const long CardNeeded = 6L << 30;
-        internal const long RoomNeeded = 5L << 29;
+        internal const long CardRecommended = 6L << 30;
+        internal const long RamRecommended = 16L << 30;
+        internal const string MemoryFull = "Her HD voice ran out of memory.";
+        internal const string CpuChoice = "Use CPU for HD (slower)";
         internal const int PieceLength = 300;
         private static readonly string[] Tongues = { "zh", "en", "de", "it", "pt", "es", "ja", "ko", "fr", "ru" };
         private static readonly string[] Languages = { "chinese", "english", "german", "italian", "portuguese", "spanish", "japanese", "korean", "french", "russian" };
         internal static Func<ProcessStartInfo, Process> Spawn = Process.Start;
+        internal static Func<string, long> DiskRoom = delegate(string drive) { return new DriveInfo(drive).AvailableFreeSpace; };
+        internal Machine Hardware;
+        internal volatile bool CpuOnly;
         private readonly string folder;
         private readonly string engine;
         private readonly object gate = new object();
@@ -2664,6 +2697,8 @@ namespace CapriDesktop
         private bool awake;
         private byte[] voiced;
         private int voicedOn;
+        private string noted;
+        private volatile bool memoryFailed;
         internal volatile bool Cancel;
 
         internal QwenVoice(string data)
@@ -2685,12 +2720,15 @@ namespace CapriDesktop
 
         internal void Install(Action<string, long, long> progress)
         {
-            if (IntPtr.Size != 8) throw new IOException("Her HD voice needs 64-bit Windows.");
             Directory.CreateDirectory(folder);
             string model = Path.Combine(folder, ModelFile), codec = Path.Combine(folder, CodecFile);
             long needed = (File.Exists(Server) ? 0 : EngineSize * 4) + (File.Exists(codec) ? 0 : CodecSize) + (File.Exists(model) ? 0 : ModelSize) + (64L << 20);
             string drive = Path.GetPathRoot(folder);
-            if (new DriveInfo(drive).AvailableFreeSpace < needed) throw new IOException("Her HD voice needs " + Engine.Amount(needed) + " free on " + drive.TrimEnd('\\') + ".");
+            long available = -1;
+            try { available = DiskRoom(drive); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            if (available >= 0 && available < needed) progress("HD may need " + Engine.Amount(needed) + " free on " + drive.TrimEnd('\\') + "; trying the download.", 0, PackSize);
             Func<bool> stopped = delegate { return Cancel; };
             if (!File.Exists(Server))
             {
@@ -2735,11 +2773,53 @@ namespace CapriDesktop
         // A 1024-frame cache holds her clip, its words and a 300-character piece, and leaves 670 MB more of the graphics card for her brain than the default.
         internal ProcessStartInfo StartInfo(int number)
         {
-            ProcessStartInfo info = new ProcessStartInfo(Server, "--model \"" + Path.Combine(folder, ModelFile) + "\" --codec \"" + Path.Combine(folder, CodecFile) + "\" --host 127.0.0.1 --port " + number + " --ctx-size 1024 --codec-chunk-dur 6");
+            Machine machine = Hardware ?? (Hardware = Machine.Read());
+            ProcessStartInfo info = new ProcessStartInfo(Server, "--model \"" + Path.Combine(folder, ModelFile) + "\" --codec \"" + Path.Combine(folder, CodecFile) + "\" --host 127.0.0.1 --port " + number + " --ctx-size 1024 --codec-chunk-dur " + (Smaller(machine) ? "2" : "6") + (CpuOnly ? " --device CPU" : ""));
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
+            info.RedirectStandardError = true;
             info.WorkingDirectory = engine;
             return info;
+        }
+
+        internal static bool Smaller(Machine machine) { return machine.Vram < CardRecommended; }
+
+        internal static bool Warn(Machine machine) { return Smaller(machine) || machine.Ram < RamRecommended; }
+
+        internal static string Advice(Machine machine)
+        {
+            string card = machine.Vram <= 0 ? "graphics card unknown, try CPU" : machine.Vram < (4L << 30) ? "small graphics card, try CPU" : Smaller(machine) ? "4 GB may fit, with smaller chunks" : "graphics card, " + Engine.Amount(PackSize);
+            return "HD · " + card + (machine.Ram < RamRecommended ? "; 16 GB RAM advised" : "");
+        }
+
+        internal static bool MemoryError(string detail)
+        {
+            return Regex.IsMatch(detail ?? "", @"out[ _-]*of[ _-]*(device[ _-]*|host[ _-]*|gpu[ _-]*)?memory|OutOfDeviceMemory|OutOfHostMemory|\bOOM\b|\bbad_alloc\b|failed to allocate|allocation failed|alloc(?:ate|ating)?[^\r\n]*failed", RegexOptions.IgnoreCase);
+        }
+
+        internal string Failure(string problem)
+        {
+            if (problem == MemoryFull) return MemoryFull + " Her free voice is taking this line." + (CpuOnly ? " Close other apps to free RAM." : " Try Use CPU for HD in the voice menu.");
+            return Voice.Short(problem) + " She's using her free voice for a bit.";
+        }
+
+        internal bool NewProblem(string problem)
+        {
+            lock (gate)
+            {
+                if (noted == problem) return false;
+                noted = problem;
+                return true;
+            }
+        }
+
+        private bool MemoryFailed()
+        {
+            lock (gate)
+            {
+                if (server != null && server.HasExited) server.WaitForExit();
+                return memoryFailed;
+            }
         }
 
         internal void Warm()
@@ -2752,16 +2832,21 @@ namespace CapriDesktop
                 {
                     if (awake && (server == null || !server.HasExited)) return;
                     Close();
-                    if (IntPtr.Size != 8) throw new VoiceException("Her HD voice needs 64-bit Windows.");
+                    memoryFailed = false;
                     if (!Installed) throw new VoiceException("Get her HD voice in Capri Mainframe first.");
                     number = port = Engine.FreePort();
                     try { running = server = Spawn(StartInfo(number)); }
                     catch (System.ComponentModel.Win32Exception error) { throw new VoiceException(Voice.Short("Her HD voice wouldn't start: " + error.Message)); }
+                    if (running.StartInfo.RedirectStandardError)
+                    {
+                        running.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs failure) { if (server == running && MemoryError(failure.Data)) memoryFailed = true; };
+                        running.BeginErrorReadLine();
+                    }
                     Engine.Lower(running);
                     Engine.Bind(running);
                 }
                 Stopwatch waited = Stopwatch.StartNew();
-                while (waited.Elapsed.TotalSeconds < 120)
+                while (waited.Elapsed.TotalSeconds < (CpuOnly ? 600 : 120))
                 {
                     // Stop() while she's waking hands back a disposed process, so a stop is a quiet cancel rather than a crash.
                     lock (gate)
@@ -2769,9 +2854,10 @@ namespace CapriDesktop
                         if (server != running) throw new OperationCanceledException();
                         if (running.HasExited)
                         {
+                            running.WaitForExit();
                             Brain.Log("HD voice", waited.ElapsedMilliseconds, "tts-server stopped while loading with exit code 0x" + ((uint)Engine.ExitCode(running)).ToString("X8"));
                             Close();
-                            throw new VoiceException("Her HD voice crashed loading. Close games, then try again.");
+                            throw new VoiceException(memoryFailed ? MemoryFull : "Her HD voice crashed loading. Close games, then try again.");
                         }
                     }
                     bool up = false;
@@ -2796,6 +2882,8 @@ namespace CapriDesktop
                         {
                             if (server != running) throw new OperationCanceledException();
                             awake = true;
+                            noted = null;
+                            memoryFailed = false;
                         }
                         return;
                     }
@@ -2811,7 +2899,7 @@ namespace CapriDesktop
             int number;
             lock (gate)
             {
-                if (!awake || (server != null && server.HasExited)) throw new VoiceException("Her HD voice is still waking up.");
+                if (!awake || (server != null && server.HasExited)) throw new VoiceException(MemoryFailed() ? MemoryFull : "Her HD voice is still waking up.");
                 number = port;
             }
             return Say(number, text);
@@ -2871,7 +2959,7 @@ namespace CapriDesktop
             return pieces;
         }
 
-        private static byte[] Ask(int number, string path, string json)
+        private byte[] Ask(int number, string path, string json)
         {
             byte[] payload = Encoding.UTF8.GetBytes(json);
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + number + path);
@@ -2879,8 +2967,8 @@ namespace CapriDesktop
             request.Proxy = null;
             request.ContentType = "application/json";
             request.ContentLength = payload.Length;
-            request.Timeout = 60000;
-            request.ReadWriteTimeout = 60000;
+            request.Timeout = CpuOnly ? 600000 : 60000;
+            request.ReadWriteTimeout = request.Timeout;
             try
             {
                 using (Stream upload = request.GetRequestStream()) upload.Write(payload, 0, payload.Length);
@@ -2889,19 +2977,23 @@ namespace CapriDesktop
                 using (MemoryStream copy = new MemoryStream())
                 {
                     stream.CopyTo(copy);
-                    return copy.ToArray();
+                    byte[] reply = copy.ToArray();
+                    if (Regex.IsMatch(response.ContentType ?? "", "json|text", RegexOptions.IgnoreCase) && MemoryError(Encoding.UTF8.GetString(reply))) throw new VoiceException(MemoryFull);
+                    return reply;
                 }
             }
             catch (WebException error)
             {
                 HttpWebResponse response = error.Response as HttpWebResponse;
-                if (response == null) throw new VoiceException("Her HD voice stopped answering.");
+                if (response == null) throw new VoiceException(MemoryFailed() ? MemoryFull : "Her HD voice stopped answering.");
+                int status = (int)response.StatusCode;
                 string detail;
                 using (response)
                 using (StreamReader reader = new StreamReader(response.GetResponseStream())) detail = reader.ReadToEnd();
-                throw new VoiceException(Voice.Short("Her HD voice glitched: HTTP " + (int)response.StatusCode + " " + Regex.Replace(detail ?? "", @"\s+", " ").Trim()));
+                if (MemoryFailed() || MemoryError(detail)) throw new VoiceException(MemoryFull);
+                throw new VoiceException(Voice.Short("Her HD voice glitched: HTTP " + status + " " + Regex.Replace(detail ?? "", @"\s+", " ").Trim()));
             }
-            catch (IOException) { throw new VoiceException("Her HD voice stopped answering."); }
+            catch (IOException) { throw new VoiceException(MemoryFailed() ? MemoryFull : "Her HD voice stopped answering."); }
         }
 
         internal Func<string, byte[]> Or(Func<string, byte[]> fallback, Action<string> trouble)
@@ -2912,13 +3004,15 @@ namespace CapriDesktop
                 try
                 {
                     byte[] wav = Speak(words);
-                    if (took.Elapsed.TotalSeconds > Math.Max(6, Voice.Seconds(wav) * 1.2)) trouble("Her HD voice is running slowly right now, so she's using her free voice for a bit.");
+                    lock (gate) { noted = null; memoryFailed = false; }
+                    if (!CpuOnly && (Hardware == null || !Smaller(Hardware)) && took.Elapsed.TotalSeconds > Math.Max(6, Voice.Seconds(wav) * 1.2)) trouble("Her HD voice is running slowly right now, so she's using her free voice for a bit.");
                     return wav;
                 }
                 catch (VoiceException error)
                 {
-                    trouble(Voice.Short(error.Message) + " She's using her free voice for a bit.");
                     if (fallback == null) throw;
+                    string problem = Failure(error.Message);
+                    if (NewProblem(problem)) trouble(problem);
                     return fallback(words);
                 }
             };
@@ -2932,32 +3026,6 @@ namespace CapriDesktop
             try { if (File.Exists(own)) return File.ReadAllBytes(own); }
             catch (IOException) { }
             throw new VoiceException("Her HD voice needs a clip: Capri ships no voice. Pick a clip of a voice you have the rights to use.");
-        }
-
-        // Free graphics memory on NVIDIA cards, from nvidia-smi; -1 where that can't be read.
-        internal static long FreeRoom()
-        {
-            string smi = Path.Combine(Environment.SystemDirectory, "nvidia-smi.exe");
-            if (!File.Exists(smi)) return -1;
-            try
-            {
-                ProcessStartInfo start = new ProcessStartInfo(smi, "--query-gpu=memory.total,memory.used --format=csv,noheader,nounits") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
-                using (Process query = Process.Start(start))
-                {
-                    string output = query.StandardOutput.ReadToEnd();
-                    if (!query.WaitForExit(5000)) return -1;
-                    long best = -1;
-                    foreach (string line in output.Split('\n'))
-                    {
-                        string[] parts = line.Split(',');
-                        long total, used;
-                        if (parts.Length == 2 && long.TryParse(parts[0].Trim(), out total) && long.TryParse(parts[1].Trim(), out used)) best = Math.Max(best, (total - used) << 20);
-                    }
-                    return best;
-                }
-            }
-            catch (System.ComponentModel.Win32Exception) { return -1; }
-            catch (InvalidOperationException) { return -1; }
         }
 
         internal void Attach(int number)
@@ -3395,7 +3463,7 @@ namespace CapriDesktop
         }
 
         // Its sound as 24 kHz mono: a WAV in any coding YourVoice reads, or anything Windows' own decoders can, like MP3.
-        private static short[] Sound(byte[] reply, string type, string name)
+        internal static short[] Sound(byte[] reply, string type, string name)
         {
             if (reply.Length == 0) throw new VoiceException(name + " sent back no sound.");
             int rate;
@@ -3408,10 +3476,31 @@ namespace CapriDesktop
                 catch (Exception) { }
                 if (decoded != null) mono = YourVoice.Wav(decoded, out rate);
             }
-            if (mono == null) throw new VoiceException("Capri couldn't read the sound " + (name == Theirs ? "your voice server" : name) + " sent.");
+            if (mono == null) throw new VoiceException("Capri couldn't read the sound " + (name == Theirs ? "your voice server" : name) + " sent (" + SoundFormat(reply) + ", " + reply.Length + " bytes). Windows couldn't decode it.");
             short[] pcm = new short[mono.Length];
             for (int i = 0; i < mono.Length; i++) pcm[i] = (short)Math.Max(-32768, Math.Min(32767, Math.Round(mono[i] * 32767)));
             return rate == YourVoice.Rate ? pcm : VoiceFx.Resample(pcm, rate / (double)YourVoice.Rate);
+        }
+
+        internal static string SoundFormat(byte[] reply)
+        {
+            if (reply.Length >= 12 && Encoding.ASCII.GetString(reply, 0, 4) == "RIFF" && Encoding.ASCII.GetString(reply, 8, 4) == "WAVE")
+            {
+                for (int at = 12; at + 8 <= reply.Length; )
+                {
+                    int size = BitConverter.ToInt32(reply, at + 4);
+                    if (Encoding.ASCII.GetString(reply, at, 4) == "fmt " && size >= 16 && at + 24 <= reply.Length)
+                        return "WAV tag " + BitConverter.ToUInt16(reply, at + 8) + ", " + BitConverter.ToInt32(reply, at + 12) + " Hz, " + BitConverter.ToUInt16(reply, at + 10) + " channels, " + BitConverter.ToUInt16(reply, at + 22) + " bits";
+                    long next = (long)at + 8 + size + (size & 1);
+                    if (size < 0 || next > reply.Length) break;
+                    at = (int)next;
+                }
+                return "WAV without a readable format";
+            }
+            if (reply.Length >= 3 && Encoding.ASCII.GetString(reply, 0, 3) == "ID3") return "MP3";
+            if (reply.Length >= 4 && Encoding.ASCII.GetString(reply, 0, 4) == "fLaC") return "FLAC";
+            if (reply.Length >= 4 && Encoding.ASCII.GetString(reply, 0, 4) == "OggS") return "Ogg";
+            return "unrecognized audio format";
         }
 
         // What a reply says in words: OpenAI's error message, FastAPI's detail, or the text itself.

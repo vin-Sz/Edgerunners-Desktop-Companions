@@ -24,6 +24,8 @@ namespace CapriDesktop
         internal static readonly Color Dim = Color.FromArgb(122, 128, 138);
 
         internal static readonly Color Pink = Color.FromArgb(255, 46, 136);
+        private static readonly PrivateFontCollection fonts = new PrivateFontCollection();
+        private static IntPtr fontMemory;
         private static readonly FontFamily embedded = Embedded("Capri.Font.Mono.ttf");
         private static Cursor pointer;
 
@@ -59,8 +61,31 @@ namespace CapriDesktop
             }
         }
 
+        // Her artist's cursor, with its tip where the old arrow's was, so her clicks land the same place.
+        private static Bitmap ArtistPointer(int size)
+        {
+            using (System.IO.Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("Capri.Cursor.png"))
+            {
+                if (stream == null) return null;
+                using (Bitmap source = new Bitmap(stream))
+                {
+                    Bitmap art = new Bitmap(size, size, PixelFormat.Format32bppArgb);
+                    float fit = size * 30f / 32 / Math.Max(source.Width, source.Height), inset = size * 2f / 32;
+                    using (Graphics graphics = Graphics.FromImage(art))
+                    {
+                        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                        graphics.DrawImage(source, inset, inset, source.Width * fit, source.Height * fit);
+                    }
+                    return art;
+                }
+            }
+        }
+
         internal static Bitmap PointerArt(int size)
         {
+            Bitmap artist = ArtistPointer(size);
+            if (artist != null) return artist;
             float s = size / 32f;
             PointF[] arrow = { new PointF(2, 2), new PointF(2, 24), new PointF(8, 18.5f), new PointF(12, 27), new PointF(16, 25.2f), new PointF(12, 16.8f), new PointF(19.5f, 16.8f) };
             Bitmap art = new Bitmap(size, size, PixelFormat.Format32bppArgb);
@@ -97,21 +122,45 @@ namespace CapriDesktop
         }
 
         [DllImport("gdi32.dll")] private static extern IntPtr AddFontMemResourceEx(IntPtr font, uint length, IntPtr reserved, ref uint count);
+        [DllImport("gdi32.dll")] private static extern bool RemoveFontMemResourceEx(IntPtr font);
 
         private static FontFamily Embedded(string name)
         {
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name))
+            IntPtr memory = IntPtr.Zero, resource = IntPtr.Zero;
+            try
             {
-                if (stream == null) return null;
-                byte[] data = new byte[stream.Length];
-                stream.Read(data, 0, data.Length);
-                IntPtr memory = Marshal.AllocCoTaskMem(data.Length);
-                Marshal.Copy(data, 0, memory, data.Length);
-                uint count = 0;
-                AddFontMemResourceEx(memory, (uint)data.Length, IntPtr.Zero, ref count);
-                PrivateFontCollection collection = new PrivateFontCollection();
-                collection.AddMemoryFont(memory, data.Length);
-                return collection.Families.Length > 0 ? collection.Families[0] : null;
+                using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name))
+                {
+                    if (stream == null) return null;
+                    byte[] data = new byte[stream.Length];
+                    int read = 0;
+                    while (read < data.Length)
+                    {
+                        int took = stream.Read(data, read, data.Length - read);
+                        if (took == 0) return null;
+                        read += took;
+                    }
+                    memory = Marshal.AllocCoTaskMem(data.Length);
+                    Marshal.Copy(data, 0, memory, data.Length);
+                    uint count = 0;
+                    resource = AddFontMemResourceEx(memory, (uint)data.Length, IntPtr.Zero, ref count);
+                    if (resource == IntPtr.Zero || count == 0) return null;
+                    fonts.AddMemoryFont(memory, data.Length);
+                    if (fonts.Families.Length == 0) return null;
+                    fontMemory = memory;
+                    return fonts.Families[0];
+                }
+            }
+            catch (ArgumentException) { return null; }
+            catch (ExternalException) { return null; }
+            catch (IOException) { return null; }
+            finally
+            {
+                if (memory != IntPtr.Zero && memory != fontMemory)
+                {
+                    if (resource != IntPtr.Zero) RemoveFontMemResourceEx(resource);
+                    Marshal.FreeCoTaskMem(memory);
+                }
             }
         }
 
@@ -126,6 +175,11 @@ namespace CapriDesktop
         internal static Font Mono(float size, FontStyle style, GraphicsUnit unit = GraphicsUnit.Pixel, string text = null)
         {
             if (embedded != null && Drawable(text)) return new Font(embedded, size, embedded.IsStyleAvailable(style) ? style : FontStyle.Regular, unit);
+            return FallbackMono(size, style, unit);
+        }
+
+        internal static Font FallbackMono(float size, FontStyle style, GraphicsUnit unit)
+        {
             foreach (string family in new[] { "Cascadia Mono", "Consolas", "Courier New" })
             {
                 Font font = new Font(family, size, style, unit);
@@ -623,6 +677,7 @@ namespace CapriDesktop
         private Point centre;
         private bool chatting;
         private bool muted;
+        private bool listenForName;
         private int level;
         private int tear;
         private int seed;
@@ -645,6 +700,12 @@ namespace CapriDesktop
         internal bool Chatting { get { return chatting; } }
 
         internal bool Muted { get { return muted; } }
+
+        internal bool ListenForName
+        {
+            get { return listenForName; }
+            set { if (listenForName == value) return; listenForName = value; if (Visible) Redraw(); }
+        }
 
         // True for the few frames it glitches in.
         internal bool Tearing { get { return tear > 0; } }
@@ -684,7 +745,7 @@ namespace CapriDesktop
                 ticks.Stop();
                 ticks.Start();
             }
-            Present(Render(scale, hover, chatting, muted, level, tear, seed), new Point(centre.X - Measure(scale).Width / 2, centre.Y));
+            Present(Render(scale, hover, chatting, muted, level, tear, seed, listenForName), new Point(centre.X - Measure(scale).Width / 2, centre.Y));
         }
 
         // For the smoke test: it glitches in when it shows, and a redraw while it's up stays clean.
@@ -697,12 +758,12 @@ namespace CapriDesktop
                 Hide();
                 Redraw();
                 bool torn = Visible && tear == TearFrames;
-                using (Bitmap clean = Render(scale, hover, chatting, muted, level)) torn = torn && Differs(Image, clean);
+                using (Bitmap clean = Render(scale, hover, chatting, muted, level, 0, 0, listenForName)) torn = torn && Differs(Image, clean);
                 tear = 0;
                 ticks.Stop();
                 Redraw();
                 bool calm = tear == 0 && !ticks.Enabled;
-                using (Bitmap clean = Render(scale, hover, chatting, muted, level)) calm = calm && !Differs(Image, clean);
+                using (Bitmap clean = Render(scale, hover, chatting, muted, level, 0, 0, listenForName)) calm = calm && !Differs(Image, clean);
                 return torn && calm;
             }
             finally { Motion = motion; }
@@ -737,7 +798,7 @@ namespace CapriDesktop
 
         internal static int EdgeWidth(float s) { return Math.Max(1, (int)Math.Round(1.5 * s)); }
 
-        internal static string Label(int part, bool chatting, bool muted) { return part == 1 ? "TYPE" : chatting && muted ? "MUTED" : "TALK"; }
+        internal static string Label(int part, bool chatting, bool muted, bool listenForName = false) { return part == 1 ? "TYPE" : chatting && muted ? "MUTED" : chatting && listenForName ? "CAPRI" : "TALK"; }
 
         // How many of a bar's segments the mic level lights, for a level from 0 to 6.
         internal static int Lit(int bar, int level)
@@ -790,7 +851,7 @@ namespace CapriDesktop
             return new[] { new Rectangle(start, middle - wide / 2, wide, wide), new Rectangle(start + wide + gap, middle - ink.Height / 2, ink.Width, ink.Height) };
         }
 
-        internal static Bitmap Render(float s, int hover, bool chatting = false, bool muted = false, int level = 0, int tear = 0, int seed = 0)
+        internal static Bitmap Render(float s, int hover, bool chatting = false, bool muted = false, int level = 0, int tear = 0, int seed = 0, bool listenForName = false)
         {
             Size size = Measure(s);
             Bitmap image = new Bitmap(chatting ? size.Width + (int)Math.Round(4 * s) + size.Height : size.Width, size.Height, PixelFormat.Format32bppPArgb);
@@ -812,7 +873,7 @@ namespace CapriDesktop
                 using (Brush cyan = new SolidBrush(Color.FromArgb(220, Look.Cyan))) graphics.FillRectangle(cyan, body.Right - (int)Math.Round(32 * s), body.Top - (int)Math.Round(2 * s), (int)Math.Round(15 * s), sliver);
                 using (Brush pink = new SolidBrush(Color.FromArgb(220, Look.Pink))) graphics.FillRectangle(pink, body.Left + (int)Math.Round(12 * s), body.Bottom + (int)Math.Round(2 * s) - sliver, (int)Math.Round(11 * s), sliver);
                 Color wash = Mix(Fill, Look.Cyan, WashAlpha);
-                string talk = Label(2, chatting, muted);
+                string talk = Label(2, chatting, muted, listenForName);
                 Rectangle[] pencil = Layout(s, 1, Ink(font, "TYPE"));
                 Rectangle[] wave = Layout(s, 2, Ink(font, talk));
                 DrawPencil(graphics, new PointF(pencil[0].X + pencil[0].Width / 2f, pencil[0].Y + pencil[0].Height / 2f), 0.9f * s, hover == 1 ? Look.Cyan : Look.Ink, hover == 1 ? wash : Fill);
@@ -2133,10 +2194,11 @@ namespace CapriDesktop
         private int reach = 40;
         private float scale = 1;
         private double tapped = -1;
+        internal readonly CursorBolts Bolts = new CursorBolts();
 
         internal HerPointer() : base("Capri pointer")
         {
-            ticks.Interval = 16;
+            ticks.Interval = 33;
             ticks.Tick += delegate { Step(); };
         }
 
@@ -2176,15 +2238,17 @@ namespace CapriDesktop
             using (Graphics screen = Graphics.FromHwnd(IntPtr.Zero)) scale = Math.Max(1f, screen.DpiX / 96f);
             int size = (int)Math.Round(36 * scale);
             if (arrow == null || arrow.Width != size) { if (arrow != null) arrow.Dispose(); arrow = Look.PointerArt(size); }
-            lock (gate) { tip = at; reach = (int)Math.Round(40 * scale); }
+            lock (gate) { tip = at; reach = (int)Math.Round(90 * scale); }
             tapped = -1;
             Render();
+            if (Bolts.Look.On) ticks.Start();
         }
 
         internal void Tap()
         {
             if (!Visible) return;
             tapped = watch.Elapsed.TotalSeconds;
+            Bolts.Tap();
             ticks.Start();
             Render();
         }
@@ -2193,12 +2257,13 @@ namespace CapriDesktop
         {
             ticks.Stop();
             tapped = -1;
+            Bolts.Clear();
             if (Visible) Hide();
         }
 
         private void Step()
         {
-            if (tapped >= 0 && watch.Elapsed.TotalSeconds - tapped > Ripple) { tapped = -1; ticks.Stop(); }
+            if (tapped >= 0 && watch.Elapsed.TotalSeconds - tapped > Ripple) { tapped = -1; if (!Bolts.Look.On) ticks.Stop(); }
             if (Visible) Render();
         }
 
@@ -2220,6 +2285,9 @@ namespace CapriDesktop
                     using (Pen pink = new Pen(Color.FromArgb(alpha, Look.Pink), (2.6f - 1.2f * eased) * scale)) graphics.DrawEllipse(pink, reach - radius, reach - radius, radius * 2, radius * 2);
                 }
                 float s = arrow.Width / 32f;
+                double now = watch.Elapsed.TotalSeconds;
+                Bolts.Step(now, at, scale);
+                Bolts.Draw(graphics, new PointF(reach, reach), at, now, scale);
                 graphics.DrawImage(arrow, reach - 2 * s, reach - 2 * s, arrow.Width, arrow.Height);
             }
             Present(frame, new Point(at.X - reach, at.Y - reach));
@@ -2334,6 +2402,9 @@ namespace CapriDesktop
 
         // Back to the bottom-right corner for the next job.
         internal void ToCorner() { corner = null; }
+
+        // Where the next job's panel sits, by its bottom-left corner.
+        internal void Corner(Point bottomLeft) { corner = bottomLeft; }
 
         // The panel itself on screen, without the glow around it.
         internal Rectangle Plate
@@ -2535,17 +2606,53 @@ namespace CapriDesktop
         private Point lastHead;
         private Point lastFeet;
         private Rectangle lastArea;
+        private int firstLine, visibleLines, totalLines;
+        private string scrollReply;
+        private RectangleF pages;
+        private bool copied;
+        internal Action<string> Copying = delegate(string reply) { Clipboard.SetText(reply); };
         private const int Columns = 34;
         private const string Speaker = Character.Speaker;
 
         internal SpeechBox() : base("Capri says") { Cursor = Look.Pointer; }
 
         internal Rectangle PanelOnScreen { get { return panelOnScreen; } }
+        internal bool Scrollable { get { return totalLines > visibleLines; } }
+        internal int FirstLine { get { return firstLine; } }
+        internal int VisibleLines { get { return visibleLines; } }
+        internal int TotalLines { get { return totalLines; } }
+
+        internal void ScrollRows(int rows)
+        {
+            firstLine = (int)Math.Max(0, Math.Min((long)Math.Max(0, totalLines - visibleLines), (long)firstLine + rows));
+            clean = false;
+            if (Visible) Update(Math.Max(Opened + 1, 0), lastScale, lastHead, lastFeet, lastArea);
+        }
+
+        // Right click copies all she said, even the pages that aren't showing.
+        internal void CopyReply()
+        {
+            if (string.IsNullOrEmpty(Reply)) return;
+            try { Copying(Reply); }
+            catch (System.Runtime.InteropServices.ExternalException) { return; }
+            copied = true;
+            clean = false;
+            if (Visible) Update(Math.Max(Opened + 1, 0), lastScale, lastHead, lastFeet, lastArea);
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            base.OnMouseWheel(e);
+            if (e.Delta != 0) ScrollRows(e.Delta > 0 ? -3 : 3);
+        }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (e.Button == MouseButtons.Left && Dismissed != null) Dismissed();
+            if (e.Button == MouseButtons.Right) { CopyReply(); return; }
+            if (e.Button != MouseButtons.Left) return;
+            if (Scrollable && pages.Contains(e.Location)) { ScrollRows(e.X < pages.Left + pages.Width / 2 ? -visibleLines : visibleLines); return; }
+            if (Dismissed != null) Dismissed();
         }
 
         internal static int Fit(string text)
@@ -2589,8 +2696,10 @@ namespace CapriDesktop
             lastArea = area;
         }
 
-        private Bitmap Render(float s, Point head, Point feet, Rectangle area, bool cursorOn, out Point at)
+        internal Bitmap Render(float s, Point head, Point feet, Rectangle area, bool cursorOn, out Point at)
         {
+            if (scrollReply != Reply) { firstLine = 0; scrollReply = Reply; copied = false; }
+            s = Math.Min(s, Math.Min(area.Width / 160f, area.Height / 150f));
             string all = Speaker + (Reply ?? "") + (Heard ?? "");
             using (Font text = Look.Mono(14 * s, FontStyle.Regular, GraphicsUnit.Pixel, all))
             using (Font heard = Look.Mono(14 * s, FontStyle.Italic, GraphicsUnit.Pixel, all))
@@ -2601,21 +2710,26 @@ namespace CapriDesktop
                 float margin = 12 * s;
                 float top = 10 * s;
                 float tail = 16 * s;
-                int columns = Fit(Speaker + (Reply ?? ""));
+                int columns = Math.Max(1, Math.Min(Fit(Speaker + (Reply ?? "")), (int)Math.Floor((area.Width - 62 * s) / cw)));
                 List<string> lines = Look.Wrap(Speaker + (Reply ?? ""), columns);
                 // Her own remarks have no prompt, so nothing sits above her words.
-                int above = string.IsNullOrEmpty(Prompt) ? 0 : 1;
+                int above = string.IsNullOrEmpty(Prompt) && !copied ? 0 : 1;
                 float panelWidth = 24 * s + columns * cw + 14 * s;
-                float panelHeight = 13 * s + line * (above + lines.Count) + 10 * s;
+                totalLines = lines.Count;
+                int room = Math.Max(1, (int)Math.Floor((area.Height - 53 * s) / line) - above);
+                visibleLines = Math.Min(totalLines, totalLines > room ? Math.Max(1, room - 1) : room);
+                firstLine = Math.Max(0, Math.Min(firstLine, totalLines - visibleLines));
+                float panelHeight = 13 * s + line * (above + visibleLines + (Scrollable ? 1 : 0)) + 10 * s;
                 int width = (int)Math.Ceiling(panelWidth + margin * 2);
                 int height = (int)Math.Ceiling(top + panelHeight + tail + 4 * s);
                 bool below = head.Y - height < area.Top;
                 Point tip = below ? feet : head;
                 int left = Math.Max(area.Left, Math.Min(area.Right - width, (int)(tip.X - margin - panelWidth * 0.7f)));
-                int y = below ? tip.Y : tip.Y - height;
+                int y = Math.Max(area.Top, Math.Min(area.Bottom - height, below ? tip.Y : tip.Y - height));
                 at = new Point(left, y);
                 RectangleF panel = new RectangleF(margin, below ? tail + 4 * s : top, panelWidth, panelHeight);
                 panelOnScreen = new Rectangle(left + (int)panel.X, y + (int)panel.Y, (int)panel.Width, (int)panel.Height);
+                pages = Scrollable ? new RectangleF(panel.Left + 24 * s, panel.Bottom - 10 * s - line, panel.Width - 38 * s, line) : RectangleF.Empty;
                 float tipX = Math.Max(panel.Left + 32 * s, Math.Min(panel.Right - 10 * s, tip.X - left));
                 float tipY = below ? 0 : height - 1;
                 Bitmap image = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
@@ -2637,7 +2751,7 @@ namespace CapriDesktop
                     float row2 = panel.Top + 12 * s;
                     if (above > 0)
                     {
-                        string you = Prompt + (Heard ?? "");
+                        string you = copied ? "> sys: copied" : Prompt + (Heard ?? "");
                         if (Look.Cells(you) > columns) you = Look.Cut(you, columns - 3) + "...";
                         using (Brush dim = new SolidBrush(Look.Dim)) Look.Draw(graphics, you, heard, dim, x, row2);
                         row2 += line;
@@ -2648,7 +2762,7 @@ namespace CapriDesktop
                     using (Brush ink = new SolidBrush(Look.Neon))
                     {
                         float right = x + columns * cw;
-                        for (int i = 0; i < lines.Count && takes[i] > 0; i++)
+                        for (int i = firstLine; i < firstLine + visibleLines && takes[i] > 0; i++)
                         {
                             string shown = lines[i].Substring(0, takes[i]);
                             int name = i == 0 ? Math.Min(takes[i], Speaker.Length - 1) : 0;
@@ -2659,16 +2773,21 @@ namespace CapriDesktop
                             // line decides, so it doesn't flip sides partway through.
                             if (Look.RightToLeft(lines[i].Substring(name)))
                             {
-                                graphics.DrawString(words, text, ink, new RectangleF(from, row2 + i * line, right - from, line), Look.Leftward);
-                                caret = new PointF(right - graphics.MeasureString(words, text, PointF.Empty, Look.Leftward).Width - cw - 2 * s, row2 + i * line);
+                                graphics.DrawString(words, text, ink, new RectangleF(from, row2 + (i - firstLine) * line, right - from, line), Look.Leftward);
+                                caret = new PointF(right - graphics.MeasureString(words, text, PointF.Empty, Look.Leftward).Width - cw - 2 * s, row2 + (i - firstLine) * line);
                             }
                             else
                             {
-                                float end = Look.Draw(graphics, words, text, ink, from, row2 + i * line);
-                                caret = new PointF(Look.Burmese(words) ? end : Look.Thai(words) || Look.Indic(words) ? from + graphics.MeasureString(words, text, PointF.Empty, Look.Spaced).Width : x + Look.Cells(shown) * cw, row2 + i * line);
+                                float end = Look.Draw(graphics, words, text, ink, from, row2 + (i - firstLine) * line);
+                                caret = new PointF(Look.Burmese(words) ? end : Look.Thai(words) || Look.Indic(words) ? from + graphics.MeasureString(words, text, PointF.Empty, Look.Spaced).Width : x + Look.Cells(shown) * cw, row2 + (i - firstLine) * line);
                             }
                         }
-                        if (cursorOn) graphics.FillRectangle(ink, caret.X + s, caret.Y + s, cw * 0.85f, line - 5 * s);
+                        if (cursorOn && (firstLine + visibleLines == totalLines || takes[firstLine + visibleLines] == 0)) graphics.FillRectangle(ink, caret.X + s, caret.Y + s, cw * 0.85f, line - 5 * s);
+                    }
+                    if (Scrollable)
+                    {
+                        string paging = "< PREV   " + (firstLine + 1) + "-" + (firstLine + visibleLines) + "/" + totalLines + "   NEXT >";
+                        using (Brush dim = new SolidBrush(Look.Dim)) Look.Draw(graphics, paging, text, dim, pages.Left, pages.Top);
                     }
                 }
                 return image;

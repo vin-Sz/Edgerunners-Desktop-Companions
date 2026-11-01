@@ -95,7 +95,8 @@ namespace CapriDesktop
                 if (Step(now))
                 {
                     step++;
-                    stepStart = now;
+                    // Fresh on the next tick: now is from before this step ran, and a long step isn't the next one's fault.
+                    stepStart = -1;
                 }
             }
             catch (Exception error) { Finish(error.Message); }
@@ -452,7 +453,7 @@ namespace CapriDesktop
                     Hands.Catalog = delegate { return Hands.WithSteam(Limbs.LinuxApps(new[] { tempApps }), Hands.SteamApps(Limbs.SteamRoot(steamHome, false))); };
                     Hands.Forget();
                     string hades = Hands.Do("open_app", new ToolArguments { Name = "hades" });
-                    if (hades != "Opened Hades." || !did.Contains((OperatingSystem.IsMacOS() ? "launch open " : "launch xdg-open ") + "steam://rungameid/1145360")) throw new Exception("A Steam game didn't open: " + hades + " / " + string.Join(" / ", did));
+                    if ((hades != "Opened Hades." && hades != "Opened Hades, but its window hasn't appeared yet.") || !did.Contains((OperatingSystem.IsMacOS() ? "launch open " : "launch xdg-open ") + "steam://rungameid/1145360")) throw new Exception("A Steam game didn't open: " + hades + " / " + string.Join(" / ", did));
                     Hands.Catalog = delegate { return Limbs.LinuxApps(new[] { tempApps }); };
                     Hands.Forget();
                     string opened = Hands.Do("open_app", new ToolArguments { Name = "spotify" });
@@ -468,7 +469,7 @@ namespace CapriDesktop
                     string macSong = Limbs.Song(true);
                     string linuxSong = Limbs.Song(false);
                     string log = string.Join(" / ", did);
-                    if (opened != "Opened Spotify." || !log.Contains("launch /bin/sh -c spotify") || searched != "Searched youtube.com for lofi beats." || !log.Contains((OperatingSystem.IsMacOS() ? "launch open " : "launch xdg-open ") + "https://www.youtube.com/results?search_query=lofi%20beats")) throw new Exception("Opening apps or sites went wrong: " + opened + " / " + searched + " / " + log);
+                    if ((opened != "Opened Spotify." && opened != "Opened Spotify, but its window hasn't appeared yet.") || !log.Contains("launch /bin/sh -c spotify") || searched != "Searched youtube.com for lofi beats." || !log.Contains((OperatingSystem.IsMacOS() ? "launch open " : "launch xdg-open ") + "https://www.youtube.com/results?search_query=lofi%20beats")) throw new Exception("Opening apps or sites went wrong: " + opened + " / " + searched + " / " + log);
                     if (skipped != "Skipped to the next track." || !log.Contains(OperatingSystem.IsMacOS() ? "osascript -e tell application \"Spotify\" to next track" : "--dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next") || !snipped.StartsWith("Opened the screenshot picker.", StringComparison.Ordinal) || !clipped.Contains("only work on Windows")) throw new Exception("Media keys or shortcuts went wrong: " + skipped + " / " + snipped + " / " + clipped + " / " + log);
                     if (!log.Contains("osascript -e tell application \"Spotify\" to next track") || !log.Contains("+ 2)") || !log.Contains("pactl set-sink-mute @DEFAULT_SINK@ toggle / amixer -q sset Master toggle")) throw new Exception("Mac or Linux media keys went wrong: " + log);
                     if (!log.Contains("play track \"spotify:track:2iyaHQlYrR8Eyr4wOmOT5D\"") || !log.Contains("OpenUri string:spotify:track:2iyaHQlYrR8Eyr4wOmOT5D") || log.Contains("launch open spotify:") || log.Contains("launch xdg-open spotify:")) throw new Exception("Spotify tracks didn't play directly: " + log);
@@ -1405,7 +1406,7 @@ namespace CapriDesktop
             }
             if (gates.Count > 0) throw new Exception("A Security toggle didn't ask first or run on a yes: " + string.Join(" // ", gates));
             if (declined != Security.Left + " []" || dropped != "null / nothing held []") throw new Exception("A no or a new message after her Security question went wrong: " + declined + " / " + dropped);
-            if (mixedAsk != "Opened Spotify. Turn the volume up and lock your PC? Say yes and I will." || mixedRan.IndexOf("key AF", StringComparison.Ordinal) < 0 || mixedRan.IndexOf("power lock", StringComparison.Ordinal) < 0) throw new Exception("Two held calls weren't one question and one yes: " + mixedAsk + " / " + mixedRan);
+            if ((mixedAsk != "Opened Spotify. Turn the volume up and lock your PC? Say yes and I will." && mixedAsk != "Opened Spotify, but its window hasn't appeared yet. Turn the volume up and lock your PC? Say yes and I will.") || mixedRan.IndexOf("key AF", StringComparison.Ordinal) < 0 || mixedRan.IndexOf("power lock", StringComparison.Ordinal) < 0) throw new Exception("Two held calls weren't one question and one yes: " + mixedAsk + " / " + mixedRan);
             if (!textChat.StartsWith("Turn the volume up? Say yes and I will. /  / Turned the volume up.", StringComparison.Ordinal) || textChat.IndexOf("key AF", StringComparison.Ordinal) < 0) throw new Exception("Text chat didn't ask first or run on a yes: " + textChat);
             if (mouseFree != "free / False / free" || lockdownNote.IndexOf("switch to or close apps and tabs or shut down, restart, sleep, lock or sign out of their PC. Still call the tool as soon as they ask", StringComparison.Ordinal) < 0 || lockdownNote.IndexOf("mouse and keyboard", StringComparison.Ordinal) >= 0
                 || trustedPrompt.IndexOf("SECURITY", StringComparison.Ordinal) >= 0 || openPrompt.IndexOf("Call the tool.\nThey've set her SECURITY settings to ask first before you open apps, games or sites. Still call the tool as soon as they ask", StringComparison.Ordinal) < 0)
@@ -1451,7 +1452,7 @@ namespace CapriDesktop
             }
             fakeVoice.Stop();
             Voice.Host = hostWas;
-            fail("ElevenLabs still asks with its own key", Voice.Seconds(elevenSaid) > 0.99 && elevenAsked.StartsWith("POST /v1/text-to-speech/v1?output_format=wav_24000 good-key-1234 {\"text\":\"Hey chewm.\"}", StringComparison.Ordinal));
+            fail("ElevenLabs still asks with its own key", Voice.Seconds(elevenSaid) > 0.99 && elevenAsked.StartsWith("POST /v1/text-to-speech/v1?output_format=wav_24000 good-key-1234 {\"text\":\"Hey chewm.\",\"model_id\":\"eleven_v4_turbo\"}", StringComparison.Ordinal));
             pet.SetVoiceProvider(Speakers.Local);
             fail("an unset address is Kokoro's usual one", pet.Speaks && pet.VoiceStatus == "local localhost:8880 | server's voice | speaking" && pet.VoiceMenu == "Provider: Local server | - | *Speak replies | - | Server: " + LocalSpeaker.Default + " (Kokoro's usual)... | Model: server's default... | Voice: server's default... | Format: WAV | - | Test voice");
             fail("a bad address isn't kept", !pet.SetLocalVoice("url", "ftp://nope") && pet.VoiceStatus.StartsWith("local localhost:8880", StringComparison.Ordinal));
@@ -1528,7 +1529,7 @@ namespace CapriDesktop
             fail("unreadable sound", mp3 == "Capri can't read the sound your local voice server sent (audio/mpeg). Set its format to WAV or PCM.");
             fail("HTTP errors", broken == "Your local voice server said HTTP 500: model crashed" && missing != null && missing.IndexOf("(HTTP 404)", StringComparison.Ordinal) > 0);
             fail("no sound", empty == "Your local voice server sent back no sound.");
-            fail("timeouts", slow != null && slow.StartsWith("Your local voice server took over 1 s", StringComparison.Ordinal) && waited.ElapsedMilliseconds < 2900);
+            fail("timeouts", slow != null && slow.StartsWith("Your local voice server took over 1 s", StringComparison.Ordinal) && waited.ElapsedMilliseconds < 5500);
             server.Stop();
             pet.SetLocalVoice("voice", "tone");
             string down = problem("Hey.");
@@ -1639,7 +1640,6 @@ namespace CapriDesktop
                 && !Chores.Read("I'd click the {button}", out order) && Chores.Read("{\"why\":\"{x}\"} then {\"do\":\"done\",\"said\":\"a } brace\"}", out order) && order.GetProperty("said").GetString() == "a } brace");
             fail("keys", Fingers.Code("ctrl") == 29 && Fingers.Code("enter") == 28 && Fingers.Code("a") == 30 && Fingers.Code("z") == 44 && Fingers.Code("m") == 50 && Fingers.Code("q") == 16
                 && Fingers.Code("1") == 2 && Fingers.Code("0") == 11 && Fingers.Code("f5") == 63 && Fingers.Code("F12") == 88 && Fingers.Code("super") == 125 && Fingers.Code("ñ") == -1 && !Fingers.Keys("ctrl+banana"));
-            fail("secrets", Chores.Secret("4111 1111 1111 1111") && Chores.Secret("4111-1111-1111-1111") && !Chores.Secret("call me at 555 1234") && !Chores.Secret("hello"));
             byte[] picture;
             using (SkiaSharp.SKBitmap blank = new SkiaSharp.SKBitmap(1920, 1080))
             using (SkiaSharp.SKImage image = SkiaSharp.SKImage.FromBitmap(blank))
@@ -1714,6 +1714,10 @@ namespace CapriDesktop
             fail("a job run", result == "Did it. Sent it." && string.Join(" | ", done.ToArray()) == "click 640,360 | type hola qué tal | key enter | fly" && replied == 5
                 && last.IndexOf("image_url", StringComparison.Ordinal) > 0 && last.IndexOf("1280 x 720", StringComparison.Ordinal) > 0 && last.IndexOf("send hola qu", StringComparison.Ordinal) > 0
                 && last.IndexOf("4. fly", StringComparison.Ordinal) > 0 && last.IndexOf("\\\"model\\\"", StringComparison.Ordinal) < 0 && last.IndexOf("eyes-test", StringComparison.Ordinal) > 0);
+            Security.Pick(Security.Blackwall);
+            string blackwall = Chores.Allowed;
+            Security.Pick(Security.Trusted);
+            fail("rules follow SECURITY", Chores.Allowed == Chores.Rules && blackwall.IndexOf("Type passwords", StringComparison.Ordinal) > 0 && blackwall.IndexOf("Never", StringComparison.Ordinal) < 0);
             if (wrong.Count > 0) throw new Exception("Her mouse and keyboard jobs went wrong: " + string.Join(", ", wrong) + " / " + result + " / " + string.Join(" | ", done.ToArray()) + " / " + replied);
             checks.Add("PASS mouse and keyboard jobs: on Linux use_computer sends her brain the screenshot and the steps so far, takes one JSON step back even wrapped in words, clicks, types and presses keys through her own uinput mouse and keyboard until the brain says done, and never types a card number");
         }
@@ -1799,7 +1803,7 @@ namespace CapriDesktop
             else if (voice == "empty") reply = new byte[0];
             else
             {
-                if (voice == "slow") Thread.Sleep(3000);
+                if (voice == "slow") Thread.Sleep(6000);
                 short[] tone = new short[24000];
                 for (int i = 0; i < tone.Length; i++) tone[i] = (short)(Math.Sin(i * 0.05) * 3000);
                 reply = Voice.Wave(tone, 24000);

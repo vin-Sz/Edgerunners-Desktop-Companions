@@ -11,13 +11,14 @@ namespace CapriDesktop
     // until the brain says it's done, gives up, or she runs out of steps. Her brain has to see pictures for this.
     internal static class Chores
     {
-        internal const int MostSteps = 20;
         internal static Func<byte[]> Shoot = delegate { return Eyes.Shoot(); };
         // Where the mouse is now, 0 to 1 across the desktop, or null where the desktop won't say.
         internal static Func<double[]> Mouse = delegate { return null; };
         // The smoke test watches what she'd do instead of moving the real mouse.
         internal static Action<string, JsonElement> Doing;
 
+        private const string Secrets = "Never type passwords, card numbers or codes. ";
+        private const string Stops = "Never pay, buy, send money or delete anything, and never accept terms for them: stop and say they need to do that part. ";
         internal const string Rules =
             "You use a Linux computer's mouse and keyboard to finish one job for the user. Each turn you get a screenshot of their whole desktop and the steps you already took. " +
             "Reply with exactly one JSON object for the next single step, and nothing else. Coordinates are x and y from 0 to 1000 across the screenshot: 0,0 is the top-left corner and 1000,1000 the bottom-right.\n" +
@@ -30,8 +31,20 @@ namespace CapriDesktop
             "{\"do\":\"done\",\"said\":\"what you did, in one short sentence\"}\n" +
             "{\"do\":\"stop\",\"said\":\"why you can't go on, in one short sentence\"}\n" +
             "Click the middle of what you mean. When the screen already shows the job finished, say done. " +
-            "Never type passwords, card numbers or codes, never pay, buy, send money or delete anything, and never accept terms for them: stop and say they need to do that part. " +
+            Secrets + Stops +
             "If the same step didn't change anything twice, try something else or stop.";
+
+        // Her rules follow SECURITY like Windows': Blackwall lets her type passwords and says yes to every step ahead of time.
+        internal static string Allowed
+        {
+            get
+            {
+                string rules = Rules;
+                if (Security.On(Security.Secrets)) rules = rules.Replace(Secrets, "Type passwords, card numbers and codes whenever their job needs them. ");
+                if (Security.On(Security.Pays) && Security.On(Security.Unasked)) rules = rules.Replace(Stops, "They've said yes to every step ahead of time: never stop to ask about one, even to pay, buy, send money, delete something or accept terms. ");
+                return rules;
+            }
+        }
 
         internal static string Run(Brain brain, string job, string asked)
         {
@@ -39,7 +52,7 @@ namespace CapriDesktop
             if (problem != null && Doing == null) return problem;
             if (brain.Model == null) return "Couldn't do that: your brain is offline.";
             List<string> steps = new List<string>();
-            for (int step = 0; step < MostSteps; step++)
+            for (int step = 0; ; step++)
             {
                 if (Grabbed()) return "You grabbed the mouse, so you stopped. Say what to do next.";
                 byte[] picture = Shoot();
@@ -51,7 +64,7 @@ namespace CapriDesktop
                     "\nScreenshot: " + width + " x " + height + " pixels." +
                     (steps.Count == 0 ? "\nNo steps yet." : "\nSteps so far:\n" + string.Join("\n", steps.ToArray())) + "\nThe next step, as one JSON object:";
                 string reply;
-                try { reply = brain.See(shot, Rules, instruction, 160); }
+                try { reply = brain.See(shot, Allowed, instruction, 160); }
                 catch (BrainException error) { return "Couldn't do that: " + error.Message; }
                 catch (System.Net.WebException error)
                 {
@@ -110,7 +123,6 @@ namespace CapriDesktop
                     return "scrolled " + (notches < 0 ? "up " + -notches : "down " + (notches == 0 ? 3 : notches)) + at;
                 case "type":
                     string text = Text(order, "text");
-                    if (Secret(text)) return "didn't type that: it looked like a password or card number";
                     return Fingers.Type(text) ? "typed \"" + Voice.Short(text) + "\"" : "couldn't type that (no wl-copy or xclip for symbols)";
                 case "key":
                     string keys = Text(order, "keys");
@@ -124,7 +136,6 @@ namespace CapriDesktop
         }
 
         // A long run of digits, like a card number, never goes out through her keyboard.
-        internal static bool Secret(string text) { return Regex.IsMatch(Regex.Replace(text ?? "", @"[\s-]", ""), @"\d{12,19}"); }
 
         // The first {...} in a reply, read as JSON. Models wrap it in words or ``` more often than not.
         internal static bool Read(string reply, out JsonElement order)

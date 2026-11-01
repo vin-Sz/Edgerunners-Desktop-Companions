@@ -44,7 +44,9 @@ namespace CapriDesktop
         private static readonly int[] Gaps = { 10, 15, 30, 60, 90, 120, 180, 300, 600 };
         private static readonly string[] GapNames = { "10 s", "15 s", "30 s", "1 min", "1.5 min", "2 min", "3 min", "5 min", "10 min" };
         private const int SetupHeight = 118;
-        private const int PageTall = 860;
+        private const int PageTall = 1368;
+        // Settings scrolls at this height rather than filling a tall screen (Lachy, 31 Oct).
+        private const int MostView = 820;
         // Settings opens a second column to the right, so every setting shows at once.
         private const int Column = 380;
         private const int Far = 30000;
@@ -68,6 +70,8 @@ namespace CapriDesktop
         private static readonly string[] WanderNames = { "Off", "Rarely", "Sometimes", "Often", "Restless" };
         private static readonly string[] Lengths = { "Short", "Medium", "Long" };
         private static readonly int[] Recalls = { 8, 16, 32 };
+        private static readonly string[] MemoryNames = { "Auto", "4K", "8K", "16K", "32K", "64K" };
+        private static readonly string[] ReplyNames = { "Auto", "256", "2K", "8K" };
         private const int VoiceHeight = 300;
         // While her free voice or ears download, a row with the brain setup's dotted bar opens here and pushes the rest down.
         private const int InstallAt = 443;
@@ -98,6 +102,7 @@ namespace CapriDesktop
         private readonly Readout sizeName;
         private readonly Toggle checkIns;
         private readonly Toggle onTop;
+        private readonly Toggle headPats;
         private readonly Toggle startup;
         private readonly Toggle discord;
         private readonly Toggle cursor;
@@ -107,16 +112,37 @@ namespace CapriDesktop
         private readonly Key typeKeys;
         private readonly Key hideKeys;
         private readonly Key quietKeys;
+        private readonly Key pushKeys;
+        private readonly Key gameKeys;
+        private readonly Toggle gamingMode;
         private readonly Key confirmKeys;
         private readonly Key cancelKeys;
+        private readonly Key clearKeys;
         // The keys pressed so far while one of her keys is being picked: -1 until a real key comes, then its modifiers.
         private int pendingMods = -1;
         private int pendingVk;
         private int heldMods;
         private readonly Toggle watch;
         private readonly Toggle caughtUp;
+        private readonly Toggle followUps;
+        private readonly Slider watchMemory;
+        private readonly Readout watchMemoryName;
+        private static readonly int[] WatchLines = { 8, 16, 24, 48, 96 };
+        private static readonly string[] WatchLineNames = { "8 lines", "16 lines", "24 lines", "48 lines", "96 lines" };
         private readonly Toggle stayOnModel;
         private readonly Toggle remembering;
+        private readonly Toggle keepAwake, hideFullScreen, playerFullScreen, exploreAway;
+        private readonly Slider exploreAfter;
+        private readonly Readout exploreAfterName;
+        private static readonly int[] AwayTimes = { 60, 120, 300, 600, 900, 1800 };
+        private static readonly string[] AwayNames = { "1 min", "2 min", "5 min", "10 min", "15 min", "30 min" };
+        private readonly Toggle[] careToggles = new Toggle[7];
+        private readonly Key[] careTimes = new Key[7];
+        private readonly ContextMenuStrip careMenu;
+        private readonly Toggle clipGames;
+        private readonly Toggle clipMoments;
+        private readonly Toggle fastHands;
+        private readonly Toggle gameMute;
         private readonly Label voiceHead;
         // OFF, PREBUILT LOCAL (her own voices), CUSTOM LOCAL (a voice model they set up on their PC) and CLOUD VOICE.
         private readonly Rung[] voiceRungs = new Rung[4];
@@ -143,6 +169,7 @@ namespace CapriDesktop
         private bool yoursShown;
         private ServerSheet sheet;
         private SecuritySheet guard;
+        private ExtrasSheet extras;
         private LayersSheet layered;
         private Key layersKey;
         private Label styleNote;
@@ -169,9 +196,12 @@ namespace CapriDesktop
         private string typeName = "Ctrl + Alt + T";
         private string hideName = "Ctrl + Alt + H";
         private string quietName = "Ctrl + Alt + P";
+        private string pushName = "not set";
+        private string gameName = "Ctrl + Alt + G";
         private bool typeReady = true;
         private bool hideReady = true;
         private bool quietReady = true;
+        private bool gameReady = true;
         private readonly Label muteShortcut;
         private readonly Key mics;
         private readonly ContextMenuStrip micMenu;
@@ -182,6 +212,8 @@ namespace CapriDesktop
         private bool textSaved;
         private readonly List<KeyValuePair<Control, int>> lower = new List<KeyValuePair<Control, int>>();
         private string[] lastInstalled;
+        private List<Cloud> lastServers = new List<Cloud>();
+        private Pick lastLocal;
         private float filled;
         private bool expanded = true;
         private bool loaded;
@@ -201,6 +233,15 @@ namespace CapriDesktop
         private readonly Dictionary<Control, int> tops = new Dictionary<Control, int>();
         private int pageView = PageTall;
         private int pageScroll;
+        // Settings opens simple: the rows most people never need are hidden and the gaps closed, and Advanced Settings brings
+        // them back. These are stretches of each column as built, by Top.
+        private static readonly int[][] FoldedLeft = { new[] { 232, 400 }, new[] { 450, 965 }, new[] { 1048, 1100 }, new[] { 1128, 1184 } };
+        private static readonly int[][] FoldedRight = { new[] { 166, 194 }, new[] { 344, 726 }, new[] { 922, 2000 } };
+        private readonly Dictionary<Control, int> built = new Dictionary<Control, int>();
+        private bool simple;
+        private Key advancedKey;
+        private int PageNow { get { return simple ? SimpleTall : PageTall; } }
+        private const int SimpleTall = 528;
         private int wheel;
         private readonly Rim topRim = new Rim();
         private readonly Rim bottomRim = new Rim();
@@ -225,8 +266,11 @@ namespace CapriDesktop
         private readonly Slider sleepAfter;
         private readonly Slider bubble;
         private readonly Readout bubbleName;
+        private readonly Slider comments;
+        private readonly Readout commentsName;
         private readonly Toggle intro;
         private readonly Toggle typing;
+        private readonly Toggle listenCapri;
         private readonly Toggle hdGames;
         private readonly Toggle miniPlayer;
         private readonly Readout sleepName;
@@ -240,7 +284,12 @@ namespace CapriDesktop
         private readonly Readout repliesName;
         private readonly Slider recall;
         private readonly Readout recallName;
+        private readonly Slider memorySize;
+        private readonly Readout memorySizeName;
+        private readonly Slider replyLength;
+        private readonly Readout replyLengthName;
         private readonly Entry custom;
+        private readonly Entry localAddress;
         private readonly Label customNote;
         private readonly Slider perchFps;
         private readonly Readout perchFpsName;
@@ -263,8 +312,7 @@ namespace CapriDesktop
             ShowInTaskbar = true;
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.CenterScreen;
-            AutoScaleMode = AutoScaleMode.Dpi;
-            AutoScaleDimensions = new SizeF(96, 96);
+            AutoScaleMode = AutoScaleMode.None;
             Font = Type(9.5f);
             BackColor = Ground;
             ForeColor = White;
@@ -289,6 +337,9 @@ namespace CapriDesktop
             for (int i = 0; i < header; i++) Scrolls(Controls[i]);
             Section("BRAIN >", 0, 58);
             brainName = Caption("", 28, 79, Type(11f, true), White);
+            brainName.AutoSize = false;
+            brainName.AutoEllipsis = true;
+            brainName.Size = new Size(328, 20);
             brainNote = Caption("", 28, 101, Font, Faint);
             modelMenu = Dropdown();
             models = Make("", 28, 134, 244, 28, delegate { modelMenu.Show(models, new Point(0, models.Height)); });
@@ -300,7 +351,7 @@ namespace CapriDesktop
             setup.Loud = true;
             hint = Caption("Have Ollama? Open it, then press Refresh.", 28, 264, Look.Mono(9f, FontStyle.Italic, GraphicsUnit.Point), Faint);
             tierNote = Caption("Pick one. Only one brain runs at a time.", 28, 168, Look.Mono(8.5f, FontStyle.Italic, GraphicsUnit.Point), Faint);
-            string[,] tiers = { { "NORMAL", "Free · local model" }, { "HIGHER", "Free · NVIDIA API" }, { "MAX INTELLIGENCE", "ChatGPT or Claude API" } };
+            string[,] tiers = { { "NORMAL", "Free · local model" }, { "HIGHER", "Free · NVIDIA API" }, { "MAX INTELLIGENCE", "Cloud API keys" } };
             for (int i = 0; i < rungs.Length; i++)
             {
                 int picked = i;
@@ -361,7 +412,7 @@ namespace CapriDesktop
                 string each = name;
                 cloudMenu.Items.Add(Choice(each, false, delegate { PickCloud(each); }));
             }
-            cloudPick = Lower(Make(Clouds[0], 28, KeyAt, 100, 28, delegate { cloudMenu.Show(cloudPick, new Point(0, cloudPick.Height)); }));
+            cloudPick = Lower(Make(Clouds[0], 28, KeyAt, 108, 28, delegate { cloudMenu.Show(cloudPick, new Point(0, cloudPick.Height)); }));
             cloudPick.Chevron = true;
             cloudPick.AccessibleName = "Cloud voice service";
             keyEntry = Lower(Input(136, KeyAt, 136));
@@ -371,7 +422,7 @@ namespace CapriDesktop
             keyEntry.Box.TextChanged += delegate { Relabel(); };
             keyEntry.Box.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; Connect(); } };
             // Fish Audio and OpenAI keep their key, voice and model in the voice model panel.
-            cloudVoice = Lower(Make("", 136, KeyAt, 220, 28, delegate { OpenServer(true, CloudApi(cloudName)); }));
+            cloudVoice = Lower(Make("", 144, KeyAt, 212, 28, delegate { OpenServer(true, CloudApi(cloudName)); }));
             voiceMenu = Dropdown();
             voiceEntry = Lower(Input(28, 346, 196));
             voiceEntry.Chevron = true;
@@ -411,6 +462,8 @@ namespace CapriDesktop
             installNote.Visible = false;
             int v = VoiceHeight;
             Lower(Section("CAPRI >", 0, 184 + v));
+            Key support = Lower(Make("Support", 280, 181 + v, 76, 20, delegate { capri.OpenSupport(); }));
+            support.AccessibleName = "Support Capri: opens Lachy's Ko-fi in your browser";
             showHide = Lower(Make("Hide Capri", 28, 206 + v, 104, 28, delegate { capri.ToggleHidden(); }));
             Lower(Make("Bring here", 140, 206 + v, 104, 28, delegate { capri.BringHere(); }));
             perch = Lower(Make("Ride cursor", 252, 206 + v, 104, 28, delegate { capri.TogglePerch(); }));
@@ -425,6 +478,10 @@ namespace CapriDesktop
             // Settings: a setting to a row, its name on the left in red and its value in a box on the right, as on Cyberpunk
             // 2077's settings screen (Lachy, 30 Oct). A section's own buttons, like Layers, sit at the right of its band.
             const int c = Column;
+            // Up by Back and named for what it does: Lachy (31 Oct) missed a small All settings key in the CAPRI band.
+            advancedKey = Make("Advanced Settings", 238, 20, 136, 22, delegate { capri.ToggleAdvancedSettings(); ShowSettings(true); });
+            advancedKey.Accent = Cyan;
+            advancedKey.Loud = true;
             Section("YOU >", 0, 58);
             // Lucy brings personality.md back (Capri 0.7.6 dropped it): its menu says which personality she's using, opens it and resets it.
             personalityMenu = Dropdown();
@@ -459,7 +516,7 @@ namespace CapriDesktop
             nickname.Box.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; UseNickname(); } };
             Make("Save", 280, 141, 76, 22, delegate { UseNickname(); });
             Section("VOICE >", 0, 180);
-            styleNote = Caption("Every voice, ElevenLabs too", 88, 178, small, Faint);
+            styleNote = Caption("Applies to every voice", 88, 178, small, Faint);
             styleNote.AutoSize = false;
             styleNote.TextAlign = ContentAlignment.MiddleRight;
             styleNote.Bounds = new Rectangle(88, 178, 192, 20);
@@ -494,8 +551,11 @@ namespace CapriDesktop
             typing.Hint = "When she types";
             typing.HintFont = small;
             typing.AccessibleName = "Typing sound. A soft typing sound while her text replies type out";
-            // The row under Typing sound, shown only while her HD voice is on (Lachy, 29 Oct). Off out of the box.
-            hdGames = Switch("Free voice in games", 0, 400, delegate { if (!syncing) capri.ToggleHdGameRest(); });
+            listenCapri = Switch("Listen for Capri", 0, 400, delegate { if (!syncing) capri.ToggleListenCapri(); });
+            Caption("Say her name anywhere to chat", 28, 428, small, Faint);
+            listenCapri.AccessibleName = "Listen for Capri. Keep the mic open; say her name anywhere in your sentence. Stop and push to talk still work";
+            // The row under Listen for Capri, shown only while her HD voice is on (Lachy, 29 Oct). Off out of the box.
+            hdGames = Switch("Free voice in games", 0, 450, delegate { if (!syncing) capri.ToggleHdGameRest(); });
             hdGames.AccessibleName = "Free voice in games: while a game or video is full screen, her free voice talks instead of her HD voice, so the game gets the graphics card";
             hdGames.Visible = false;
             int afterVoice = Controls.Count;
@@ -526,6 +586,11 @@ namespace CapriDesktop
             hideKeys.AccessibleName = "Her hide key. Click, press new keys, then Confirm";
             quietKeys = Make("Quiet: Ctrl + Alt + P", 28, 787, 328, 22, delegate { PickKeys(4); });
             quietKeys.AccessibleName = "Her quiet key: she only talks when you talk to her until you press it again. Click, press new keys, then Confirm";
+            // Hold to talk, on any key or mouse button. It's read rather than taken, so it still does its own job in a game.
+            pushKeys = Make("Push to talk: not set", 28, 815, 328, 22, delegate { PickKeys(Companion.PushSlot); });
+            pushKeys.AccessibleName = "Her push-to-talk key: hold it to talk to her, with a game in front too. Click, press a key or a mouse button, then Confirm";
+            gameKeys = Make("Gaming Mode: Ctrl + Alt + G", 28, 843, 328, 22, delegate { PickKeys(5); });
+            gameKeys.AccessibleName = "Her Gaming Mode key: she reacts to your game until you close it. Click, press new keys, then Confirm";
             // Only a click ends picking a key, so Enter, Esc and Tab can be her keys too. Confirm and Cancel show in KEYS' band
             // while one is being picked.
             confirmKeys = Make("Confirm", 212, 645, 78, 20, delegate { ConfirmKeys(); });
@@ -534,10 +599,16 @@ namespace CapriDesktop
             confirmKeys.AccessibleName = "Confirm her new keys";
             cancelKeys = Make("Cancel", 296, 645, 60, 20, delegate { CancelKeys(); });
             cancelKeys.AccessibleName = "Cancel and keep her old keys";
-            confirmKeys.Visible = cancelKeys.Visible = false;
-            keysNote = Caption("", 28, 816, small, Faint);
+            clearKeys = Make("Off", 160, 645, 46, 20, delegate { ClearPush(); });
+            clearKeys.AccessibleName = "Turn her push-to-talk key off";
+            confirmKeys.Visible = cancelKeys.Visible = clearKeys.Visible = false;
+            keysNote = Caption("", 28, 872, small, Faint);
             keysNote.MaximumSize = new Size(328, 0);
-            for (int i = afterVoice; i < Controls.Count; i++) underVoice.Add(new KeyValuePair<Control, int>(Controls[i], Controls[i].Top));
+            for (int i = afterVoice; i < Controls.Count; i++)
+            {
+                Controls[i].Top += Row + 22;
+                underVoice.Add(new KeyValuePair<Control, int>(Controls[i], Controls[i].Top));
+            }
             Section("CAPRI >", c, 58);
             sizeSlider = Setting("Size", SizeNames, c, 82, "Her size");
             sizeName = new Readout(sizeSlider);
@@ -550,14 +621,21 @@ namespace CapriDesktop
             frameSizeName = new Readout(frameSize);
             frameSize.Changed += delegate { if (!syncing) ShowFrameSize(); };
             frameSize.Released += delegate { if (!syncing) { capri.SetMainframeSize(FrameSizes[frameSize.Value]); Rezoom(Wanted()); ShowFrameSize(); } };
+            headPats = Switch("Head pats", c, 194, delegate { if (!syncing) capri.ToggleHeadPats(); });
+            headPats.AccessibleName = "Head pats. Rubbing the cursor over her gets a grin and a line";
+            int afterPats = Controls.Count;
             Section("WATCH >", c, 208);
             watch = Switch("Watch my screen", c, 232, delegate { if (!syncing) capri.ToggleWatch(); });
             watch.AccessibleName = "Watch my screen. She comments now and then";
-            caughtUp = Switch("Keep her caught up", c, 260, delegate { if (!syncing) capri.ToggleCaughtUp(); });
-            caughtUp.AccessibleName = "Keep her caught up on my screen. Glances she stays quiet about still go in her memory, which uses a little more of your API";
+            caughtUp = Switch("Remember what she sees", c, 260, delegate { if (!syncing) capri.ToggleCaughtUp(); });
+            caughtUp.AccessibleName = "Remember what she sees. What she saw on your screen stays in her memory for three hours even when she said nothing about it, which uses a little more of your API";
             gap = Setting("Every", GapNames, c, 288, "Time between glances");
             gapName = new Readout(gap);
             gap.Changed += delegate { if (syncing) return; gapName.Text = GapNames[gap.Value]; capri.SetGlanceGap(Gaps[gap.Value]); };
+            watchMemory = Setting("Watch-along memory", WatchLineNames, c, 316, "Lines of PC dialogue held in memory while watching together. The oldest half becomes a note when Remember what she sees is on");
+            watchMemoryName = new Readout(watchMemory);
+            watchMemory.Changed += delegate { if (!syncing) capri.SetWatchMemory(WatchLines[watchMemory.Value]); };
+            int afterWatchMemory = Controls.Count;
             Section("BRAIN >", c, 330);
             stayOnModel = Switch("Stay on my model", c, 354, delegate { if (!syncing) capri.ToggleStayOnModel(); });
             stayOnModel.AccessibleName = "Stay on my model. When an NVIDIA model gets stuck she says so instead of switching to another one";
@@ -567,54 +645,127 @@ namespace CapriDesktop
             recall = Setting("Memory", Lengths, c, 410, "How much of the chat she keeps");
             recallName = new Readout(recall);
             recall.Changed += delegate { if (syncing) return; recallName.Text = Lengths[recall.Value]; capri.SetRecall(Recalls[recall.Value]); };
-            bubble = Setting("Bubble", BubbleNames, c, 438, "How long her replies stay up");
+            memorySize = Setting("Memory size", MemoryNames, c, 438, "Memory size in tokens for Ollama and her built-in brain. Auto keeps her usual context size");
+            memorySizeName = new Readout(memorySize);
+            memorySize.Changed += delegate { if (syncing) return; memorySizeName.Text = MemoryNames[memorySize.Value]; capri.SetMemorySize(Brain.MemorySizes[memorySize.Value]); };
+            replyLength = Setting("Max reply", ReplyNames, c, 466, "The longest reply she can give, in tokens. Auto keeps to Replies above; 2K or 8K lets her run on. Jobs keep more room when they need it");
+            replyLengthName = new Readout(replyLength);
+            replyLength.Changed += delegate { if (syncing) return; replyLengthName.Text = ReplyNames[replyLength.Value]; capri.SetReplyLength(replyLength.Value); };
+            bubble = Setting("Bubble", BubbleNames, c, 494, "How long her replies stay up");
             bubbleName = new Readout(bubble);
             bubble.Changed += delegate { if (syncing) return; bubbleName.Text = BubbleNames[bubble.Value]; capri.SetBubbleTime(bubble.Value); };
-            custom = Input(28 + c, 469, 244, 22);
+            followUps = Switch("Follow-up messages", c, 522, delegate { if (!syncing) capri.ToggleFollowUps(); });
+            followUps.AccessibleName = "Follow-up messages. Sometimes she adds a second thought after her answer. Your typing or speech drops it";
+            int afterFollowUps = Controls.Count;
+            custom = Input(28 + c, 525, 244, 22);
             custom.Cue = "Custom model name";
             custom.Box.AccessibleName = "Custom model name";
             custom.Box.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; UseCustom(); } };
-            Make("Use", 280 + c, 469, 76, 22, delegate { UseCustom(); });
-            customNote = Caption("Any Ollama model you've pulled, or a model id on your key.", 28 + c, 498, small, Faint);
-            customNote.MaximumSize = new Size(328, 0);
-            Section("HABITS >", c, 544);
-            Make("Open her memories", 220 + c, 541, 136, 20, delegate { capri.OpenMemories(); }).AccessibleName = "Open her memories: memories.md and her chat transcripts, kept on this PC";
-            startup = Switch("Start with Windows", c, 568, delegate { if (!syncing) capri.ToggleStartup(); });
-            discord = Switch("Show on Discord", c, 596, delegate { if (!syncing) capri.ToggleDiscord(); });
-            cursor = Switch("Use her cursor", c, 624, delegate { if (!syncing) capri.ToggleCursor(); });
-            remembering = Switch("Remember our chats", c, 652, delegate { if (!syncing) capri.ToggleRemembering(); });
+            Make("Use", 280 + c, 525, 76, 22, delegate { UseCustom(); });
+            customNote = Caption("A model in Ollama, on your local server or on your key.", 28 + c, 554, small, Faint);
+            customNote.AutoSize = false;
+            customNote.AutoEllipsis = true;
+            customNote.Size = new Size(328, 28);
+            Caption("Local server address", 28 + c, 586, Font, Rose);
+            localAddress = Input(28 + c, 615, 244, 22);
+            localAddress.Cue = "http://127.0.0.1:1234";
+            localAddress.Box.AccessibleName = "Local server address";
+            localAddress.Box.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; UseLocalAddress(); } };
+            Make("Save", 280 + c, 615, 76, 22, delegate { UseLocalAddress(); });
+            Section("HABITS >", c, 656);
+            Make("Obsidian vault", 104 + c, 653, 112, 20, delegate { ShowMemoryVault(); }).AccessibleName = "Obsidian vault: keep her notes in your Obsidian vault";
+            Make("Open her memories", 220 + c, 653, 136, 20, delegate { capri.OpenMemories(); }).AccessibleName = "Open her memories: memories.md and her chat transcripts, kept on this PC";
+            startup = Switch("Start with Windows", c, 680, delegate { if (!syncing) capri.ToggleStartup(); });
+            discord = Switch("Show on Discord", c, 708, delegate { if (!syncing) capri.ToggleDiscord(); });
+            cursor = Switch("Use her cursor", c, 736, delegate { if (!syncing) capri.ToggleCursor(); });
+            remembering = Switch("Remember our chats", c, 764, delegate { if (!syncing) capri.ToggleRemembering(); });
             remembering.AccessibleName = "Remember our chats. She keeps daily transcripts and memories.md on this PC, never uploaded";
             // SECURITY took Blackwall mode's place (Lachy, 29 Oct): its button opens her SECURITY window, and the line under it
             // says what the preset does. Blackwall mode is its Blackwall preset now.
-            security = Make("Security: " + Security.PresetName, 28 + c, 683, 328, 22, delegate { OpenSecurity(); });
+            security = Make("Security: " + Security.PresetName, 28 + c, 795, 328, 22, delegate { OpenSecurity(); });
             security.AccessibleName = "Security: what she does on your PC without asking first";
-            blackwallNote = Caption(Security.Short, 28 + c, 707, small, Faint);
+            blackwallNote = Caption(Security.Short, 28 + c, 819, small, Faint);
             blackwallNote.AutoSize = false;
             blackwallNote.TextAlign = ContentAlignment.MiddleRight;
-            blackwallNote.Bounds = new Rectangle(28 + c, 707, 328, 18);
+            blackwallNote.Bounds = new Rectangle(28 + c, 819, 328, 18);
             // Frames a second while she sits on a window. Her sway takes 2 s at every fps; past 30 she draws in-betweens.
-            perchFps = Setting("Perch", PerchNames, c, 728, "Her perch frames per second");
+            perchFps = Setting("Perch", PerchNames, c, 840, "Her perch frames per second");
             perchFpsName = new Readout(perchFps);
             perchFps.Changed += delegate { if (syncing) return; capri.SetPerchFps(Companion.PerchRates[perchFps.Value]); ShowPerch(); };
-            perchNote = Caption("", 28 + c, 756, small, Faint);
+            perchNote = Caption("", 28 + c, 868, small, Faint);
             perchNote.AutoSize = false;
             perchNote.TextAlign = ContentAlignment.MiddleRight;
-            perchNote.Bounds = new Rectangle(28 + c, 756, 328, 18);
-            Make("More settings", 28 + c, 790, 328, 22, delegate { ShowMoreSettings(); }).AccessibleName = "More settings: keep her notes in your Obsidian vault";
+            perchNote.Bounds = new Rectangle(28 + c, 868, 328, 18);
+            keepAwake = Switch("Keep PC awake for jobs", c, 888, delegate { if (!syncing) capri.ToggleKeepAwake(); });
+            hideFullScreen = Switch("Hide in full screen", c, 916, delegate { if (!syncing) capri.ToggleHideFullScreen(); });
+            playerFullScreen = Switch("Mini player over full screen", c, 944, delegate { if (!syncing) capri.TogglePlayerFullScreen(); });
+            exploreAway = Switch("Explore while I'm away", c, 972, delegate { if (!syncing) capri.ToggleExploreAway(); });
+            keepAwake.Switch = hideFullScreen.Switch = playerFullScreen.Switch = exploreAway.Switch = 68;
+            keepAwake.AccessibleName = "Keep PC awake for jobs. Keeps the PC and screen awake while a job runs, waits for your answer or watches for something";
+            hideFullScreen.AccessibleName = "Hide in full screen. Gaming Mode takes priority; a manual hide stays hidden";
+            playerFullScreen.AccessibleName = "Mini player over full screen. Works over borderless windows; exclusive full screen cannot show overlays";
+            exploreAway.AccessibleName = "Explore while I'm away. Scrolls browser or reader pages without moving your mouse; your input stops her";
+            exploreAfter = Setting("Explore after", AwayNames, c, 1000, "How long you are away before she scrolls a browser or reader");
+            exploreAfterName = new Readout(exploreAfter);
+            exploreAfter.Changed += delegate { if (!syncing) capri.SetExploreAfter(AwayTimes[exploreAfter.Value]); };
+            careMenu = Dropdown();
+            for (int careRow = 0; careRow < careToggles.Length; careRow++)
+            {
+                CareKind careKind = (CareKind)careRow;
+                Toggle careToggle = Switch(Care.Names[careRow], c, 1040 + careRow * 28, delegate { if (!syncing) capri.ToggleCare(careKind); });
+                careToggle.Width = 224;
+                careToggle.Switch = 68;
+                careToggle.AccessibleName = Care.Names[careRow] + " check-in" + (careKind == CareKind.Eyes ? ": look away for 20 seconds" : careKind == CareKind.Meal ? ": mealtimes from noon, if you've been here since before lunch" : "");
+                careToggles[careRow] = careToggle;
+                Key careTime = Make("", 260 + c, 1043 + careRow * 28, 96, 22, delegate { ChooseCareTime(careKind); });
+                careTime.Chevron = true;
+                careTimes[careRow] = careTime;
+            }
+            Make("Edit check-in lines", 28 + c, 1240, 328, 20, delegate { capri.OpenCare(); }).AccessibleName = "Edit her check-in lines in check-ins.md; remove lines to silence a check-in";
+            int gamesFrom = Controls.Count;
+            Section("GAMES >", 0, 914);
+            // What she says about a game they're playing, from what happens in it rather than on a timer.
+            comments = Setting("Comments", Commentary.PaceNames, 0, 938, "How much she says about a game you're playing: off, only when something happens, or chatty");
+            commentsName = new Readout(comments);
+            comments.Changed += delegate { if (syncing) return; commentsName.Text = Commentary.PaceNames[comments.Value]; capri.SetCommentPace(comments.Value); };
+            gamingMode = Switch("Gaming Mode", 0, 966, delegate { if (!syncing) capri.ToggleGaming(); });
+            gamingMode.AccessibleName = "Gaming Mode. She reacts to your game until you close it. \"Hey Capri, activate gaming mode\" turns it on. Works best on MAX INTELLIGENCE.";
+            Caption("She reacts to your game until you close it.", 28, 992, small, Faint);
+            Caption("\"Hey Capri, activate gaming mode\" turns it on.", 28, 1008, small, Faint);
+            Caption("Works best on MAX INTELLIGENCE.", 28, 1024, small, Faint);
+            clipGames = Switch("Clip my games", 0, 1046, delegate { if (!syncing) capri.ToggleClips(); });
+            clipGames.AccessibleName = "Clip my games. Keeps recent game video and PC sound in memory; clips stay in Videos\\Capri Clips on this PC";
+            clipMoments = Switch("Save big moments", 0, 1074, delegate { if (!syncing) capri.ToggleClipMoments(); });
+            clipMoments.AccessibleName = "Save big moments. Turns on Clip my games and saves the last 30 seconds when her game comments spot something worth keeping";
+            fastHands = Switch("Fast hands in games", 0, 1102, delegate { if (!syncing) capri.ToggleFastHands(); });
+            int gamesTo = Controls.Count;
+            hdGames.Switch = intro.Switch = caughtUp.Switch = fastHands.Switch = 68;
+            gameMute = Switch("Mute her", 0, 1130, delegate { if (!syncing) capri.ToggleShush(); });
+            gameMute.AccessibleName = "Mute her. She stops talking on her own and only answers when you talk to her, the same as her Quiet key";
+            fastHands.AccessibleName = "Fast hands in games. On a Claude key she plays games on Claude Haiku, which moves about three times faster and costs far less. When she's stuck she asks the brain you picked, or Claude Sonnet if that's Haiku, and chat stays on the brain you picked";
+            for (int talkSettingAt = afterWatchMemory; talkSettingAt < Controls.Count; talkSettingAt++)
+                Controls[talkSettingAt].Top += talkSettingAt >= afterFollowUps ? 56 : 28;
+            // Head pats took a row under Mainframe size, so the rest of this column sits one lower.
+            for (int belowPats = afterPats; belowPats < Controls.Count; belowPats++)
+                if (Controls[belowPats].Left >= c) Controls[belowPats].Top += Row;
+            for (int gameRow = gamesFrom; gameRow < gamesTo; gameRow++) underVoice.Add(new KeyValuePair<Control, int>(Controls[gameRow], Controls[gameRow].Top));
+            underVoice.Add(new KeyValuePair<Control, int>(gameMute, gameMute.Top));
             for (int i = first; i < Controls.Count; i++)
             {
                 Control control = Controls[i];
                 pageLeft.Add(new KeyValuePair<Control, int>(control, control.Left));
+                built[control] = control.Top;
                 Scrolls(control);
                 control.Left += Far;
                 Reachable(control, false);
                 // Clicking into anything else while a key is being picked keeps the old key, so typing in a box is never swallowed.
-                control.Enter += delegate { if (capturing != 0 && control != confirmKeys && control != cancelKeys && control != PickedKey) CancelKeys(); };
+                control.Enter += delegate { if (capturing != 0 && control != confirmKeys && control != cancelKeys && control != clearKeys && control != PickedKey) CancelKeys(); };
             }
             Controls.Add(topRim);
             Controls.Add(bottomRim);
             topRim.BringToFront();
             bottomRim.BringToFront();
+            RememberLayout(this);
             Searching();
             Sync();
             Application.AddMessageFilter(this);
@@ -631,13 +782,14 @@ namespace CapriDesktop
 
         private static Label Hint(string text, int y, int height) { return new Label { Text = text, Bounds = new Rectangle(16, y, 488, height), ForeColor = Look.Dim }; }
 
-        private void ShowMoreSettings()
+        // Memory vault, under HABITS: her notes can live in their Obsidian vault.
+        private void ShowMemoryVault()
         {
             using (Form dialog = new Form())
             {
                 dialog.AutoScaleDimensions = new SizeF(96f, 96f);
                 dialog.AutoScaleMode = AutoScaleMode.Dpi;
-                dialog.Text = "More settings";
+                dialog.Text = "Obsidian memory vault";
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.MaximizeBox = false;
                 dialog.MinimizeBox = false;
@@ -647,6 +799,7 @@ namespace CapriDesktop
                 dialog.ForeColor = Look.Ink;
                 dialog.Font = Look.Mono(9f, FontStyle.Regular, GraphicsUnit.Point);
                 dialog.ClientSize = new Size(520, 170);
+                // Their own Obsidian vaults, read from Obsidian's list on this PC: picking one keeps her memories in its Capri Memories note.
                 List<KeyValuePair<string, string>> vaults = Companion.ObsidianVaults();
                 List<string> vaultNotes = new List<string> { "" };
                 ComboBox vault = new ComboBox { Bounds = new Rectangle(16, 44, 368, 24), DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, BackColor = Field, ForeColor = Look.Ink };
@@ -659,6 +812,7 @@ namespace CapriDesktop
                     int at = current == null ? 0 : vaultNotes.FindIndex(delegate(string note) { return string.Equals(note, current, StringComparison.OrdinalIgnoreCase); });
                     if (at < 0)
                     {
+                        // A note they picked with Browse stays as its own choice.
                         at = vaultNotes.FindIndex(1, delegate(string note) { return note.StartsWith("|", StringComparison.Ordinal); });
                         if (at < 0) { vault.Items.Add(""); vaultNotes.Add(""); at = vaultNotes.Count - 1; }
                         vault.Items[at] = "Note: " + System.IO.Path.GetFileName(current);
@@ -670,7 +824,7 @@ namespace CapriDesktop
                 showVault();
                 showing = false;
                 Button pickVault = DialogButton("Browse", 392, 42, 112, Look.Dim);
-                Label vaultNote = Hint(capri.Vault.Length > 0 ? "She saves her memories to " + System.IO.Path.GetFileName(Companion.NotesIn(capri.Vault)) + "." : vaults.Count > 0 ? "Pick one of your Obsidian vaults and her memories go in a " + System.IO.Path.GetFileNameWithoutExtension(Companion.VaultNote) + " note there." : "No Obsidian vaults found on this PC. Open one in Obsidian first, or Browse to a note.", 78, 34);
+                Label vaultNote = Hint(capri.Vault.Length > 0 ? capri.VaultHere ? "She saves her memories to " + System.IO.Path.GetFileName(Companion.NotesIn(capri.Vault)) + "." : "That vault wasn't there when she started, so she's using her own notes." : vaults.Count > 0 ? "Pick one of your Obsidian vaults and her memories go in a " + System.IO.Path.GetFileNameWithoutExtension(Companion.VaultNote) + " note there." : "No Obsidian vaults found on this PC. Open one in Obsidian first, or Browse to a note.", 78, 34);
                 Action<string> useVault = delegate(string chosen)
                 {
                     vaultNote.Text = capri.SetVault(chosen);
@@ -681,6 +835,7 @@ namespace CapriDesktop
                 vault.SelectedIndexChanged += delegate { if (!showing && vault.SelectedIndex >= 0) useVault(vaultNotes[vault.SelectedIndex].TrimStart('|')); };
                 pickVault.Click += delegate
                 {
+                    // A save box, so they can pick a note already in a vault or type a new one's name.
                     using (SaveFileDialog picker = new SaveFileDialog { Title = "Pick the note her memories go in", Filter = "Notes (*.md)|*.md", DefaultExt = "md", AddExtension = true, OverwritePrompt = false, CheckPathExists = true, FileName = Companion.VaultNote })
                     {
                         string current = Companion.NotesIn(capri.Vault);
@@ -741,6 +896,33 @@ namespace CapriDesktop
             return toggle;
         }
 
+        private static string CareTimeName(CareKind kind, int time)
+        {
+            if (kind == CareKind.Late) return (time % 12 == 0 ? 12 : time % 12) + (time < 12 ? " am" : " pm");
+            return time % 60 == 0 ? time / 60 + " h" : time + " min";
+        }
+
+        private void ChooseCareTime(CareKind kind)
+        {
+            CareChoices(kind);
+            Key careButton = careTimes[(int)kind];
+            careMenu.Show(careButton, new Point(0, careButton.Height));
+        }
+
+        private void CareChoices(CareKind kind)
+        {
+            careMenu.Items.Clear();
+            int[] choices = kind == CareKind.Late ? new[] { 21, 22, 23, 0, 1, 2, 3, 4, 5 } : kind == CareKind.Meal ? new[] { 180, 240, 300, 360, 480 } : new[] { 15, 25, 30, 45, 60, 90, 120, 180, 240 };
+            foreach (int careChoice in choices)
+            {
+                int careValue = careChoice;
+                ToolStripMenuItem careItem = new ToolStripMenuItem(CareTimeName(kind, careValue));
+                careItem.Checked = capri.CareTime(kind) == careValue;
+                careItem.Click += delegate { capri.SetCareTime(kind, careValue); };
+                careMenu.Items.Add(careItem);
+            }
+        }
+
         private void UseNickname()
         {
             capri.SetNickname(nickname.Box.Text);
@@ -756,15 +938,31 @@ namespace CapriDesktop
             customNote.Text = capri.ChooseCustomModel(custom.Box.Text, lastInstalled);
         }
 
+        internal void TypeCustomModel(string name) { custom.Box.Text = name; UseCustom(); }
+
+        private void UseLocalAddress()
+        {
+            customNote.Text = capri.SetLocalAddress(localAddress.Box.Text);
+            localAddress.Box.Text = capri.LocalAddress;
+        }
+
+        internal void TypeLocalAddress(string address) { localAddress.Box.Text = address; UseLocalAddress(); }
+
+        internal string LocalAddressShown { get { return localAddress.Box.Text; } }
+
         internal bool SettingsShown { get { return paged; } }
 
         internal string SizeStatus { get { return sizeName.Text; } }
 
         internal bool TypingShown { get { return typing.Checked; } }
 
+        internal bool ListenCapriShown { get { return listenCapri.Checked; } }
+
+        internal void FlipListenCapri() { listenCapri.Checked = !listenCapri.Checked; }
+
         internal string HdGamesStatus { get { return hdGames.Visible ? (hdGames.Checked ? "on" : "off") : "-"; } }
 
-        // Free voice in games has the row under Typing sound, shown only while her HD voice is on. Without it, MOVES and KEYS
+        // Free voice in games has the row under Listen for Capri, shown only while her HD voice is on. Without it, MOVES and KEYS
         // move up into its row.
         private void ShowHdGames()
         {
@@ -779,6 +977,7 @@ namespace CapriDesktop
             int back = pageScroll;
             ScrollPage(0);
             foreach (KeyValuePair<Control, int> entry in underVoice) entry.Key.Top = Scaled(entry.Value - lift);
+            CloseGaps();
             ScrollPage(back);
         }
 
@@ -794,6 +993,10 @@ namespace CapriDesktop
 
         internal bool DiscordShown { get { return discord.Checked; } }
 
+        internal bool HeadPatsShown { get { return headPats.Checked; } }
+
+        internal string WanderShown { get { return wanderName.Text; } }
+
         internal string JobsStatus { get { return (cursor.Checked ? "cursor" : "-") + " | " + security.Text; } }
 
         internal string BlackwallStatus { get { return security.Text + " | " + blackwallNote.Text; } }
@@ -803,15 +1006,21 @@ namespace CapriDesktop
         internal void ShowSettings(bool on)
         {
             if (!on) CancelKeys();
+            ScrollPage(0);
             paged = on;
+            simple = !capri.AdvancedSettings;
+            advancedKey.Text = simple ? "Advanced Settings" : "Simple Settings";
+            advancedKey.AccessibleName = simple ? "Advanced Settings: show every setting" : "Simple Settings: show only the main settings";
+            advancedKey.Invalidate();
             more.Text = on ? "Back" : "Settings";
             more.Invalidate();
             Place();
             foreach (KeyValuePair<Control, int> entry in mainLeft) Reachable(entry.Key, !on);
-            foreach (KeyValuePair<Control, int> entry in pageLeft) Reachable(entry.Key, on);
+            foreach (KeyValuePair<Control, int> entry in pageLeft) Reachable(entry.Key, on && !Folded(entry.Key));
             if (Hidden(ActiveControl)) more.Focus();
             if (on) Sync();
             wheel = 0;
+            CloseGaps();
             Arrange(expanded);
             Rectangle area = Screen.FromControl(this).WorkingArea;
             if (on && Right > area.Right) Left = Math.Max(area.Left, area.Right - Width);
@@ -824,11 +1033,34 @@ namespace CapriDesktop
         private void Place()
         {
             foreach (KeyValuePair<Control, int> entry in mainLeft) entry.Key.Left = Scaled(entry.Value) + (paged ? Far : 0);
-            foreach (KeyValuePair<Control, int> entry in pageLeft) entry.Key.Left = Scaled(entry.Value) + (paged ? 0 : Far);
+            foreach (KeyValuePair<Control, int> entry in pageLeft) entry.Key.Left = Scaled(entry.Value) + (paged && !Folded(entry.Key) ? 0 : Far);
             int edge = paged ? Column : 0;
             build.Left = Scaled(230 + edge);
             minimize.Left = Scaled(300 + edge);
             close.Left = Scaled(330 + edge);
+        }
+
+        private bool Folded(Control control)
+        {
+            int top;
+            if (!simple || control == advancedKey || !built.TryGetValue(control, out top)) return false;
+            foreach (int[] band in pageLeft.Exists(entry => entry.Key == control && entry.Value >= Column) ? FoldedRight : FoldedLeft)
+                if (top >= band[0] && top < band[1]) return true;
+            return false;
+        }
+
+        // Moves what's left up over the rows Settings hides while it's simple, or back where it was built.
+        private void CloseGaps()
+        {
+            foreach (KeyValuePair<Control, int> entry in pageLeft)
+            {
+                int top;
+                if (!built.TryGetValue(entry.Key, out top) || Folded(entry.Key)) continue;
+                int gone = 0;
+                if (simple) foreach (int[] band in entry.Value >= Column ? FoldedRight : FoldedLeft) if (top >= band[1]) gone += band[1] - band[0];
+                bool lifts = underVoice.Exists(moved => moved.Key == entry.Key);
+                entry.Key.Top = Scaled(top - gone - (lifts && !simple ? lifted : 0));
+            }
         }
 
         // A header or settings control moves with the page, and Tab landing on it scrolls it into view.
@@ -841,7 +1073,7 @@ namespace CapriDesktop
         // Scrolls just far enough to show all of a control Tab reached. A click leaves the page where it is.
         private void Reveal(Control control)
         {
-            if (!paged || pageView >= PageTall || Control.MouseButtons != MouseButtons.None) return;
+            if (!paged || pageView >= PageNow || Control.MouseButtons != MouseButtons.None) return;
             float s = Unit();
             int edge = Scaled(8);
             // Near the top it goes all the way up, so the header shows too.
@@ -853,7 +1085,7 @@ namespace CapriDesktop
         // Moves the page and its header up by `to` px, as far as the page runs past the screen. Off Settings it's always 0.
         private void ScrollPage(int to)
         {
-            int next = paged ? Math.Max(0, Math.Min(PageTall - pageView, to)) : 0;
+            int next = paged ? Math.Max(0, Math.Min(PageNow - pageView, to)) : 0;
             if (next == pageScroll) return;
             if (pageScroll == 0) foreach (Control control in scrolled) tops[control] = control.Top;
             pageScroll = next;
@@ -863,19 +1095,20 @@ namespace CapriDesktop
             try { foreach (Control control in scrolled) control.Top = tops[control] - shift; }
             finally { Native.SendMessage(Handle, 0x000B, new IntPtr(1), IntPtr.Zero); }
             Invalidate(true);
+            Update();
         }
 
         // How much of the settings page the screen's working area has room for, before scaling.
         private int Fit()
         {
             int room = ShortScreen > 0 ? ShortScreen : (int)(Screen.FromControl(this).WorkingArea.Height / Unit());
-            return Math.Max(4 * ScrollRow, Math.Min(PageTall, room));
+            return Math.Max(4 * ScrollRow, Math.Min(Math.Min(MostView, PageNow), room));
         }
 
         protected override void OnMouseWheel(MouseEventArgs e)
         {
             base.OnMouseWheel(e);
-            if (!paged || pageView >= PageTall) return;
+            if (!paged || pageView >= PageNow) return;
             wheel += e.Delta;
             int rows = wheel / 120;
             wheel -= rows * 120;
@@ -893,7 +1126,10 @@ namespace CapriDesktop
         {
             List<KeyValuePair<Control, int>> hidden = paged ? mainLeft : pageLeft;
             for (Control top = control; top != null && top != this; top = top.Parent)
+            {
+                if (Folded(top)) return true;
                 foreach (KeyValuePair<Control, int> entry in hidden) if (entry.Key == top) return true;
+            }
             return false;
         }
 
@@ -926,19 +1162,37 @@ namespace CapriDesktop
             {
                 CreateParams value = base.CreateParams;
                 value.Style = (value.Style | 0x00020000 | 0x00080000) & ~0x00010000;
+                // Windows paints the page and every control together, so scrolling never shows them half moved.
+                value.ExStyle |= 0x02000000;
                 return value;
             }
         }
 
         protected override void WndProc(ref Message message)
         {
+            if (message.Msg == 0x02E0 && loaded)
+            {
+                monitorDpi = (int)(message.WParam.ToInt64() & 0xFFFF);
+                Rezoom(Wanted());
+                ShowFrameSize();
+                message.Result = IntPtr.Zero;
+                return;
+            }
             base.WndProc(ref message);
             if (message.Msg == 0x0084 && message.Result == new IntPtr(1)) message.Result = new IntPtr(2);
+            if (message.Msg == 0x001A && loaded) { Rezoom(Wanted()); ShowFrameSize(); }
+        }
+
+        protected override void OnLocationChanged(EventArgs e)
+        {
+            base.OnLocationChanged(e);
+            if (loaded && !sizing) { Rezoom(Wanted()); ShowFrameSize(); }
         }
 
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            monitorDpi = (int)Math.Round(DeviceScale() * 96);
             loaded = true;
             Rezoom(Wanted());
             ShowFrameSize();
@@ -953,7 +1207,8 @@ namespace CapriDesktop
         // Resolution, a 3840 x 2160 desktop on a 1920 x 1080 screen at 100%, gets 200%.
         private float Wanted()
         {
-            float shrunk = Panels.Shrink(Screen.FromControl(this));
+            // GitHub's virtual screen says its panel is narrower than the desktop her test needs, which isn't a shrunken monitor.
+            float shrunk = Companion.OnGitHub ? 1f : Panels.Shrink(Screen.FromControl(this));
             autoZoom = Math.Max(1f, Math.Min(2f, (float)Math.Round(shrunk / DeviceScale() * 20) / 20));
             int picked = capri.MainframeSize;
             return picked > 0 ? picked / 100f : autoZoom;
@@ -965,22 +1220,139 @@ namespace CapriDesktop
             frameSizeName.Text = frameSize.Value == 0 && auto != 100 ? "Auto · " + auto + "%" : FrameSizeNames[frameSize.Value];
         }
 
-        // Sizes everything on her Mainframe to a new zoom: every font, then every control's place and size, then each page where
-        // it belongs. Her SECURITY and layers windows pick it up the next time they open.
+        // Bounds and fonts start from the same 96 DPI layout every time. Pixel fonts already include the monitor and text
+        // scales, so Windows must not scale either them or the controls again.
         private void Rezoom(float next)
         {
-            if (!loaded || Math.Abs(next - zoom) < 0.005f) return;
-            float factor = next / zoom;
-            ScrollPage(0);
+            float nextUnit = DeviceScale() * TextScale() * next;
+            if (!loaded || sizing || (Math.Abs(nextUnit - unit) < 0.005f && Math.Abs(next - zoom) < 0.005f && shownFallback == layoutFallback)) return;
+            sizing = true;
             SuspendLayout();
-            Grow(this, factor);
-            foreach (ContextMenuStrip menu in new[] { modelMenu, cloudMenu, voiceMenu, speechModelMenu, freeMenu, micMenu, languageMenu }) menu.Font = Font;
-            Scale(new SizeF(factor, factor));
-            zoom = next;
-            ResumeLayout(false);
-            Place();
-            Arrange(expanded);
-            Shape();
+            try
+            {
+                ScrollPage(0);
+                zoom = next;
+                unit = nextUnit;
+                foreach (LayoutItem item in layout) item.Apply(unit, layoutFallback);
+                shownFallback = layoutFallback;
+                foreach (ContextMenuStrip menu in new[] { modelMenu, cloudMenu, voiceMenu, speechModelMenu, freeMenu, micMenu, languageMenu, careMenu }) menu.Font = Font;
+                foreach (KeyValuePair<Control, int> entry in underVoice) entry.Key.Top = Scaled(entry.Value - lifted);
+                CloseGaps();
+                freeVoices.Width = Scaled(freeReady && !yoursShown ? 328 : 196);
+                customVoice.Width = Scaled(freeReady ? 328 : 196);
+                Place();
+                Arrange(expanded);
+                foreach (Control control in Controls) control.PerformLayout();
+                Shape();
+            }
+            finally { ResumeLayout(true); sizing = false; }
+        }
+
+        private readonly List<LayoutItem> layout = new List<LayoutItem>();
+        private bool sizing;
+        private float unit;
+        private int layoutDpi;
+        private int layoutText;
+        private int monitorDpi;
+        private bool layoutFallback;
+        private bool shownFallback;
+
+        private void RememberLayout(Control control)
+        {
+            layout.Add(new LayoutItem(control));
+            foreach (Control child in control.Controls) RememberLayout(child);
+        }
+
+        private sealed class LayoutItem : IDisposable
+        {
+            private readonly Control control;
+            private readonly Rectangle bounds;
+            private readonly Size maximum;
+            private readonly Font font;
+            private readonly Font hint;
+            private readonly Font flag;
+            private Font scaledFont, scaledHint, scaledFlag;
+
+            internal LayoutItem(Control control)
+            {
+                this.control = control;
+                bounds = control.Bounds;
+                maximum = control.MaximumSize;
+                font = control.Font;
+                Rung rung = control as Rung;
+                Toggle toggle = control as Toggle;
+                hint = rung != null ? rung.HintFont : toggle != null ? toggle.HintFont : null;
+                flag = rung != null ? rung.FlagFont : null;
+            }
+
+            internal void Apply(float scale, bool fallback)
+            {
+                Font oldFont = scaledFont, oldHint = scaledHint, oldFlag = scaledFlag;
+                scaledFont = Pixels(font, scale, fallback);
+                scaledHint = Pixels(hint, scale, fallback);
+                scaledFlag = Pixels(flag, scale, fallback);
+                control.Font = scaledFont;
+                Rung rung = control as Rung;
+                Toggle toggle = control as Toggle;
+                if (rung != null) { rung.HintFont = scaledHint; rung.FlagFont = scaledFlag; }
+                if (toggle != null) toggle.HintFont = scaledHint;
+                control.MaximumSize = new Size(At(maximum.Width, scale), At(maximum.Height, scale));
+                if (!(control is Form))
+                {
+                    Label label = control as Label;
+                    if (label != null && label.AutoSize) control.Location = new Point(At(bounds.X, scale), At(bounds.Y, scale));
+                    else control.Bounds = Rectangle.FromLTRB(At(bounds.Left, scale), At(bounds.Top, scale), At(bounds.Right, scale), At(bounds.Bottom, scale));
+                }
+                if (oldFont != null) oldFont.Dispose();
+                if (oldHint != null) oldHint.Dispose();
+                if (oldFlag != null) oldFlag.Dispose();
+            }
+
+            private static int At(int value, float scale) { return (int)Math.Round(value * scale); }
+
+            private static Font Pixels(Font original, float scale, bool fallback)
+            {
+                if (original == null) return null;
+                float points = original.SizeInPoints;
+                FontStyle style = original.Style;
+                if (fallback)
+                {
+                    bool face = original.Name.StartsWith("Bahnschrift", StringComparison.OrdinalIgnoreCase);
+                    if (face) { points -= points >= 15 ? 3f : 0.5f; style = FontStyle.Regular; }
+                    return Look.FallbackMono(points * 96f / 72f * scale, style, GraphicsUnit.Pixel);
+                }
+                return new Font(original.FontFamily, points * 96f / 72f * scale, style, GraphicsUnit.Pixel);
+            }
+
+            public void Dispose()
+            {
+                if (scaledFont != null) scaledFont.Dispose();
+                if (scaledHint != null) scaledHint.Dispose();
+                if (scaledFlag != null) scaledFlag.Dispose();
+            }
+        }
+
+        private float TextScale()
+        {
+            if (layoutText > 0) return layoutText / 100f;
+            try
+            {
+                object value = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Accessibility", "TextScaleFactor", 100);
+                int percent = value is int ? (int)value : 100;
+                return percent >= 100 && percent <= 225 ? percent / 100f : 1f;
+            }
+            catch (System.Security.SecurityException) { return 1f; }
+            catch (UnauthorizedAccessException) { return 1f; }
+            catch (System.IO.IOException) { return 1f; }
+        }
+
+        internal void LayoutScale(int dpi, int text, bool fallback = false)
+        {
+            layoutDpi = dpi;
+            layoutText = text;
+            layoutFallback = fallback;
+            Rezoom(Wanted());
+            ShowFrameSize();
         }
 
         // Her Mainframe's zoom, and picking its size as they would, for the smoke test.
@@ -1092,11 +1464,11 @@ namespace CapriDesktop
             Edging(graphics, this, s);
             if (paged)
             {
-                if (pageView >= PageTall) return;
+                if (pageView >= PageNow) return;
                 // A thin thumb on her right edge shows how much of the page is on screen, and where.
                 float rail = Height - 36 * s;
-                float thumb = rail * pageView / PageTall;
-                float at = 18 * s + (rail - thumb) * pageScroll / (PageTall - pageView);
+                float thumb = rail * pageView / PageNow;
+                float at = 18 * s + (rail - thumb) * pageScroll / (PageNow - pageView);
                 using (Brush track = new SolidBrush(Dash)) graphics.FillRectangle(track, Width - 8 * s, 18 * s, 2 * s, rail);
                 using (Brush lit = new SolidBrush(Cyan)) graphics.FillRectangle(lit, Width - 8 * s, at, 2 * s, thumb);
                 return;
@@ -1181,13 +1553,27 @@ namespace CapriDesktop
             return Narrow != null ? new Font(Narrow, points, FontStyle.Regular, GraphicsUnit.Point) : Look.Mono(points - 3f, FontStyle.Bold, GraphicsUnit.Point);
         }
 
-        private float DeviceScale() { return CurrentAutoScaleDimensions.Width / 96f; }
+        private float DeviceScale()
+        {
+            if (layoutDpi > 0) return layoutDpi / 96f;
+            if (monitorDpi > 0) return monitorDpi / 96f;
+            try
+            {
+                if (IsHandleCreated)
+                {
+                    int dpi = Native.GetDpiForWindow(Handle);
+                    if (dpi > 0) return dpi / 96f;
+                }
+            }
+            catch (EntryPointNotFoundException) { }
+            using (Graphics screen = Graphics.FromHwnd(IntPtr.Zero)) return screen.DpiX / 96f;
+        }
 
         // Her Mainframe size on top of the screen's own scale: 1 unless a bigger size is picked, or Auto finds a desktop
         // bigger than the panel showing it.
         private float zoom = 1f;
 
-        private float Unit() { return DeviceScale() * zoom; }
+        private float Unit() { return unit > 0 ? unit : 1f; }
 
         // The scale of whichever of her windows a control is on: the Mainframe, their voice server's panel or her SECURITY
         // window, which the smoke test also draws at 150% and 200%.
@@ -1196,9 +1582,10 @@ namespace CapriDesktop
             Form form = control.FindForm();
             if (form == null) return 1f;
             Mainframe main = form as Mainframe;
+            if (main != null) return main.Unit();
             SecuritySheet guarded = form as SecuritySheet;
             LayersSheet layers = form as LayersSheet;
-            float zoom = main != null ? main.zoom : guarded != null ? guarded.Zoom : layers != null ? layers.Zoom : 1f;
+            float zoom = guarded != null ? guarded.Zoom : layers != null ? layers.Zoom : 1f;
             return form.CurrentAutoScaleDimensions.Width / 96f * zoom;
         }
 
@@ -1225,12 +1612,11 @@ namespace CapriDesktop
             brainNote.MaximumSize = new Size(Scaled(328), 0);
             voiceNote.MaximumSize = new Size(Scaled(328), 0);
             updateNote.MaximumSize = new Size(Scaled(328), 0);
-            customNote.MaximumSize = new Size(Scaled(328), 0);
             if (keysNote != null) keysNote.MaximumSize = new Size(Scaled(328), 0);
             if (paged) pageView = Fit();
             ClientSize = new Size(Scaled(paged ? Wide + Column : Wide), Scaled(paged ? pageView : Tall + shift + below - fold));
             ScrollPage(pageScroll);
-            bool scrolls = paged && pageView < PageTall;
+            bool scrolls = paged && pageView < PageNow;
             topRim.Visible = bottomRim.Visible = scrolls;
             if (scrolls)
             {
@@ -1248,8 +1634,9 @@ namespace CapriDesktop
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { Application.RemoveMessageFilter(this); modelMenu.Dispose(); voiceMenu.Dispose(); speechModelMenu.Dispose(); micMenu.Dispose(); languageMenu.Dispose(); freeMenu.Dispose(); }
+            if (disposing) { Application.RemoveMessageFilter(this); modelMenu.Dispose(); voiceMenu.Dispose(); speechModelMenu.Dispose(); micMenu.Dispose(); languageMenu.Dispose(); freeMenu.Dispose(); careMenu.Dispose(); }
             base.Dispose(disposing);
+            if (disposing) foreach (LayoutItem item in layout) item.Dispose();
         }
 
         internal void Restore()
@@ -1273,13 +1660,35 @@ namespace CapriDesktop
             startup.Checked = capri.StartsWithWindows;
             discord.Checked = capri.OnDiscord;
             cursor.Checked = capri.UsesCursor;
+            gamingMode.Checked = capri.GamingWanted;
             security.Text = "Security: " + Security.PresetName;
             blackwallNote.Text = Security.Short;
             if (guard != null && !guard.IsDisposed) guard.Sync();
+            if (extras != null && !extras.IsDisposed) extras.Sync();
             watch.Checked = capri.Watching;
             caughtUp.Checked = capri.CaughtUp;
+            followUps.Checked = capri.FollowUps;
+            watchMemory.Value = Math.Max(0, Array.IndexOf(WatchLines, capri.WatchMemoryLines));
+            watchMemoryName.Text = WatchLineNames[watchMemory.Value];
             stayOnModel.Checked = capri.StayOnModel;
             remembering.Checked = capri.Remembers;
+            keepAwake.Checked = capri.KeepAwake;
+            hideFullScreen.Checked = capri.HideFullScreen;
+            playerFullScreen.Checked = capri.PlayerFullScreen;
+            exploreAway.Checked = capri.ExploreAway;
+            exploreAfter.Value = Math.Max(0, Array.IndexOf(AwayTimes, capri.ExploreAfter));
+            exploreAfterName.Text = AwayNames[exploreAfter.Value];
+            for (int careSync = 0; careSync < careToggles.Length; careSync++)
+            {
+                CareKind careSetting = (CareKind)careSync;
+                careToggles[careSync].Checked = capri.CareOn(careSetting);
+                careTimes[careSync].Text = CareTimeName(careSetting, capri.CareTime(careSetting));
+                careTimes[careSync].AccessibleName = Care.Names[careSync] + (careSetting == CareKind.Late ? " after " : " every ") + careTimes[careSync].Text;
+            }
+            clipGames.Checked = capri.ClipsOn;
+            clipMoments.Checked = capri.ClipMomentsOn;
+            fastHands.Checked = capri.FastHandsOn;
+            gameMute.Checked = capri.Shushed;
             frameSize.Value = Math.Max(0, Array.IndexOf(FrameSizes, capri.MainframeSize));
             ShowFrameSize();
             VoiceTier();
@@ -1314,10 +1723,14 @@ namespace CapriDesktop
             pops.Value = Math.Max(0, Math.Min(PopNames.Length - 1, capri.PopPace));
             popsName.Text = PopNames[pops.Value];
             dance.Checked = capri.Dancing;
+            headPats.Checked = capri.HeadPats;
             bubble.Value = capri.BubbleTime;
             bubbleName.Text = BubbleNames[bubble.Value];
+            comments.Value = capri.CommentPace;
+            commentsName.Text = Commentary.PaceNames[comments.Value];
             intro.Checked = capri.Intro;
             typing.Checked = capri.TypingSound;
+            listenCapri.Checked = capri.ListenCapriOn;
             ShowHdGames();
             miniPlayer.Checked = capri.PlayerOn;
             replies.Value = capri.Wordiness;
@@ -1325,6 +1738,11 @@ namespace CapriDesktop
             recall.Value = Math.Max(0, Array.IndexOf(Recalls, capri.Recall));
             recallName.Text = Lengths[recall.Value];
             ShowPersonality();
+            memorySize.Value = Math.Max(0, Array.IndexOf(Brain.MemorySizes, capri.MemorySize));
+            memorySizeName.Text = MemoryNames[memorySize.Value];
+            replyLength.Value = capri.ReplyLength;
+            replyLengthName.Text = ReplyNames[replyLength.Value];
+            if (!localAddress.Box.Focused) localAddress.Box.Text = capri.LocalAddress;
             perchFps.Value = Math.Max(0, Array.IndexOf(Companion.PerchRates, capri.PerchFps));
             ShowPerch();
             syncing = false;
@@ -1346,6 +1764,12 @@ namespace CapriDesktop
 
         internal string PerchStatus { get { return perchFpsName.Text + " | " + (perchNote.Text.Length > 0 ? perchNote.Text : "-"); } }
 
+        internal string BrainSettings { get { return memorySizeName.Text + " | " + replyLengthName.Text; } }
+
+        internal void SlideMemorySize(int index) { memorySize.Slide(index); }
+
+        internal void SlideReplyLength(int index) { replyLength.Slide(index); }
+
         internal void SlidePerch(int steps) { Press(perchFps, steps); }
 
         internal string PopsShown { get { return popsName.Text; } }
@@ -1360,6 +1784,9 @@ namespace CapriDesktop
         internal bool WatchShown { get { return watch.Checked; } }
 
         internal bool CaughtUpShown { get { return caughtUp.Checked; } }
+        internal bool FollowUpsShown { get { return followUps.Checked; } }
+        internal int WatchMemoryShown { get { return WatchLines[watchMemory.Value]; } }
+        internal void FlipFollowUps() { followUps.Checked = !followUps.Checked; }
 
         internal void FlipCaughtUp() { caughtUp.Checked = !caughtUp.Checked; }
 
@@ -1367,9 +1794,48 @@ namespace CapriDesktop
 
         internal void FlipStay() { stayOnModel.Checked = !stayOnModel.Checked; }
 
+        internal bool KeepAwakeShown { get { return keepAwake.Checked; } }
+        internal void FlipKeepAwake() { keepAwake.Checked = !keepAwake.Checked; }
+        internal string DesktopSettingsStatus { get { return hideFullScreen.Checked + " | " + playerFullScreen.Checked + " | " + exploreAway.Checked + " | " + exploreAfterName.Text; } }
+        internal void FlipHideFullScreen() { hideFullScreen.Checked = !hideFullScreen.Checked; }
+        internal void FlipPlayerFullScreen() { playerFullScreen.Checked = !playerFullScreen.Checked; }
+        internal void FlipExploreAway() { exploreAway.Checked = !exploreAway.Checked; }
+        internal void SlideExploreAfter(int steps) { Press(exploreAfter, steps); }
+        internal bool DesktopSettingsFit
+        {
+            get
+            {
+                foreach (Toggle desktopToggle in new[] { keepAwake, hideFullScreen, playerFullScreen, exploreAway })
+                    if (TextRenderer.MeasureText(desktopToggle.Text, desktopToggle.Font, Size.Empty, TextFormatFlags.NoPadding).Width > desktopToggle.NameRoom || !PageArea.Contains(desktopToggle.Bounds)) return false;
+                return keepAwake.Top >= perchNote.Bottom && keepAwake.Bottom <= hideFullScreen.Top && !string.IsNullOrEmpty(keepAwake.AccessibleName)
+                    && PageArea.Contains(exploreAfter.Bounds) && PageArea.Contains(exploreAfterName.Bounds);
+            }
+        }
+
         internal bool RemembersShown { get { return remembering.Checked; } }
 
         internal void FlipRemembering() { remembering.Checked = !remembering.Checked; }
+
+        internal bool CareShown(CareKind kind) { return careToggles[(int)kind].Checked; }
+
+        internal string CareTimeShown(CareKind kind) { return careTimes[(int)kind].Text; }
+
+        internal void FlipCare(CareKind kind) { careToggles[(int)kind].Checked = !careToggles[(int)kind].Checked; }
+
+        internal void PickCareTime(CareKind kind, int time)
+        {
+            CareChoices(kind);
+            foreach (ToolStripMenuItem carePick in careMenu.Items)
+                if (carePick.Text == CareTimeName(kind, time)) { carePick.PerformClick(); break; }
+            careMenu.Close();
+        }
+        internal bool ClipsShown { get { return clipGames.Checked; } }
+
+        internal void FlipClips() { clipGames.Checked = !clipGames.Checked; }
+
+        internal bool ClipMomentsShown { get { return clipMoments.Checked; } }
+
+        internal void FlipClipMoments() { clipMoments.Checked = !clipMoments.Checked; }
 
         internal bool ElevenShown { get { return voiceRow == 3 && cloudName == Eleven && voiceRungs[3].Checked && !voiceRungs[0].Checked && !voiceRungs[1].Checked && !voiceRungs[2].Checked; } }
 
@@ -1390,9 +1856,128 @@ namespace CapriDesktop
                 for (int j = i + 1; j < Controls.Count; j++)
                 {
                     Control a = Controls[i], b = Controls[j];
+                    if (Hidden(a) || Hidden(b)) continue;
                     if (!a.Visible || !b.Visible || (a is Label && a.Text.Length == 0) || (b is Label && b.Text.Length == 0)) continue;
                     if (a.Bounds.IntersectsWith(b.Bounds)) return a.Text + " / " + b.Text;
                 }
+            return null;
+        }
+
+        internal string TextFits()
+        {
+            using (Bitmap paper = new Bitmap(1, 1))
+            using (Graphics graphics = Graphics.FromImage(paper)) return TextFits(graphics);
+        }
+
+        private string TextFits(Graphics graphics)
+        {
+            List<KeyValuePair<string, Rectangle>> text = new List<KeyValuePair<string, Rectangle>>();
+            foreach (Control control in Controls)
+            {
+                if (Hidden(control)) continue;
+                string problem = CheckText(graphics, control, Point.Empty, text, control.Visible);
+                if (problem != null) return problem;
+            }
+            for (int first = 0; first < text.Count; first++)
+                for (int second = first + 1; second < text.Count; second++)
+                    if (text[first].Value.IntersectsWith(text[second].Value)) return text[first].Key + " overlaps " + text[second].Key;
+            return null;
+        }
+
+        private static string CheckText(Graphics graphics, Control control, Point origin, List<KeyValuePair<string, Rectangle>> text, bool shown)
+        {
+            Point at = new Point(origin.X + control.Left, origin.Y + control.Top);
+            string name = control.GetType().Name + " at " + at.X + "," + at.Y;
+            List<KeyValuePair<string, Rectangle>> visible = shown ? text : null;
+            TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding;
+            Rectangle area = control.ClientRectangle;
+            float scale = ScaleOf(control);
+            string problem = null;
+            Entry entry = control as Entry;
+            Rung rung = control as Rung;
+            Toggle toggle = control as Toggle;
+            Slider slider = control as Slider;
+            Key key = control as Key;
+            Label label = control as Label;
+            TextBox box = control as TextBox;
+            if (entry != null)
+            {
+                problem = FitsText(graphics, entry.Cue, entry.Box.Font, entry.Box.Bounds, flags, at, name + " cue", visible);
+            }
+            else if (box != null)
+            {
+                Size line = TextRenderer.MeasureText(graphics, "Mg", box.Font, Size.Empty, flags);
+                if (line.Height > box.Height || !box.Parent.ClientRectangle.Contains(box.Bounds)) problem = name + " clips the input line";
+            }
+            else if (rung != null)
+            {
+                int left = (int)(24 * scale);
+                problem = FitsText(graphics, rung.Text, rung.Font, new Rectangle(left, 0, rung.Width - left, rung.Height), flags, at, name + " name", visible);
+                int rungAfter = left + TextRenderer.MeasureText(graphics, rung.Text, rung.Font, Size.Empty, flags).Width + (int)(8 * scale);
+                if (problem == null) problem = FitsText(graphics, rung.Hint, rung.HintFont ?? rung.Font, new Rectangle(rungAfter, 0, Math.Max(0, rung.Width - rungAfter), rung.Height), flags, at, name + " hint", visible);
+                if (problem == null) problem = FitsText(graphics, rung.Flag, rung.FlagFont ?? rung.Font, new Rectangle(0, 0, rung.Width - (int)(6 * scale), rung.Height), flags | TextFormatFlags.Right, at, name + " flag", visible);
+            }
+            else if (toggle != null)
+            {
+                problem = FitsText(graphics, toggle.Text, toggle.Font, new Rectangle(0, 0, toggle.NameRoom, toggle.Height), flags, at, name + " name", visible);
+                float line = Math.Max(1f, scale), wide = toggle.Switch * scale, gap = 4 * scale, half = (wide - gap) / 2, start = toggle.Width - wide;
+                using (Font small = toggle.SmallFont())
+                {
+                    if (problem == null) problem = FitsText(graphics, "OFF", small, Rectangle.Round(new RectangleF(start + line / 2, line / 2, half - line, toggle.Height - line)), flags | TextFormatFlags.HorizontalCenter, at, name + " off", visible);
+                    if (problem == null) problem = FitsText(graphics, "ON", small, Rectangle.Round(new RectangleF(start + half + gap + line / 2, line / 2, half - line, toggle.Height - line)), flags | TextFormatFlags.HorizontalCenter, at, name + " on", visible);
+                }
+                if (toggle.Hint != null && problem == null)
+                {
+                    int toggleAfter = TextRenderer.MeasureText(graphics, toggle.Text, toggle.Font, Size.Empty, flags).Width + (int)(10 * scale);
+                    Font hintFont = toggle.HintFont ?? toggle.Font;
+                    if (toggleAfter + TextRenderer.MeasureText(graphics, toggle.Hint, hintFont, Size.Empty, flags).Width <= toggle.NameRoom)
+                        problem = FitsText(graphics, toggle.Hint, hintFont, new Rectangle(toggleAfter, 0, toggle.NameRoom - toggleAfter, toggle.Height), flags, at, name + " hint", visible);
+                }
+            }
+            else if (slider != null)
+            {
+                int reach = slider.Stepper ? (int)(26 * scale) : 0;
+                area = new Rectangle(reach, 0, slider.Width - 2 * reach, slider.Stepper ? (int)(slider.Height - 4 * scale) : slider.Height);
+                problem = FitsText(graphics, slider.Shown, slider.Font, area, flags | TextFormatFlags.HorizontalCenter, at, name, visible);
+                foreach (string choice in slider.Choices)
+                {
+                    if (problem != null) break;
+                    problem = FitsText(graphics, choice, slider.Font, area, flags, at, name + " choice", null);
+                }
+            }
+            else if (key != null)
+            {
+                if (key.Chevron) area = new Rectangle((int)(10 * scale), 0, key.Width - (int)(32 * scale), key.Height);
+                problem = FitsText(graphics, key.Text, key.Font, area, flags | (key.Chevron ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter), at, name, visible);
+            }
+            else if (label != null)
+            {
+                Head head = label as Head;
+                string words = head != null ? head.Shown : label.Text;
+                TextFormatFlags labelFlags = TextFormatFlags.NoPrefix | (head != null ? TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter : TextFormatFlags.WordBreak);
+                if (label.TextAlign == ContentAlignment.MiddleRight) labelFlags |= TextFormatFlags.Right | TextFormatFlags.VerticalCenter;
+                problem = FitsText(graphics, words, label.Font, area, labelFlags, at, name, visible);
+            }
+            if (problem != null) return problem;
+            foreach (Control child in control.Controls)
+            {
+                problem = CheckText(graphics, child, at, text, shown && child.Visible);
+                if (problem != null) return problem;
+            }
+            return null;
+        }
+
+        private static string FitsText(Graphics graphics, string words, Font font, Rectangle area, TextFormatFlags flags, Point origin, string name, List<KeyValuePair<string, Rectangle>> text)
+        {
+            if (string.IsNullOrEmpty(words)) return null;
+            Size proposed = (flags & TextFormatFlags.WordBreak) != 0 ? new Size(Math.Max(1, area.Width), int.MaxValue) : Size.Empty;
+            Size measured = TextRenderer.MeasureText(graphics, words, font, proposed, flags);
+            if (measured.Width > area.Width || measured.Height > area.Height) return name + " needs " + measured.Width + "x" + measured.Height + " in " + area.Width + "x" + area.Height;
+            int x = area.X, y = area.Y;
+            if ((flags & TextFormatFlags.Right) != 0) x += area.Width - measured.Width;
+            else if ((flags & TextFormatFlags.HorizontalCenter) != 0) x += (area.Width - measured.Width) / 2;
+            if ((flags & TextFormatFlags.VerticalCenter) != 0) y += (area.Height - measured.Height) / 2;
+            if (text != null) text.Add(new KeyValuePair<string, Rectangle>(name, new Rectangle(origin.X + x, origin.Y + y, measured.Width, measured.Height)));
             return null;
         }
 
@@ -1403,21 +1988,21 @@ namespace CapriDesktop
             foreach (KeyValuePair<Control, int> entry in pageLeft)
             {
                 Control control = entry.Key;
-                if (!control.Visible || (control is Label && control.Text.Length == 0)) continue;
+                if (Folded(control) || !control.Visible || (control is Label && control.Text.Length == 0)) continue;
                 if (!page.Contains(control.Bounds)) return control.Text.Length > 0 ? control.Text : control.AccessibleName;
             }
             return null;
         }
 
         // The whole settings page, scrolled or not, in the window's own px.
-        private Rectangle PageArea { get { return paged ? new Rectangle(0, -Scaled(pageScroll), ClientSize.Width, Math.Max(ClientSize.Height, Scaled(PageTall))) : ClientRectangle; } }
+        private Rectangle PageArea { get { return paged ? new Rectangle(0, -Scaled(pageScroll), ClientSize.Width, Math.Max(ClientSize.Height, Scaled(PageNow))) : ClientRectangle; } }
 
         // Settings on a short screen: how much shows (or whole) and whether the rims hold her frame together.
-        internal string ScrollStatus { get { return (paged && pageView < PageTall ? pageView + " tall" : "whole") + " | " + (topRim.Visible && bottomRim.Visible ? "rims" : "-"); } }
+        internal string ScrollStatus { get { return (paged && pageView < PageNow ? pageView + " tall" : "whole") + " | " + (topRim.Visible && bottomRim.Visible ? "rims" : "-"); } }
 
         internal int Scrolled { get { return pageScroll; } }
 
-        internal int ScrollMost { get { return Math.Max(0, PageTall - pageView); } }
+        internal int ScrollMost { get { return Math.Max(0, PageNow - pageView); } }
 
         internal int BackTop { get { return more.Top; } }
 
@@ -1449,22 +2034,30 @@ namespace CapriDesktop
         }
 
         // Tabs through Settings from Back and names the first control that gets focus without all of it showing, or null.
-        internal string TabShows()
+        internal string TabShows(out string limit)
         {
+            limit = null;
+            Restore();
+            if (Control.MouseButtons != MouseButtons.None) { limit = "a mouse button is held"; return null; }
+            if (!more.Focus() || !more.Focused) { limit = "Windows did not give Settings keyboard focus"; return null; }
             Control from = more;
             bool keys = false;
             for (int i = 0; i < 160; i++)
             {
+                if (Control.MouseButtons != MouseButtons.None) { limit = "a mouse button was pressed during the Tab walk"; return null; }
+                if (!ContainsFocus) { limit = "Settings lost keyboard focus during the Tab walk"; return null; }
                 if (!SelectNextControl(from, true, true, true, true)) break;
                 Control at = ActiveControl;
+                if (!ContainsFocus) { limit = "Settings lost keyboard focus during the Tab walk"; return null; }
                 if (at == null || at == from || at == more) break;
+                if (!at.ContainsFocus) return "Tab selected a control without moving keyboard focus";
                 Control whole = at;
                 while (whole.Parent != this) whole = whole.Parent;
                 if (!ClientRectangle.Contains(whole.Bounds)) return "Tab reached " + (whole.AccessibleName ?? whole.Text) + " half off the screen";
                 keys = keys || whole == quietKeys;
                 from = at;
             }
-            more.Focus();
+            if (!more.Focus() || !more.Focused) { limit = "Windows did not return keyboard focus to Back"; return null; }
             return keys ? null : "Tab never reached the quiet key";
         }
 
@@ -1497,24 +2090,49 @@ namespace CapriDesktop
             models.Visible = true;
             hint.Visible = false;
             lastInstalled = installed;
-            modelMenu.Items.Clear();
-            foreach (string name in installed)
-            {
-                string pick = name;
-                ToolStripMenuItem item = new ToolStripMenuItem(name, null, delegate { capri.ChooseModel(pick); ShowOllama(lastInstalled, pick); });
-                item.Checked = name == chosen;
-                modelMenu.Items.Add(item);
-            }
+            LocalMenu(chosen, null);
             Arrange(false);
         }
+
+        internal void ShowServers(List<Cloud> servers, string[] installed, Pick local)
+        {
+            lastServers = servers;
+            lastInstalled = installed;
+            lastLocal = local;
+        }
+
+        private void LocalMenu(string chosen, Cloud remote)
+        {
+            modelMenu.Items.Clear();
+            foreach (string name in lastInstalled ?? new string[0])
+            {
+                string pick = name;
+                ToolStripMenuItem item = new ToolStripMenuItem("Ollama · " + name, null, delegate { capri.ChooseLocalBrain(null, pick, null); ShowOllama(lastInstalled, pick); });
+                item.Checked = remote == null && name == chosen;
+                modelMenu.Items.Add(item);
+            }
+            if (lastLocal != null) modelMenu.Items.Add(Choice("Built-in · " + lastLocal.Name, remote == null && chosen == lastLocal.Name, delegate { capri.ChooseLocalBrain(null, lastLocal.Name, lastLocal); ShowLocal(lastLocal); }));
+            List<Cloud> listed = new List<Cloud>(lastServers);
+            if (remote != null && !listed.Exists(candidate => candidate.Source == remote.Source)) listed.Add(remote);
+            foreach (Cloud server in listed)
+            {
+                Cloud pick = new Cloud(server.Port, server.Model, server.Host);
+                modelMenu.Items.Add(Choice(pick.Name + " · " + pick.Model, remote != null && remote.Source == pick.Source, delegate { capri.ChooseLocalBrain(pick, pick.Model, null); ShowCloud(pick, null); }));
+            }
+        }
+
+        internal string[] BrainChoices { get { List<string> choices = new List<string>(); foreach (ToolStripItem item in modelMenu.Items) choices.Add(item.Text); return choices.ToArray(); } }
+
+        internal void PickBrain(int index) { ((ToolStripMenuItem)modelMenu.Items[index]).PerformClick(); }
 
         internal void ShowCloud(Cloud remote, List<string> found)
         {
             brainName.Text = remote.Name + " · " + remote.Model;
-            brainNote.Text = "Using your " + remote.Company + " key";
+            brainNote.Text = remote.Kind == "local" ? "Running on this PC · :" + remote.Port : "Using your " + remote.Company + " key";
             models.Text = remote.Model;
             models.Visible = true;
             hint.Visible = false;
+            if (remote.Kind == "local") { LocalMenu(null, remote); Arrange(false); return; }
             modelMenu.Items.Clear();
             foreach (string name in found ?? new List<string> { remote.Model })
             {
@@ -1534,9 +2152,9 @@ namespace CapriDesktop
             syncing = false;
             string tail = tier == 1 ? nvidiaTail : tier == 2 ? paidTail : null;
             textSaved = tail != null;
-            textEntry.Box.AccessibleName = tier == 1 ? "NVIDIA API key" : "OpenAI, Anthropic or DeepSeek API key";
-            tierNote.Text = tier == 1 ? "Most NVIDIA models can't see your screen." : "Pick one. Only one brain runs at a time.";
-            textEntry.Cue = textSaved ? (tier == 1 ? "NVIDIA key saved, ends " : "Key saved, ends ") + tail : tier == 1 ? "Paste your free NVIDIA key" : "Paste a ChatGPT or Claude key";
+            textEntry.Box.AccessibleName = tier == 1 ? "NVIDIA API key" : "Google AI, OpenRouter, OpenAI, Anthropic or DeepSeek API key";
+            tierNote.Text = tier == 1 ? "Most NVIDIA models can't see your screen." : tier == 2 ? "Gemini, OpenRouter, ChatGPT, Claude, DeepSeek" : "Pick one. Only one brain runs at a time.";
+            textEntry.Cue = textSaved ? (tier == 1 ? "NVIDIA key saved, ends " : "Key saved, ends ") + tail : tier == 1 ? "Paste your free NVIDIA key" : "Paste a brain API key";
             RelabelText();
             Arrange(expanded);
         }
@@ -1548,7 +2166,8 @@ namespace CapriDesktop
                 Rectangle last = rungs[rungs.Length - 1].Bounds;
                 bool row = !textEntry.Visible || (textEntry.Top >= last.Bottom && textConnect.Right <= ClientSize.Width);
                 int end = textEntry.Visible ? textEntry.Bottom : last.Bottom;
-                return rungs[0].Top >= tierNote.Bottom && rungs[1].Top >= rungs[0].Bottom && rungs[2].Top >= rungs[1].Bottom && freeKey.Left >= rungs[1].Right && freeKey.Top >= rungs[1].Top && freeKey.Bottom <= rungs[1].Bottom && row && end <= voiceHead.Top && rungs[0].Right <= ClientSize.Width;
+                foreach (Rung brainRung in rungs) if (!brainRung.Fits) return false;
+                return tierNote.Right <= ClientSize.Width && rungs[0].Top >= tierNote.Bottom && rungs[1].Top >= rungs[0].Bottom && rungs[2].Top >= rungs[1].Bottom && freeKey.Left >= rungs[1].Right && freeKey.Top >= rungs[1].Top && freeKey.Bottom <= rungs[1].Bottom && row && end <= voiceHead.Top && rungs[0].Right <= ClientSize.Width;
             }
         }
 
@@ -1574,7 +2193,9 @@ namespace CapriDesktop
         {
             brainName.Text = "Built-in · " + pick.Name;
             brainNote.Text = "Running on this PC";
-            models.Visible = false;
+            models.Text = pick.Name;
+            models.Visible = lastServers.Count > 0 || (lastInstalled != null && lastInstalled.Length > 0);
+            LocalMenu(pick.Name, null);
             hint.Visible = false;
             Arrange(false);
         }
@@ -1778,7 +2399,7 @@ namespace CapriDesktop
 
         // `yours`: their clip is what her HD voice clones. `kept`: one is saved but she's on her own. `served`: the name of the voice
         // server she speaks through, like Fish Audio, when it's picked.
-        internal void ShowFree(bool ready, string chosen, bool busy, bool hdFits, bool yours, bool kept, string served = null)
+        internal void ShowFree(bool ready, string chosen, bool busy, Machine machine, bool yours, bool kept, string served = null)
         {
             bool hd = chosen == QwenVoice.Style;
             ShowHdGames();
@@ -1800,20 +2421,18 @@ namespace CapriDesktop
             // Capri ships no voice clip, so HD copies only a clip they pick: before there is one, HD asks for it.
             if (!yours && !kept)
             {
-                ToolStripMenuItem own = Choice(!hdFits ? "HD · needs a 6 GB graphics card" : "HD · graphics card, " + Engine.Amount(QwenVoice.PackSize), hd, delegate { PickYourVoice(); });
-                own.Enabled = hdFits;
+                ToolStripMenuItem own = Choice(QwenVoice.Advice(machine), hd, delegate { PickYourVoice(); });
                 freeMenu.Items.Add(own);
             }
             // Only her HD voice clones from a clip; her other styles are set voices.
             if (yours || kept)
             {
                 ToolStripMenuItem theirs = Choice("Your voice (HD)", yoursShown, delegate { if (yours) capri.ChooseVoiceStyle(QwenVoice.Style); else capri.UseKeptVoice(); });
-                theirs.Enabled = hdFits;
                 freeMenu.Items.Add(theirs);
             }
             ToolStripMenuItem pick = Choice(yours || kept ? "Pick a new clip of you..." : "Your voice (HD) · pick a clip of you...", false, delegate { PickYourVoice(); });
-            pick.Enabled = hdFits;
             freeMenu.Items.Add(pick);
+            freeMenu.Items.Add(Choice(QwenVoice.CpuChoice, capri.HdCpu, delegate { capri.ToggleHdCpu(); }));
             freeVoices.Invalidate();
             customVoice.Invalidate();
             freeSetup.Invalidate();
@@ -1842,6 +2461,15 @@ namespace CapriDesktop
                     if (choice != null && (choice.Text.StartsWith("HD ", StringComparison.Ordinal) || choice.Text.IndexOf("you", StringComparison.OrdinalIgnoreCase) >= 0)) items.Add(choice.Text + (choice.Checked ? " (picked)" : ""));
                 }
                 return freeVoices.Text + " | " + string.Join(", ", items.ToArray());
+            }
+        }
+
+        internal bool HdChoicesEnabled
+        {
+            get
+            {
+                foreach (ToolStripItem item in freeMenu.Items) if (item is ToolStripMenuItem && !item.Enabled) return false;
+                return true;
             }
         }
 
@@ -1890,6 +2518,16 @@ namespace CapriDesktop
             guard.Activate();
         }
 
+        // Her EXTRAS window, over the Mainframe like SECURITY. Only a new install's first launch opens it.
+        internal void ShowExtras()
+        {
+            if (extras != null && !extras.IsDisposed && extras.Zoom != zoom) extras.Close();
+            if (extras == null || extras.IsDisposed) extras = new ExtrasSheet(this, zoom);
+            extras.Sync();
+            if (!extras.Visible) extras.Show(this);
+            extras.Activate();
+        }
+
         // Her VOICE LAYERS window, over the Mainframe like SECURITY.
         private void OpenLayers()
         {
@@ -1928,7 +2566,7 @@ namespace CapriDesktop
 
         internal string LayersCrowded { get { return layered == null || layered.IsDisposed ? "not open" : layered.Crowded(); } }
 
-        // VOICE's heading from 100% to 200%: "Every voice, ElevenLabs too" and the Layers button each fit their own text, and
+        // VOICE's heading from 100% to 200%: "Applies to every voice" and the Layers button each fit their own text, and
         // they don't meet. Null when they do.
         internal string VoiceHeadingFits()
         {
@@ -1975,6 +2613,14 @@ namespace CapriDesktop
         internal void TapSecurity(int preset) { guard.Tap(preset); }
 
         internal void CloseSecurity() { if (guard != null && !guard.IsDisposed) guard.Close(); }
+
+        internal string ExtrasShown { get { return extras == null || extras.IsDisposed || !extras.Visible ? null : extras.Showing; } }
+
+        internal void FlipExtra(int row) { extras.Flip(row); }
+
+        internal void CloseExtras() { if (extras != null && !extras.IsDisposed) extras.Close(); }
+
+        internal string ExtrasCrowded { get { return extras == null || extras.IsDisposed ? "not open" : extras.Crowded(); } }
 
         internal string SecurityCrowded { get { return guard == null || guard.IsDisposed ? "not open" : guard.Crowded(); } }
 
@@ -2090,16 +2736,18 @@ namespace CapriDesktop
             KeyLabels();
         }
 
-        internal void ShowKeys(bool type, bool hide, bool quiet)
+        internal void ShowKeys(bool type, bool hide, bool quiet, bool game = true)
         {
             typeReady = type;
             hideReady = hide;
             quietReady = quiet;
+            gameReady = game;
             KeyLabels();
         }
 
-        internal void Hotkeys(string talk, string mute, string type, string hide, string quiet)
+        internal void Hotkeys(string talk, string mute, string type, string hide, string quiet, string game)
         {
+            gameName = game;
             talkName = talk;
             muteName = mute;
             typeName = type;
@@ -2108,7 +2756,13 @@ namespace CapriDesktop
             KeyLabels();
         }
 
-        // Which of her keys to change: 0 talk, 1 mute mic, 2 type to her, 3 hide or show her, 4 quiet.
+        internal void PushKey(string name)
+        {
+            pushName = name;
+            KeyLabels();
+        }
+
+        // Which of her keys to change: 0 talk, 1 mute mic, 2 type to her, 3 hide or show her, 4 quiet, 5 Gaming Mode, 6 push to talk.
         // Opening another key while one is being picked drops what was pressed, so the old key stays.
         internal void PickKeys(int slot)
         {
@@ -2129,6 +2783,15 @@ namespace CapriDesktop
             int mods = Companion.HotMods(keys, win || key == Keys.LWin || key == Keys.RWin);
             if (key == Keys.ControlKey || key == Keys.LControlKey || key == Keys.RControlKey || key == Keys.Menu || key == Keys.LMenu || key == Keys.RMenu || key == Keys.ShiftKey || key == Keys.LShiftKey || key == Keys.RShiftKey || key == Keys.LWin || key == Keys.RWin)
             {
+                // Push to talk can be Ctrl, Alt or Shift alone, like a game's own push to talk. Any other key can join it.
+                if (capturing == Companion.PushSlot + 1 && key != Keys.LWin && key != Keys.RWin)
+                {
+                    pendingMods = 0;
+                    pendingVk = key == Keys.ControlKey || key == Keys.LControlKey || key == Keys.RControlKey ? 0x11 : key == Keys.Menu || key == Keys.LMenu || key == Keys.RMenu ? 0x12 : 0x10;
+                    KeyLabels();
+                    KeysNote("Confirm to keep " + Companion.KeyName(pendingMods, pendingVk) + ". It still does its own job in games and apps.", false);
+                    return;
+                }
                 // A modifier on its own only shows until a key joins it, and never counts as her key.
                 if (pendingMods < 0) { heldMods = mods; KeyLabels(); }
                 return;
@@ -2138,6 +2801,7 @@ namespace CapriDesktop
             pendingVk = (int)key;
             KeyLabels();
             string name = Companion.KeyName(pendingMods, pendingVk);
+            if (capturing == Companion.PushSlot + 1) { KeysNote("Confirm to keep " + name + ". It still does its own job in games and apps.", false); return; }
             KeysNote(Companion.Swallows(pendingMods, pendingVk) ? name + " won't type in other apps while she runs. Confirm to keep it."
                 : Companion.ByMouse(pendingVk) ? name + " still does its own job in other apps too. Confirm to keep it." : "Confirm to keep " + name + ", or Cancel.", false);
         }
@@ -2152,7 +2816,19 @@ namespace CapriDesktop
             capturing = 0;
             pendingMods = -1;
             KeyLabels();
-            KeysNote("Saved. " + (slot == 0 ? talkName + " starts voice chat." : slot == 1 ? muteName + " mutes your mic." : slot == 2 ? typeName + " opens her typing box." : slot == 3 ? hideName + " hides or shows her." : quietName + " keeps her quiet, and lets her talk again.") + (Companion.Swallows(mods, vk) ? " It won't type in other apps while she runs." : Companion.ByMouse(vk) ? " It still does its own job in other apps too." : ""), false);
+            if (slot == Companion.PushSlot) { KeysNote("Saved. Hold " + pushName + " to talk to her, with a game in front too.", false); return; }
+            KeysNote("Saved. " + (slot == 0 ? talkName + " starts voice chat." : slot == 1 ? muteName + " mutes your mic." : slot == 2 ? typeName + " opens her typing box." : slot == 3 ? hideName + " hides or shows her." : slot == 5 ? gameName + " turns Gaming Mode on and off." : quietName + " keeps her quiet, and lets her talk again.") + (Companion.Swallows(mods, vk) ? " It won't type in other apps while she runs." : Companion.ByMouse(vk) ? " It still does its own job in other apps too." : ""), false);
+        }
+
+        // Push to talk is the one key she can do without.
+        private void ClearPush()
+        {
+            if (capturing != Companion.PushSlot + 1) return;
+            capri.SetHotkey(Companion.PushSlot, 0, 0);
+            capturing = 0;
+            pendingMods = -1;
+            KeyLabels();
+            KeysNote("Push to talk is off.", false);
         }
 
         internal void CancelKeys()
@@ -2166,7 +2842,7 @@ namespace CapriDesktop
 
         internal bool ConfirmReady { get { return confirmKeys.Visible && confirmKeys.Enabled; } }
 
-        private Control PickedKey { get { return capturing == 1 ? talkKeys : capturing == 2 ? muteKeys : capturing == 3 ? typeKeys : capturing == 4 ? hideKeys : capturing == 5 ? quietKeys : null; } }
+        private Control PickedKey { get { return capturing == 1 ? talkKeys : capturing == 2 ? muteKeys : capturing == 3 ? typeKeys : capturing == 4 ? hideKeys : capturing == 5 ? quietKeys : capturing == 6 ? gameKeys : capturing == 7 ? pushKeys : null; } }
 
         private static bool WinHeld() { return (Native.GetKeyState(0x5B) & 0x8000) != 0 || (Native.GetKeyState(0x5C) & 0x8000) != 0; }
 
@@ -2212,7 +2888,10 @@ namespace CapriDesktop
             typeKeys.Text = capturing == 3 ? PickingText("Type: ") : "Type: " + typeName + (typeReady ? "" : " (taken)");
             hideKeys.Text = capturing == 4 ? PickingText("Hide/show: ") : "Hide/show: " + hideName + (hideReady ? "" : " (taken)");
             quietKeys.Text = capturing == 5 ? PickingText("Quiet: ") : "Quiet: " + quietName + (quietReady ? "" : " (taken)");
+            gameKeys.Text = capturing == 6 ? PickingText("Gaming Mode: ") : "Gaming Mode: " + gameName + (gameReady ? "" : " (taken)");
+            pushKeys.Text = capturing == 7 ? PickingText("Push to talk: ") : "Push to talk: " + pushName;
             confirmKeys.Visible = cancelKeys.Visible = capturing != 0;
+            clearKeys.Visible = capturing == 6;
             confirmKeys.Enabled = pendingMods >= 0;
             confirmKeys.Invalidate();
         }
@@ -2229,6 +2908,10 @@ namespace CapriDesktop
         internal string KeyStatus { get { return shortcut.Text + " | " + muteShortcut.Text; } }
         internal string KeysShown { get { return talkKeys.Text + " | " + muteKeys.Text + " | " + typeKeys.Text + " | " + hideKeys.Text; } }
         internal string QuietKeyShown { get { return quietKeys.Text; } }
+        internal string PushKeyShown { get { return pushKeys.Text; } }
+        internal string CommentsShown { get { return commentsName.Text; } }
+        internal string GameKeyShown { get { return gameKeys.Text; } }
+        internal bool GamingShown { get { return gamingMode.Checked; } }
 
         internal void ShowMic(string name)
         {
@@ -2381,7 +3064,7 @@ namespace CapriDesktop
 
             internal RectangleF Band(float s) { return new RectangleF(Left - 14 * s, Top - 5 * s, Span * s, 24 * s); }
 
-            private string Shown { get { return Text.EndsWith(" >", StringComparison.Ordinal) ? Text.Substring(0, Text.Length - 2) : Text; } }
+            internal string Shown { get { return Text.EndsWith(" >", StringComparison.Ordinal) ? Text.Substring(0, Text.Length - 2) : Text; } }
 
             public override Size GetPreferredSize(Size proposed)
             {
@@ -2497,7 +3180,7 @@ namespace CapriDesktop
                 }
                 if (Chevron) Drop(graphics, Width - 19 * s, y, s, Enabled ? Cyan : ink, hot);
                 Rectangle area = Chevron ? new Rectangle((int)(10 * s), 0, Width - (int)(32 * s), Height) : ClientRectangle;
-                TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis | (Chevron ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter);
+                TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis | (Chevron ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter);
                 TextRenderer.DrawText(graphics, Text, Font, area, ink, flags);
             }
         }
@@ -2963,7 +3646,7 @@ namespace CapriDesktop
             internal void Choose(string name)
             {
                 foreach (ToolStripItem item in services.Items) if (item.Text == name) { item.PerformClick(); return; }
-                throw new InvalidOperationException("The voice model panel has no " + name + " to pick.");
+                throw new InvalidOperationException("The voice model panel has no " + name + " to pick: disposed " + IsDisposed + ", visible " + Visible + ", choices " + Choices + ".");
             }
 
             // Their own Fish Audio voices, listed with the key they typed or the one saved, to pick from.
@@ -3149,7 +3832,7 @@ namespace CapriDesktop
             {
                 foreach (Control control in Controls)
                     if (control is Key && control.Text == button && control.Visible && control.Enabled) { typeof(Control).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(control, new object[] { EventArgs.Empty }); return; }
-                throw new InvalidOperationException("The voice server panel has no " + button + " button to press.");
+                throw new InvalidOperationException("The voice server panel has no " + button + " button to press: disposed " + IsDisposed + ", visible " + Visible + ", enabled " + Enabled + ", saved key " + (savedTail != null) + ", choices " + Choices + ".");
             }
 
             protected override void OnShown(EventArgs e)
@@ -3284,8 +3967,8 @@ namespace CapriDesktop
                 Caption("What she does on your PC without asking. With a toggle off she asks first, and does it when you say yes.", 28, 52, small, Faint);
                 Caption("Preset", 28, 82, Type(9.5f * zoom), Rose);
                 presets = new Slider(new[] { Security.Presets[0], Security.Presets[1], Security.Presets[2], Security.Presets[3] });
-                presets.Font = Type(9.5f * zoom);
-                presets.Bounds = Box(120, 79, 260, 22);
+                presets.Font = Type(12f * zoom, true);
+                presets.Bounds = Box(120, 70, 340, 36);
                 presets.AccessibleName = "Security preset: Lockdown, Guarded, Trusted or Blackwall";
                 presets.Changed += delegate { if (!syncing) Security.Pick(presets.Value); };
                 presets.MouseUp += delegate { if (!syncing && Security.Preset == Security.Custom) Security.Pick(presets.Value); };
@@ -3341,6 +4024,9 @@ namespace CapriDesktop
                 presetName.Text = Security.Presets[preset];
                 presetName.ForeColor = preset == Security.Custom ? Look.Yellow : Cyan;
                 presetLine.Text = Security.PresetLine(preset);
+                presets.Torn = preset == Security.Blackwall;
+                presets.Storm = preset == Security.Blackwall && owner.capri.Moves;
+                presets.Ink = preset == Security.Blackwall ? Color.FromArgb(255, 0, 70) : Color.Empty;
                 for (int i = 0; i < Security.Count; i++) toggles[i].Checked = Security.On(i);
                 syncing = false;
             }
@@ -3411,6 +4097,173 @@ namespace CapriDesktop
             }
 
             // Over the Mainframe, like their voice server's panel, and on the screen.
+            protected override void OnLoad(EventArgs e)
+            {
+                base.OnLoad(e);
+                Rectangle area = Screen.FromControl(owner).WorkingArea;
+                int x = owner.Left + (owner.Width - Width) / 2, y = owner.Top + (int)(48 * ScaleOf(this));
+                Location = new Point(Math.Max(area.Left, Math.Min(area.Right - Width, x)), Math.Max(area.Top, Math.Min(area.Bottom - Height, y)));
+            }
+
+            protected override void OnSizeChanged(EventArgs e)
+            {
+                base.OnSizeChanged(e);
+                float s = ScaleOf(this);
+                Clip(this, s);
+                Invalidate(true);
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+                float s = ScaleOf(this);
+                Graphics graphics = e.Graphics;
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                Backdrop(graphics, this, s);
+                Edging(graphics, this, s);
+            }
+
+            // Esc closes it.
+            protected override void OnKeyDown(KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.Escape) { e.Handled = true; Close(); return; }
+                base.OnKeyDown(e);
+            }
+
+            // Dragged by any spot that isn't a control, like the Mainframe.
+            protected override void WndProc(ref Message message)
+            {
+                base.WndProc(ref message);
+                if (message.Msg == 0x0084 && message.Result == new IntPtr(1)) message.Result = new IntPtr(2);
+            }
+        }
+
+        // Her EXTRAS window, in SECURITY's look, over the Mainframe on a new install's first launch (Lachy, 31 Oct: so many cool
+        // ones were off with nothing pointing at them). Each costs something or uses the mic, so they start off and it's their
+        // pick, and all four are in Settings too.
+        private sealed class ExtrasSheet : Form
+        {
+            internal const int Wide = 600, Tall = 366;
+            internal readonly float Zoom;
+            private readonly Mainframe owner;
+            private readonly Toggle[] toggles = new Toggle[4];
+            private bool syncing;
+
+            internal ExtrasSheet(Mainframe owner, float zoom)
+            {
+                this.owner = owner;
+                Zoom = zoom;
+                Text = "Extras";
+                Icon = owner.Icon;
+                ShowInTaskbar = false;
+                // She's always on top, and on a new install she arrives in the middle of the screen, right where this opens.
+                TopMost = true;
+                FormBorderStyle = FormBorderStyle.None;
+                StartPosition = FormStartPosition.Manual;
+                AutoScaleMode = AutoScaleMode.Dpi;
+                AutoScaleDimensions = new SizeF(96, 96);
+                Font = Type(9f * zoom);
+                BackColor = Ground;
+                ForeColor = White;
+                DoubleBuffered = true;
+                KeyPreview = true;
+                ClientSize = new Size(Z(Wide), Z(Tall));
+                Font small = Look.Mono(8.5f * zoom, FontStyle.Regular, GraphicsUnit.Point);
+                Heading(this, "EXTRAS >", new Point(Z(24), Z(15)), Display(15f * zoom), Rose, 0);
+                Key shut = new Key();
+                shut.Bounds = Box(Wide - 54, 20, 26, 22);
+                shut.Glyph = 2;
+                shut.AccessibleName = "Close";
+                shut.Click += delegate { Close(); };
+                Controls.Add(shut);
+                Caption("These start off. Turn on what you want. They're all in Settings too.", 28, 52, small, Faint);
+                Extra(0, "Watch my screen", "She glances at your screen and comments. Costs a little on a paid brain.", small, delegate { owner.capri.ToggleWatch(); });
+                Extra(1, "Comment on my games", "She talks about your game as you play. Costs a little on a paid brain.", small, delegate { owner.capri.SetCommentPace(toggles[1].Checked ? 2 : 0); owner.Sync(); });
+                Extra(2, "Clip my games", "Keeps the last two minutes of your game in memory. Say clip that to save it.", small, delegate { owner.capri.ToggleClips(); });
+                Extra(3, "Listen for Capri", "She keeps listening and answers when you say her name.", small, delegate { owner.capri.ToggleListenCapri(); });
+                Key done = new Key();
+                done.Text = "Done";
+                done.Font = Type(9f * zoom, true);
+                done.Accent = Cyan;
+                done.Loud = true;
+                done.Bounds = Box(Wide - 128, Tall - 44, 100, 26);
+                done.Click += delegate { Close(); };
+                Controls.Add(done);
+                Sync();
+            }
+
+            private void Extra(int row, string name, string line, Font small, Action changed)
+            {
+                int y = 84 + 58 * row;
+                Toggle box = new Toggle();
+                box.Text = name;
+                box.Font = Font;
+                box.Switch = 96;
+                box.Bounds = Box(28, y, Wide - 56, 22);
+                box.AccessibleName = name + ". " + line;
+                box.CheckedChanged += delegate { if (!syncing) changed(); };
+                Controls.Add(box);
+                toggles[row] = box;
+                Caption(line, 28, y + 24, small, Faint);
+            }
+
+            private int Z(int value) { return (int)Math.Round(value * Zoom); }
+
+            private Rectangle Box(int x, int y, int width, int height) { return new Rectangle(Z(x), Z(y), Z(width), Z(height)); }
+
+            private void Caption(string text, int x, int y, Font font, Color colour)
+            {
+                Label label = new Note();
+                label.Text = text;
+                label.Font = font;
+                label.ForeColor = colour;
+                label.BackColor = Ground;
+                label.AutoSize = true;
+                label.Location = new Point(Z(x), Z(y));
+                Controls.Add(label);
+            }
+
+            internal void Sync()
+            {
+                syncing = true;
+                toggles[0].Checked = owner.capri.Watching;
+                toggles[1].Checked = owner.capri.CommentPace > 0;
+                toggles[2].Checked = owner.capri.ClipsOn;
+                toggles[3].Checked = owner.capri.ListenCapriOn;
+                syncing = false;
+            }
+
+            // Each toggle as 1 or 0, and a click on one as they'd do it, for the smoke test.
+            internal string Showing
+            {
+                get
+                {
+                    System.Text.StringBuilder bits = new System.Text.StringBuilder();
+                    foreach (Toggle box in toggles) bits.Append(box.Checked ? '1' : '0');
+                    return bits.ToString();
+                }
+            }
+
+            internal void Flip(int row) { toggles[row].Checked = !toggles[row].Checked; }
+
+            // Anything that overlaps, pokes out of the window or doesn't fit its own text, or null.
+            internal string Crowded()
+            {
+                float s = ScaleOf(this);
+                for (int i = 0; i < Controls.Count; i++)
+                {
+                    Control a = Controls[i];
+                    if (!a.Visible) continue;
+                    if (!ClientRectangle.Contains(a.Bounds) || a.Right > ClientSize.Width - (int)(16 * s)) return "pokes out: " + (a.Text.Length > 0 ? a.Text : a.AccessibleName) + " " + a.Bounds + " in " + ClientSize;
+                    Toggle box = a as Toggle;
+                    if (box != null && TextRenderer.MeasureText(box.Text, box.Font).Width > box.NameRoom) return "doesn't fit: " + box.Text;
+                    for (int j = i + 1; j < Controls.Count; j++)
+                        if (Controls[j].Visible && a.Bounds.IntersectsWith(Controls[j].Bounds)) return "overlap: " + (a.Text.Length > 0 ? a.Text : a.AccessibleName) + " / " + (Controls[j].Text.Length > 0 ? Controls[j].Text : Controls[j].AccessibleName);
+                }
+                return null;
+            }
+
+            // Over the Mainframe, like SECURITY, and on the screen.
             protected override void OnLoad(EventArgs e)
             {
                 base.OnLoad(e);
@@ -3750,6 +4603,56 @@ namespace CapriDesktop
             private Color ink = Color.Empty;
             // A tick under every step, or every few on a slider with many, like her voice layers' pitch and delay.
             internal int TickEvery = 1;
+            // Blackwall's preset: red, torn and never quite still while it's picked (Lachy, 1 Nov).
+            internal bool Torn;
+            private System.Windows.Forms.Timer storm;
+            private readonly Random tears = new Random();
+            internal bool Storm
+            {
+                get { return storm != null; }
+                set
+                {
+                    if (value == (storm != null)) return;
+                    if (value)
+                    {
+                        storm = new System.Windows.Forms.Timer();
+                        storm.Interval = 70;
+                        storm.Tick += delegate { Invalidate(); };
+                        storm.Start();
+                    }
+                    else { storm.Dispose(); storm = null; }
+                    Invalidate();
+                }
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing) Storm = false;
+                base.Dispose(disposing);
+            }
+
+            // With Motion off it holds one torn frame, always the same.
+            private void Tear(Graphics graphics, float s, TextFormatFlags flags, int reach)
+            {
+                Random rolls = storm != null ? tears : new Random(7);
+                Color red = Color.FromArgb(255, 0, 70);
+                using (Pen rim = new Pen(red, Math.Max(1f, s))) graphics.DrawRectangle(rim, 0, 0, Width - 1, Height - 1);
+                if (rolls.Next(3) == 0) return;
+                int shift = rolls.Next(-3, 4);
+                Rectangle band = new Rectangle(0, rolls.Next(0, Math.Max(1, Height - 4)), Width, 2 + rolls.Next((int)(6 * s) + 1));
+                graphics.SetClip(band);
+                using (Brush dark = new SolidBrush(Color.FromArgb(8, 6, 12))) graphics.FillRectangle(dark, band);
+                TextRenderer.DrawText(graphics, Shown, Font, new Rectangle(reach + shift, 0, Width - 2 * reach, (int)(Height - 4 * s)), red, flags | TextFormatFlags.PreserveGraphicsClipping);
+                graphics.ResetClip();
+                using (Brush shard = new SolidBrush(red))
+                using (Brush black = new SolidBrush(Color.FromArgb(8, 6, 12)))
+                    for (int i = 0; i < 3; i++)
+                    {
+                        int x = rolls.Next(Width), y = rolls.Next(Height), wide = 4 + rolls.Next((int)(22 * s) + 1);
+                        graphics.FillRectangle(i == 1 ? black : shard, x, y, wide, Math.Max(1, (int)(1.5f * s)));
+                    }
+            }
+
             internal event EventHandler Changed;
             // Once the knob or an arrow key is let go somewhere new.
             internal event EventHandler Released;
@@ -3775,7 +4678,9 @@ namespace CapriDesktop
 
             internal Color Ink { get { return ink.IsEmpty ? Cyan : ink; } set { ink = value; Invalidate(); } }
 
-            private bool Stepper { get { return labels.Length <= 7; } }
+            internal bool Stepper { get { return labels.Length <= 7; } }
+
+            internal string[] Choices { get { return labels; } }
 
             private void Place(int wanted)
             {
@@ -3871,7 +4776,7 @@ namespace CapriDesktop
                 float line = Math.Max(1f, s);
                 RectangleF box = new RectangleF(line / 2, line / 2, Width - line, Height - line);
                 Color rim = Focused && ShowFocusCues ? Cyan : hot || sliding ? Color.FromArgb(156, 40, 56) : Edge;
-                TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis;
+                TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis;
                 if (Stepper)
                 {
                     using (GraphicsPath plate = Cut(box, 0, 5 * s, 5 * s, 0))
@@ -3889,6 +4794,7 @@ namespace CapriDesktop
                     using (Brush off = new SolidBrush(Dash))
                     using (Brush on = new SolidBrush(Lit))
                         for (int i = 0; i < labels.Length; i++) graphics.FillRectangle(i == value ? on : off, left + i * (dash + gap), Height - 5.5f * s, dash, Math.Max(1, 1.5f * s));
+                    if (Torn) Tear(graphics, s, flags, reach);
                     return;
                 }
                 float travel = Width - 2 * s - Grip;
@@ -3940,6 +4846,15 @@ namespace CapriDesktop
             internal string Flag;
             internal Font FlagFont;
 
+            internal bool Fits
+            {
+                get
+                {
+                    TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
+                    return (int)(32 * ScaleOf(this)) + TextRenderer.MeasureText(Text, Font, Size.Empty, flags).Width + TextRenderer.MeasureText(Hint ?? "", HintFont ?? Font, Size.Empty, flags).Width <= Width;
+                }
+            }
+
             internal Rung()
             {
                 SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
@@ -3975,11 +4890,11 @@ namespace CapriDesktop
                 if (Checked) using (Brush mark = new SolidBrush(Cyan)) graphics.FillPolygon(mark, diamond);
                 else using (Pen pen = new Pen(lit ? Cyan : Faint, 1.2f * s)) graphics.DrawPolygon(pen, diamond);
                 int left = (int)(24 * s);
-                TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
+                TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
                 TextRenderer.DrawText(graphics, Text, Font, new Rectangle(left, 0, Width - left, Height), Checked ? Cyan : White, flags);
                 int after = left + TextRenderer.MeasureText(graphics, Text, Font, Size.Empty, flags).Width + (int)(8 * s);
                 if (Hint != null) TextRenderer.DrawText(graphics, Hint, HintFont ?? Font, new Rectangle(after, 0, Math.Max(0, Width - after), Height), Faint, flags);
-                if (Flag != null) TextRenderer.DrawText(graphics, Flag, FlagFont ?? Font, new Rectangle(0, 0, Width - (int)(6 * s), Height), Look.Yellow, TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+                if (Flag != null) TextRenderer.DrawText(graphics, Flag, FlagFont ?? Font, new Rectangle(0, 0, Width - (int)(6 * s), Height), Look.Yellow, TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
             }
         }
 
@@ -4006,6 +4921,8 @@ namespace CapriDesktop
 
             // The width its name has before the pair, in px.
             internal int NameRoom { get { return Width - (int)Math.Ceiling((Switch + 10) * ScaleOf(this)); } }
+
+            internal Font SmallFont() { return Font.Unit == GraphicsUnit.Pixel ? new Font(Font.FontFamily, Font.Size * 8.75f / 9.5f, Font.Style, GraphicsUnit.Pixel) : Type(Font.SizeInPoints - 0.75f, true); }
 
             private int Part(int x)
             {
@@ -4049,7 +4966,7 @@ namespace CapriDesktop
                 Graphics graphics = e.Graphics;
                 Backdrop(graphics, this, s);
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                if (small == null) small = Type(Font.SizeInPoints - 0.75f, true);
+                if (small == null) small = SmallFont();
                 float line = Math.Max(1f, s), wide = Switch * s, gap = 4 * s, half = (wide - gap) / 2, start = Width - wide;
                 RectangleF off = new RectangleF(start + line / 2, line / 2, half - line, Height - line);
                 RectangleF on = new RectangleF(start + half + gap + line / 2, line / 2, half - line, Height - line);
@@ -4072,7 +4989,7 @@ namespace CapriDesktop
                     onInk = over == 1 ? Color.FromArgb(110, 210, 216) : Color.FromArgb(28, 68, 72);
                 }
                 if (!Enabled) { offFill = onFill = Field; offRim = onRim = Color.FromArgb(52, 22, 32); offInk = onInk = Color.FromArgb(112, 94, 104); }
-                TextFormatFlags centre = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
+                TextFormatFlags centre = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
                 using (GraphicsPath plate = Cut(off, 0, 0, 0, 5 * s))
                 {
                     using (Brush fill = new SolidBrush(offFill)) graphics.FillPath(fill, plate);
@@ -4089,11 +5006,11 @@ namespace CapriDesktop
                     using (GraphicsPath around = Cut(new RectangleF(start - 2 * s, line / 2, wide + 2 * s - line / 2, Height - line), 0, 0, 5 * s, 0))
                     using (Pen pen = new Pen(Cyan, line))
                         graphics.DrawPath(pen, around);
-                TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis;
+                TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis;
                 int room = NameRoom;
                 TextRenderer.DrawText(graphics, Text, Font, new Rectangle(0, 0, room, Height), Enabled ? Rose : Faint, flags);
                 if (Hint == null) return;
-                TextFormatFlags measure = TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
+                TextFormatFlags measure = TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
                 int after = TextRenderer.MeasureText(graphics, Text, Font, Size.Empty, measure).Width + (int)(10 * s);
                 Font hint = HintFont ?? Font;
                 if (after + TextRenderer.MeasureText(graphics, Hint, hint, Size.Empty, measure).Width <= room) TextRenderer.DrawText(graphics, Hint, hint, new Rectangle(after, 0, room - after, Height), Faint, flags);

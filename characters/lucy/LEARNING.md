@@ -5,6 +5,22 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 1 Nov: merging Capri 0.7.8
+
+**What changed:** about 180 of Lachy's commits came in (streaming, Gaming Mode, chess, drawing on screen, reminders, file reading and more). Git merged most of it by itself. Five files had conflicts, where we and Lachy had both changed the same lines:
+
+- `app/Capri.cs`: her pop-up lines stay `Character.PopLines` (he added four new Capri lines; Lucy keeps hers). His new reminders line and our `personality.md` lines both stay.
+- `app/Hands.cs`: two tool descriptions. We take his new "which browser" option for `open_website`, and keep our like/unlike for `media`.
+- `app/Mainframe.cs`: the Obsidian hint takes his new "that vault wasn't there" message but keeps our note name. His new memory-size and reply-length settings sit next to our personality row.
+- `ci/build-windows.ps1`: his list of new files, plus our `Character` and `YouTubeMusic`, plus our `-Character` line.
+- `README.md`: ours, since it describes the fork.
+
+**Idea: a test that guards a fingerprint.** Lachy rewrote part of her default personality. Our self-test checks it by its *SHA-256*: a short code worked out from the text, which changes completely if even one letter does. So the new text needed its new code (`todaysPersona`, and her length is now 6964 characters). In `Brain.cs`, `DefaultStamp` is a shorter fingerprint of the same text, so it changed too. The old one went into `Retired`. That list is how she knows an untouched old `personality.md` is safe to update to the new default, while one you edited stays yours.
+
+**Idea: "point, don't move" paid off.** The `PopLines` conflict was one line, and the fix was obvious. That's what the 31 Oct entry was about.
+
+---
+
 ## 1 Nov: the app becomes Lucy Desktop, with its own releases
 
 **What changed:** a `-Character lucy` build is now its own app, **Lucy Desktop**, not a Capri in disguise. It has its own settings folder, autostart entry, Start menu entry and uninstall entry, so it runs next to your real Capri without either one noticing. Its updater looks at *your* GitHub releases, and the **Release Lucy Desktop** button on GitHub (Actions tab) makes one. Details are under "Releases" in `NOTES.md`.
