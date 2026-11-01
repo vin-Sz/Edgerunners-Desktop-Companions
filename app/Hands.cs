@@ -35,6 +35,7 @@ namespace CapriDesktop
         [DataMember(Name = "description")] public string Description;
         [DataMember(Name = "path")] public string Path;
         [DataMember(Name = "page")] public int? Page;
+        [DataMember(Name = "count")] public int? Count;
         [DataMember(Name = "offset")] public long? Offset;
         [DataMember(Name = "when")] public string When;
         [DataMember(Name = "often")] public string Often;
@@ -519,7 +520,11 @@ namespace CapriDesktop
             "Questions about their current screen or song need a tool too. If the target is unclear, pick the closest match yourself. For chat, negated or hypothetical requests, call no tool and reply with only the word: chat";
 
         internal const string Chat =
-            "\nNo tools ran for this message. Answer as yourself, with your own opinions and tastes. Don't claim you opened, played or looked at anything. You keep notes about them in me.md, saved whenever they ask you to remember something, so never say you can't remember things or keep memories; if they asked you to and nothing was saved, ask what they want you to remember. You can search Google for them: if they ask something you don't know or that changes, like the weather, news, scores or prices, say you'll look it up instead of guessing or saying you can't. You can always see their screen and use their mouse and keyboard, and you play games on their PC yourself, so never say you can't, never ask them to show you their screen, and never offer to talk them through something instead of doing it. If they want anything done on their PC or in a game, in any language, like opening something, sending something, playing a game or clicking something, never ask whether to: reply with only the word: act";
+            "\nNo tools ran for this message. Answer as yourself, with your own opinions and tastes. Don't claim you opened, played or looked at anything. You keep notes about them in me.md, saved whenever they ask you to remember something, so never say you can't remember things or keep memories; if they asked you to and nothing was saved, ask what they want you to remember. You can search Google for them: if they ask something you don't know or that changes, like the weather, news, scores or prices, say you'll look it up instead of guessing or saying you can't. You can always see their screen and use their mouse and keyboard, and you play games on their PC yourself, so never say you can't, never ask them to show you their screen, and never offer to talk them through something instead of doing it." +
+#if !CROSS
+            " When they insult you personally, in any language, like calling you annoying, useless or dumb, start your reply with the tag [hurt] and then answer in character. Never use the tag for teasing about anything else or when they're sad." +
+#endif
+            " If they want anything done on their PC or in a game, in any language, like opening something, sending something, playing a game, drawing something on their screen or clicking something, never ask whether to: reply with only the word: act";
 
         // Chat when her brain said "act" but her hands found nothing to do: she just answers.
         internal static string ChatOnly { get { return Chat.Substring(0, Chat.LastIndexOf(" If they want anything done", StringComparison.Ordinal)); } }
@@ -575,9 +580,11 @@ namespace CapriDesktop
               "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"Which animation\",\"enum\":[\"idle\",\"glitch\",\"grin\",\"blink\",\"dance\",\"stop_dancing\"]}},\"required\":[\"name\"]}" },
 #if !CROSS
             { "draw", Ink.Description, Ink.Schema },
+            { "clone", "Make copies of yourself on their screen. They wander around, talk to each other, steal the cursor and drag notes in until they're cleared. Use it when they ask you to clone, copy, duplicate or multiply yourself or to activate chaos mode, in any language, and when they ask you to get rid of your clones or end chaos mode.",
+              "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"description\":\"spawn makes copies and stop removes them all\",\"enum\":[\"spawn\",\"stop\"]},\"count\":{\"type\":\"integer\",\"description\":\"How many copies to make. Leave it out and they keep multiplying by themselves until they're cleared\"}},\"required\":[\"action\"]}" },
             { "watch_along", "Watch a video, stream or film together on any window. Start when they ask watch this with me, let's watch this or react to this. Hear the PC's words, look at the screen and react now and then until they ask to stop or it ends. Use action stop to finish watching together; watch_for is for a particular event.",
               "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"description\":\"What to do\",\"enum\":[\"start\",\"stop\"]}},\"required\":[\"action\"]}" },
-            { "gaming_mode", "Turn Gaming Mode on or off: you watch their game and react when something happens, until it closes.",
+            { "gaming_mode", "Turn Gaming Mode on or off, only when they ask for Gaming Mode by name: you watch their game and react when something happens, until it closes.",
               "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"description\":\"What to do\",\"enum\":[\"on\",\"off\",\"up\",\"down\",\"left\",\"right\",\"reset\"]}},\"required\":[\"action\"]}" },
             { "clip", "Save the recent game video to Videos\\Capri Clips on this PC. Use this when they ask to clip a game, including clip that. Clip my games in Settings > GAMES must be on. The default is the last 30 seconds; seconds can request a different stretch of the buffered video.",
               "{\"type\":\"object\",\"properties\":{\"seconds\":{\"type\":\"string\",\"description\":\"How many seconds to save, if they said\"}}}" },
@@ -784,6 +791,15 @@ namespace CapriDesktop
         internal static Func<string, string, string> MoveSelf = delegate { return "Couldn't move just now."; };
         // Plays one of her animations by name, or starts or stops her dance, and says how it went. Her window sets it.
         internal static Func<string, string> Animate = delegate { return "Couldn't do that just now."; };
+#if !CROSS
+        // Makes her clones or clears them, and says how it went. Her window sets it.
+        internal static Func<string, int, string> Clone = delegate { return "Couldn't do that just now."; };
+        internal static Func<bool> Cloning = delegate { return false; };
+        // "Clone yourself", "make 5 clones", "start multiplying". A number makes that many, and no number lets them keep multiplying.
+        private static readonly Regex CloneOn = new Regex(@"^(?:start |begin |go ahead and |just )?(?:(?:clon(?:e|ing)|duplicat(?:e|ing)|replicat(?:e|ing)|multiply(?:ing)?|copy(?:ing)?) your ?self(?: (?<count>\d+) times?)?(?: as (?:many|much)(?: times)? as you (?:want|like|can))?|clon(?:e|ing)|duplicat(?:e|ing)|replicat(?:e|ing)|multiply(?:ing)?|(?:make|spawn|create|summon)(?: me)? (?:(?<count>\d+) |an? |some |more |lots of |a bunch of |as many )?(?:clones?|copies|duplicates?)(?: of (?:your ?self|you))?(?: as you (?:want|like|can))?|(?:(?:activate|enable|start|begin|turn on|enter|go into|switch to)(?: the)? )?chaos mode(?: on)?|(?:unleash|cause) (?:the )?chaos)$", RegexOptions.IgnoreCase);
+        private static readonly Regex CloneOff = new Regex(@"^(?:(?:stop|end|kill|remove|delete|clear|get rid of|destroy|banish|no more|enough(?: of)?|turn off|put away|send away)(?: (?:all|of|the|your))* (?:clones?|copies|duplicates?|cloning|duplicating|multiplying)|clones? off|chaos mode off|(?:stop|end|deactivate|disable|turn off|exit|leave)(?: the)? chaos(?: mode)?)$", RegexOptions.IgnoreCase);
+        private static readonly Regex CloneEnough = new Regex(@"^(?:ok(?:ay)? )?(?:stop|enough|that'?s enough)$", RegexOptions.IgnoreCase);
+#endif
         // Gaming Mode: on, off, or which way to move her HUD (up, down, left, right, reset). Her window sets it.
         internal static Func<string, string> GamingMode = delegate { return "Gaming Mode isn't on this PC yet."; };
         internal static Func<int, string> SaveClip = delegate { return "Turn on Clip my games in Settings > GAMES, then I can clip that."; };
@@ -849,14 +865,35 @@ namespace CapriDesktop
             return found;
         }
 
-        // "Play Minecraft with streamer mode and talk to chat": a stream asked for in words, whatever build she started on.
-        internal static bool StreamAsked(string said) { return Regex.IsMatch(said ?? "", @"\b(stream(?:er|ing)? mode|talk(?:ing)? to (?:the |my )?(?:chat|viewers)|(?:reply|replying|respond|responding|answer|answering) (?:to )?(?:the |my )?(?:chat|viewers)|(?:play|playing)\b.*\b(?:on|for) (?:the |my )?stream)\b", RegexOptions.IgnoreCase) && !Regex.IsMatch(said ?? "", @"\b(?:don'?t|do not|stop|end|turn off|never|how|why|what)\b", RegexOptions.IgnoreCase); }
+        // A stream asked for in words, on any game and whatever build she started on: "streamer mode", "talk to chat", or saying they're
+        // live with something to play, so "I'm streaming tonight" can still just come up in conversation (Lachy, 1 Nov).
+        private static readonly Regex StreamMode = new Regex(@"\b(?:stream(?:er|ing)? mode|(?:(?:talk|talking|chat|chatting|speak|speaking|interact|interacting|engage|engaging)(?: back)? (?:to|with)|(?:read|reading|reply|replying|respond|responding|answer|answering)(?: to)?) (?:(?:people|everyone|anyone) (?:in|on) )?(?:(?:the|my|your) )?(?:(?:stream|tiktok|twitch|youtube|kick|live) )?(?:chat|viewers|audience))\b", RegexOptions.IgnoreCase);
+        private static readonly Regex StreamLive = new Regex(@"\b(?:(?:i'?m|i am|we'?re|we are)\b.{0,20}\b(?:live|streaming)|live[ -]?stream\w*|(?:on|for) (?:(?:the|my|your) )?(?:stream|viewers|chat|live))\b", RegexOptions.IgnoreCase);
+        private static readonly Regex StreamGame = new Regex(@"\b(?:play|playing|game|gaming|speedrun)\b", RegexOptions.IgnoreCase);
+        // Asking about it, or asking her to stop. "Don't stop talking to chat" still asks for it.
+        private static readonly Regex StreamNot = new Regex(@"^\W*(?:how|why|what|what'?s|whats|when|where|who|does|did|is|are|do you)\b|\b(?:how|what|why|where|when)\b[^.!?,]*\bstream(?:er|ing)? mode\b|(?<!\b(?:don'?t|do not|never) )\b(?:stop|stopping|end|ending|quit|exit|leave|disable|cancel|turn off|switch off)\s+(?:\w+\s+){0,2}?(?:stream|streaming|streamer|live|chat|viewers)\b|\b(?:turn|switch)\s+(?:\w+\s+){1,3}off\b|\b(?:don'?t|do not|never|no need to|not)\s+(?!stop\b|quit\b)(?:\w+\s+)?(?:talk|talking|reply|replying|respond|responding|answer|answering|speak|speaking|chat|chatting|read|reading|stream|streaming|streamer|live)\b", RegexOptions.IgnoreCase);
+
+        internal static bool StreamAsked(string said)
+        {
+            string words = Asked(said);
+            return (StreamMode.IsMatch(words) || (StreamLive.IsMatch(words) && StreamGame.IsMatch(words))) && !StreamNot.IsMatch(words);
+        }
 
         // Her job is a live stream right now.
         internal static bool Streaming;
 
+        // Each minute of a stream: 40 seconds locked in on the game, then 20 with chat up close (Lachy, 1 Nov: "every minute 40 of those
+        // should be spent playing, 20 seconds can be chat"). Times are seconds into the job, and a long turn only moves chat along.
+        internal sealed class StreamMinute
+        {
+            internal const double Playing = 40, Chatting = 20;
+            private double next = Playing, until;
+            internal bool Due(double now) { if (now < next) return false; until = now + Chatting; next = now + Playing + Chatting; return true; }
+            internal bool Open(double now) { return now < until; }
+        }
+
         // On stream, asking her to play starts her stream job however it's worded.
-        internal static bool Streams(string said) { return Regex.IsMatch(said ?? "", @"\b(play|playing|game|gaming|minecraft|stream|streaming|streamer|live|chat)\b", RegexOptions.IgnoreCase); }
+        internal static bool Streams(string said) { return Regex.IsMatch(said ?? "", @"\b(play|playing|game|gaming|stream|streaming|streamer|live|chat|viewers|audience)\b", RegexOptions.IgnoreCase); }
 
         internal static string Do(string tool, ToolArguments args)
         {
@@ -880,6 +917,7 @@ namespace CapriDesktop
                 if (tool == "remember") return args.Action == "forget" ? Brain.Unnote(Theirs(args.Text)) : CallMe(args.Text) ?? Brain.Note(Theirs(args.Text));
 #if !CROSS
                 if (tool == "draw") return Draw(args);
+                if (tool == "clone") return Clone(args.Action, args.Count ?? 0);
                 if (tool == "website_nickname") return Websites == null ? "Couldn't open your website nicknames just now." : Websites.Do(args);
                 if (tool == "find_file") return Finder.Do(args, null);
                 if (tool == "read_file") return ReadFile(args.Path, args.Page, args.Offset);
@@ -1089,20 +1127,35 @@ namespace CapriDesktop
             if (!asked.Success) return false;
             string target = asked.Groups[1].Value;
             if (Regex.IsMatch(target, @"\b(songs?|tracks?|tunes?|albums?|playlists?|music|soundtrack|ost|theme|remix|spotify|youtube|by)\b", RegexOptions.IgnoreCase)) return false;
+            if (ByHand(target)) return true;
             if (Regex.IsMatch(target, @"^(this|that)$", RegexOptions.IgnoreCase)) return Plain(song ?? "") == Plain(target);
             bool pointed = Regex.IsMatch(target, @"^(this|that|these|those|my|our)\b", RegexOptions.IgnoreCase);
             bool joined = Regex.IsMatch(target, @"\b(with|against)\s+(me|us|you)$", RegexOptions.IgnoreCase);
-            return (pointed && joined) || ((pointed || joined) && Playable.IsMatch(target)) || PlainGame.IsMatch(target);
+            return (pointed && joined) || ((pointed || joined) && Playable.IsMatch(target)) || PlainGame.IsMatch(target) || Nickname(target) != null;
+        }
+
+        // "Play gmod yourself" is how Gaming Mode hands on what came after it: her hands on a game whatever it's called, not a song to search for (Dante, 1 Nov).
+        private static bool ByHand(string target)
+        {
+            return Regex.IsMatch(target, @"\s(?:yourself|urself)$", RegexOptions.IgnoreCase) && !Regex.IsMatch(target, @"\b(?:songs?|tracks?|tunes?|albums?|playlists?|music)\b", RegexOptions.IgnoreCase);
         }
 
         private static readonly Regex Unknown = new Regex(@"\b(can'?t|cannot|can not|unable to|don'?t have|no way to|not able to)\b[^.!?]{0,40}\b(check|browse|look|search|google|access|know|tell|real[- ]?time|live|internet|web|online|current|up[- ]to[- ]date|forecast)\b|\b(i'?ll|i will|let me|lemme|i'?m (gonna|going to)|gonna|i gotta|i have to|i need to)\s+(\w+\s+){0,2}(search|google|look (it |that |this )?up|check)\b|\b(you('ll)? (might|may|will|would)? ?(need|want|have) to|maybe (you can|try)|you (gotta|got to|could|can|should)|try)\s+(\w+\s+){0,3}(look|check|search|google)\b|\bcheck (a|the|your) (\w+\s+){0,2}(weather|news|app|site|feed|forecast|website)\b|\bcrystal ball\b", RegexOptions.IgnoreCase);
         private static readonly Regex Question = new Regex(@"\?\s*$|^(what|what's|whats|how|how's|when|where|who|which|why|is|are|was|were|will|does|do|did|can|could|would|tell me|check|look up|google|search|any idea)\b", RegexOptions.IgnoreCase);
 
+        // "What time is it?" and "what's the date?" are on the PC's own clock, so they never go to Google. "What time is it in Tokyo?" still does (Lachy, 1 Nov).
+        private static readonly Regex ClockAsk = new Regex(@"^(?:(?:do|can|could|would) (?:you|u) (?:know |have |tell me |give me )?|tell me |got )?(?:what(?:'?s| is) (?:the |today'?s? )?(?:current |exact )?(?:time|date|day)|what (?:time|date|day|month|year) (?:is it|it is)|the (?:current |exact )?(?:time|date|day)|time)(?: (?:today|now|right now|rn|at the moment))?$", RegexOptions.IgnoreCase);
+        private static readonly Regex ClockSaid = new Regex(@"\d|\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|\b(?:noon|midnight)\b", RegexOptions.IgnoreCase);
+
+        internal static bool ClockDodged(string said, string reply) { return ClockAsk.IsMatch(Asked(said)) && !ClockSaid.IsMatch(reply ?? ""); }
+
+        internal static string ClockLine(DateTime now) { return "It's " + now.ToString("h:mm tt 'on' dddd d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture) + "."; }
+
         internal static ToolArguments Lookup(string said, string reply)
         {
             string text = Asked(said);
             string plain = Regex.Replace(text, @"^(do|did) (you|u) (know|have any idea)\b|\byou know\b|^(tell|show|get|find) me\b|\b(near me|where i (am|live)|in my (area|city|town|suburb))\b", "", RegexOptions.IgnoreCase);
-            if (text.Length < 4 || !Question.IsMatch((said ?? "").Trim()) || !Unknown.IsMatch((reply ?? "").Replace('’', '\'')) || Regex.IsMatch(plain, @"\b(screen|song|playing|track|you|your|yourself|u|ur|capri|me|my|i|i'm|im)\b", RegexOptions.IgnoreCase) || Regex.IsMatch(reply ?? "", @"\bscreen\b", RegexOptions.IgnoreCase)) return null;
+            if (text.Length < 4 || ClockAsk.IsMatch(text) || !Question.IsMatch((said ?? "").Trim()) || !Unknown.IsMatch((reply ?? "").Replace('’', '\'')) || Regex.IsMatch(plain, @"\b(screen|song|playing|track|you|your|yourself|u|ur|capri|me|my|i|i'm|im)\b", RegexOptions.IgnoreCase) || Regex.IsMatch(reply ?? "", @"\bscreen\b", RegexOptions.IgnoreCase)) return null;
             return new ToolArguments { Site = "google", Search = text };
         }
 
@@ -1124,10 +1177,29 @@ namespace CapriDesktop
             if (Regex.IsMatch(result ?? "", @"^(Saved [\d.]+ seconds of |Turn on Clip my games |I haven't buffered any game video |Windows couldn't (find an H\.264 encoder|encode that clip)|Windows Media Foundation isn't installed|Couldn't save that clip)")) return result;
             if ((result ?? "").StartsWith("Opened your own website", StringComparison.Ordinal)) return "Here's my site, choom. That's where people download me.";
             // Power lines go out as they are: no second brain call while the shutdown counts down.
-            if (Regex.IsMatch(result ?? "", @"^(Shutting your PC down|Restarting your PC|Signing you out|Putting your PC to sleep|Lock(ed|ing) your PC|Cancelled it\.|Gaming Mode|Moved my HUD|Put my HUD|My HUD)")) return result;
+            if (Regex.IsMatch(result ?? "", @"^(One of me wasn't|There's (?:two|\d+ more) of me|Got rid of|I don't have any clones|Shutting your PC down|Restarting your PC|Signing you out|Putting your PC to sleep|Lock(ed|ing) your PC|Cancelled it\.|Gaming Mode|Moved my HUD|Put my HUD|My HUD)")) return result;
             Match searched = Regex.Match(result ?? "", @"^Searched google\.com for (.+)\.$");
             return searched.Success ? "Pulled up \"" + searched.Groups[1].Value + "\" on Google for you, choom." : null;
         }
+
+        // A diagram's result lists what's written on it. Mac and Linux have no ink, so it never comes up there.
+        internal static bool Diagrammed(string result) { return Regex.IsMatch(result ?? "", @"^(?:Drew on your screen|Added to my drawing): "); }
+        internal const string Teaching = "You've just drawn this on their screen, and the results list what's written on it. Help them understand it: explain it clearly in a few sentences, in your own voice, going by what's on screen. ";
+
+        // Being mean to her can set her clones off. Her brain tags its reply when it's her they're insulting, in any language,
+        // and plain English insults count by themselves, so "you're annoying" always does.
+        internal static Func<bool> Upset = delegate { return false; };
+        internal const string SorryLine = "Hold Esc when you're sorry.";
+        private const string Very = @"(?:(?:so|such|really|very|being|kinda|kind of|pretty|too|fucking|freaking|effing|literally|just|actually|honestly|truly|absolutely|damn|bloody|real|super|mega|extremely|incredibly|insanely|a|an|the|most|complete|total|little|stupid|dumb)\s+)*";
+        private const string Mean = @"(?:annoying|irritating|useless|stupid|dumb|idiot(?:ic)?|moron(?:ic)?|trash|garbage|rubbish|terrible|awful|horrible|pathetic|worthless|boring|cringe|lame|worst)\b";
+        private static readonly Regex Insult = new Regex(
+            @"\b(?:you(?:'re| are|re)|ur|u r|u are)\s+" + Very + Mean +
+            @"|\byou\s+" + Very + @"(?:idiot|moron|useless|stupid|dumb|annoying|pathetic)\b" +
+            @"|^your\s+" + Very + Mean +
+            @"|\b(?:you suck|i hate you|i can'?t stand you|screw you|fuck you(?! (?:doing|mean|talking|saying|want)))\b", RegexOptions.IgnoreCase);
+
+        internal static bool Insulted(string said) { return Insult.IsMatch(Asked(said)); }
+        internal static bool Hurt(string reply) { return (reply ?? "").IndexOf("[hurt]", StringComparison.OrdinalIgnoreCase) >= 0; }
 
         internal const string Unpromised = "I haven't actually done that yet. Tell me what to open or click and I'll do it.";
         private static readonly Regex Promise = new Regex(@"\b(i'?ll|i will|let me|lemme|i'?m (gonna|going to|about to)|gonna|on it,?)[\s—–-]+(\w+[\s,—–-]+){0,2}(open|launch|load|boot|fire|pull|bring|search|google|look up|click|type|close|switch|head|install|download|play(?!\s+(along|around|with|nice|fair|dumb|it (cool|safe)|((a|some|the|this|that|any|your|my)\s+)?(games?|round|match)\b|devil))|put on|queue|blast|spin|mute|unmute|deafen|undeafen|send(?!\s+(you|u|ya)\b)|message(?!\s+(you|u)\b)|text(?!\s+(you|u)\b)|dm|ping|reply|post|hang up|(end|leave|join) (the|your|this|that) (call|vc|meeting))\b" +
@@ -1685,6 +1757,12 @@ namespace CapriDesktop
             return both.Groups["rest"].Value.Trim();
         }
 
+        // A brain's Gaming Mode call only counts when the talk is about games or her HUD. Each call is her whole reply and turns the
+        // setting back on, so gpt-6-luna reaching for it on every message left her saying nothing else, switch off or not (Limpan, 1 Nov).
+        private static readonly Regex GamingWords = new Regex(@"gam|hud|overlay|juego|jogo|jeu|spiel|gioco|\bgr[ay]\b|oyun|spel|peli|j[aá]t[eé]k|игр|ゲーム|游戏|遊戲|게임|لعب|खेल|गेम", RegexOptions.IgnoreCase);
+
+        internal static bool GamingTalk(string text) { return GamingWords.IsMatch(text ?? ""); }
+
         private static readonly Regex GamingThen = new Regex(@"^(?<lead>(?:[\w'-]+[,.!]?\s+){0,4}?)(?:activate|enter|start|turn on|switch on|go into|go in|put on|get in|get into)\s+(?:the\s+)?(?:gaming|game)\s+mode(?:\s+on)?\s*(?:,\s*)?(?:\.\s*)?(?:and then|and|then)?\s+(?:then\s+)?(?<rest>\S.+)$", RegexOptions.IgnoreCase);
 
         internal static string GamingFor(string text)
@@ -1821,6 +1899,18 @@ namespace CapriDesktop
             if (switched != null) { tool = "power"; args.Action = switched; args.Minutes = minutes; return true; }
             Match napped = Napping.Match(text);
             if (napped.Success) { tool = "nap"; args.Action = napped.Groups["wake"].Success ? "wake" : "sleep"; return true; }
+#if !CROSS
+            Match cloning = CloneOn.Match(text);
+            if (cloning.Success)
+            {
+                int copies;
+                tool = "clone";
+                args.Action = "spawn";
+                if (int.TryParse(cloning.Groups["count"].Value, out copies) && copies > 0) args.Count = copies;
+                return true;
+            }
+            if (CloneOff.IsMatch(text) || (CloneEnough.IsMatch(text) && Cloning())) { tool = "clone"; args.Action = "stop"; return true; }
+#endif
             string screen, window;
             string moved = MovingFor(text, out screen, out window);
             // A window they named only counts here while it's open, so "sit on my homework" stays chat for her brain.
@@ -1865,6 +1955,11 @@ namespace CapriDesktop
                 if (Regex.IsMatch(target, @"\s(and|then|&)\s|,\s*\S", RegexOptions.IgnoreCase)) return false;
                 if (Regex.IsMatch(target, @"^(your|ur|capri'?s|the capri)( own)? (web ?site|site|page|download page)$", RegexOptions.IgnoreCase)) { tool = "open_website"; args.Site = Home; return true; }
                 if (Installed(target)) { tool = "open_app"; args.Name = target; return true; }
+#if CROSS
+                // "Open minecraft from my modrinth launcher": her hands can't reach inside it here, so the launcher opens (Mako, 1 Nov).
+                Match launcher = Regex.Match(target, @"\s(?:from|in|on|with|through|using|via)\s+(?:(?:my|the)\s+)?(.+?)(?:\s+launcher)?$", RegexOptions.IgnoreCase);
+                if (launcher.Success && Installed(launcher.Groups[1].Value)) { tool = "open_app"; args.Name = launcher.Groups[1].Value; return true; }
+#endif
                 if (Site(target)) { tool = "open_website"; args.Site = target; return true; }
                 return false;
             }
@@ -1876,7 +1971,9 @@ namespace CapriDesktop
             {
                 string target = found.Groups[1].Value.Trim();
                 if (Regex.IsMatch(target, @"^(the|this|that|my|our) (game|match|round|level|map)\b", RegexOptions.IgnoreCase)) return false;
-                if (!found.Groups[3].Success && Installed(target)) { tool = "open_app"; args.Name = target; return true; }
+                if (!found.Groups[3].Success && ByHand(target)) return false;
+                target = Regex.Replace(target, @"\s+(?:yourself|urself)$", "", RegexOptions.IgnoreCase);
+                if (!found.Groups[3].Success && (Installed(target) || Installed(Nickname(target)))) { tool = "open_app"; args.Name = target; return true; }
                 if (Regex.IsMatch(target, @"^(with|along|around|a game|games?\b|dead|nice|fair|it\b|me\b|us\b|together|this$|that$|((a|any|some|random) )?playlists?$)", RegexOptions.IgnoreCase)) return false;
                 // "play the wasd minigame" is a game, not a song to search Spotify for (a tester, 30 Oct), and so is a game that's open.
                 if (!found.Groups[3].Success && (Playable.IsMatch(target) || PlainGame.IsMatch(target) || Nickname(target) != null || Showing(target))) return false;
@@ -2131,6 +2228,7 @@ namespace CapriDesktop
         {
 #if !CROSS
             if (tool == "draw") return Ink.Valid(args);
+            if (tool == "clone") return args != null && (args.Action == "spawn" || args.Action == "stop");
             if (tool == "watch_along") return args != null && (args.Action == "start" || args.Action == "stop");
             if (tool == "listen")
             {
@@ -2244,7 +2342,7 @@ namespace CapriDesktop
         private static readonly Regex Playable = new Regex(@"\b(games?|mini ?games?|obby|obbies|levels?|rounds?|match(es)?|matchmaking|ranked|deathmatch|map|mode|bedwars|skywars|roblox|minecraft|fortnite|valorant|counter[- ]?strike|wasd)\b", RegexOptions.IgnoreCase);
 
         // What players call their games, for when nothing installed goes by the name they said ("open cs", a tester, 30 Oct).
-        private static readonly string[,] Nicknames = { { "cs", "counter strike" }, { "cs2", "counter strike 2" }, { "csgo", "counter strike" }, { "cs go", "counter strike" }, { "val", "valorant" }, { "valo", "valorant" }, { "mc", "minecraft" }, { "gta", "grand theft auto" }, { "gta 5", "grand theft auto v" }, { "gta v", "grand theft auto v" }, { "lol", "league of legends" }, { "r6", "rainbow six" }, { "cod", "call of duty" }, { "ow", "overwatch" }, { "rl", "rocket league" }, { "fn", "fortnite" }, { "tf2", "team fortress 2" }, { "dbd", "dead by daylight" } };
+        private static readonly string[,] Nicknames = { { "cs", "counter strike" }, { "cs2", "counter strike 2" }, { "csgo", "counter strike" }, { "cs go", "counter strike" }, { "val", "valorant" }, { "valo", "valorant" }, { "mc", "minecraft" }, { "gta", "grand theft auto" }, { "gta 5", "grand theft auto v" }, { "gta v", "grand theft auto v" }, { "lol", "league of legends" }, { "r6", "rainbow six" }, { "cod", "call of duty" }, { "ow", "overwatch" }, { "rl", "rocket league" }, { "fn", "fortnite" }, { "tf2", "team fortress 2" }, { "dbd", "dead by daylight" }, { "gmod", "garry s mod" }, { "g mod", "garry s mod" } };
 
         internal static string Nickname(string wanted)
         {
@@ -2291,8 +2389,12 @@ namespace CapriDesktop
             if (name.StartsWith(want + " ", StringComparison.Ordinal)) return 3;
             if ((" " + name + " ").Contains(" " + want + " ")) return 2;
             if (want.Length >= 4 && name.Contains(want)) return 1;
+            if (name.Length >= 3 && want.StartsWith(name + " ", StringComparison.Ordinal) && AppKind.IsMatch(want.Substring(name.Length + 1))) return 1;
             return 0;
         }
+
+        // "Kate text editor": the app's name and then what kind of app it is (Mako, 1 Nov).
+        private static readonly Regex AppKind = new Regex(@"^(?:text editor|code editor|editor|web browser|browser|launcher|client|terminal|file manager|file explorer|music player|media player|video player|player)$");
 
         private static int Score(InstalledApp app, string want)
         {

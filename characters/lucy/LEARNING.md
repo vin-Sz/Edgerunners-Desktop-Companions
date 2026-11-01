@@ -5,6 +5,20 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 1 Nov: merging Capri 0.7.9
+
+**What changed:** 37 of Lachy's commits came in. The big one is **chaos mode** (`app/Clones.cs`, new): she copies herself across your desktop, the copies keep doubling, drag your windows around, and holding Esc puts everything back. It's marked beta. Also: she draws diagrams and talks you through them, her Discord status moves, she reads her own clock when you ask the time, and a pile of fixes for freezing and quitting.
+
+Only one file conflicted: `ci/build-windows.ps1`, the build's guest list again. He added `Clones` to his list. Ours has `Character` and `YouTubeMusic` in it. The fix is both: our list with `Clones` added, and our `-Character` line kept.
+
+**Idea: new code can wear her art for free.** The clones don't load pictures of their own. They're handed the same idle, walk, grin and glitch animations she uses. Our build swaps Capri's sprite sheets for Lucy's before anything else sees them, so the clones show up as Lucy without us touching `Clones.cs`. When you swap things at the bottom layer, new features built on top get your version too.
+
+**Not done: her Discord status still looks like Capri.** Lucy uses Capri's Discord app, so it already said "Playing Capri" before this update. Now it also shows his moving GIFs from his website (`site/assets/presence/`). Changing that means making our own Discord app and hosting Lucy's GIFs somewhere public. It's a job for when her art is done.
+
+**Checked:** both builds compile (plain Capri and `-Character lucy`), and the Lucy build found all 136 of her name swaps. The self-test is yours to run.
+
+---
+
 ## 1 Nov: merging Capri 0.7.8
 
 **What changed:** about 180 of Lachy's commits came in (streaming, Gaming Mode, chess, drawing on screen, reminders, file reading and more). Git merged most of it by itself. Five files had conflicts, where we and Lachy had both changed the same lines:

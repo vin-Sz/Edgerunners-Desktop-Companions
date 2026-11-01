@@ -624,7 +624,10 @@ namespace CapriDesktop
                 if (updateAgain != null || updateKept != "Get Capri 99.1.0" || draftChoice != null || oddPage != "https://github.com/lachydotmcg/capri-desktop/releases/latest" || olderChoice != null || pet.UpdateChoice != null || !oddTags) throw new Exception("The update notice went wrong: " + updateAgain + " | " + updateKept + " | " + draftChoice + " | " + oddPage + " | " + olderChoice + " | " + pet.UpdateChoice + " | " + oddTags);
                 checks.Add("PASS updates: a newer GitHub release puts Get Capri X in her right-click menu and she says so once; older releases, drafts, odd tags and other sites don't");
                 // Check my screen: the right screenshot tool for the desktop, shrunk to a JPEG, and a plain answer when no tool works.
-                bool toolsRight = Eyes.Tools(true, null, null)[0][0] == "screencapture" && Eyes.Tools(false, "x11", "XFCE")[0][0] == "import" && Eyes.Tools(false, "wayland", "KDE")[0][0] == "spectacle"
+                List<InstalledApp> kate = new List<InstalledApp> { new InstalledApp("Kate", "exec:kate") };
+                bool toolsRight = Eyes.FreshAsk(null, "0.7.9.0") && Eyes.FreshAsk("0.7.8.0\n", "0.7.9.0") && !Eyes.FreshAsk("0.7.9.0\n", "0.7.9.0")
+                    && Hands.Match(kate, "Kate Text editor").Count == 1 && Hands.Match(kate, "Kate Bush songs").Count == 0
+                    && Eyes.Tools(true, null, null)[0][0] == "screencapture" && Eyes.Tools(false, "x11", "XFCE")[0][0] == "import" && Eyes.Tools(false, "wayland", "KDE")[0][0] == "spectacle"
                     && Eyes.Tools(false, "wayland", "ubuntu:GNOME")[0][0] == "gnome-screenshot" && Eyes.Tools(false, "wayland", "Hyprland")[0][0] == "grim" && Eyes.Tools(false, "wayland", "Hyprland").Count == 3;
                 byte[] wideShot;
                 using (SkiaSharp.SKBitmap wide = new SkiaSharp.SKBitmap(2000, 1000))
@@ -655,7 +658,7 @@ namespace CapriDesktop
                 bool discordOff = pet.Saved.NoDiscord && !pet.DiscordShown;
                 pet.SetDiscord(true);
                 bool discordOn = !pet.Saved.NoDiscord && pet.DiscordShown;
-                if (!ipcNames.Contains(Path.Combine(ipcFolder, "discord-ipc-3")) || !discordOff || !discordOn || Array.IndexOf(new[] { "Hanging out", "Chatting", "Dancing to music", "Taking a break" }, pet.Doing) < 0)
+                if (!ipcNames.Contains(Path.Combine(ipcFolder, "discord-ipc-3")) || !discordOff || !discordOn || Array.IndexOf(new[] { "Plugged in", "Chatting", "Dancing to music", "Taking a break" }, pet.Doing) < 0)
                     throw new Exception("Her Discord status went wrong: " + string.Join(", ", ipcNames) + " / off " + discordOff + " / on " + discordOn + " / " + pet.Doing);
                 checks.Add("PASS Discord status: Settings > Show on Discord turns it off and on, she says what she's doing in plain words, and she finds Discord's socket in its temp folder");
                 string details = pet.ErrorDetails();
@@ -1715,6 +1718,11 @@ namespace CapriDesktop
                 && last.IndexOf("image_url", StringComparison.Ordinal) > 0 && last.IndexOf("1280 x 720", StringComparison.Ordinal) > 0 && last.IndexOf("send hola qu", StringComparison.Ordinal) > 0
                 && last.IndexOf("4. fly", StringComparison.Ordinal) > 0 && last.IndexOf("\\\"model\\\"", StringComparison.Ordinal) < 0 && last.IndexOf("eyes-test", StringComparison.Ordinal) > 0);
             Security.Pick(Security.Blackwall);
+            List<string> streamLines = new List<string>();
+            Chores.Says = streamLines.Add;
+            string streamStep = Chores.Say("  Hi Milo!  ");
+            Chores.Says = null;
+            fail("her stream says lines out loud", streamLines.Count == 1 && streamLines[0] == "Hi Milo!" && streamStep.IndexOf("Hi Milo!", StringComparison.Ordinal) > 0 && Chores.StreamRules.IndexOf("\"do\":\"say\"", StringComparison.Ordinal) > 0);
             string blackwall = Chores.Allowed;
             Security.Pick(Security.Trusted);
             fail("rules follow SECURITY", Chores.Allowed == Chores.Rules && blackwall.IndexOf("Type passwords", StringComparison.Ordinal) > 0 && blackwall.IndexOf("Never", StringComparison.Ordinal) < 0);

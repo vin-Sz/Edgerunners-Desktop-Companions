@@ -501,6 +501,7 @@ namespace CapriDesktop
             {
                 Hands.Work = delegate(string job, string asked) { return Chores.Run(Brain, job, asked); };
                 Chores.Mouse = delegate { return Dispatcher.UIThread.Invoke(MouseShare); };
+                Chores.Says = delegate(string line) { Dispatcher.UIThread.Post(delegate { Reply(asking, "(chat)", line); }); };
             }
             if (Program.Smoke == null) presence = new Presence(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
             // A cloud key they saved thinks for her instead of Ollama, on the model they picked.
@@ -799,7 +800,7 @@ namespace CapriDesktop
                 if (!Talk.Quiet) return "Chatting";
                 if (clip == dance || clip == perchDance) return musicOn ? "Dancing to music" : "Dancing";
                 if (clip == sleep) return "Asleep";
-                return "Hanging out";
+                return "Plugged in";
             }
         }
 
@@ -808,7 +809,6 @@ namespace CapriDesktop
         {
             Cloud remote = Brain.Remote;
             if (Brain.Model == null) return "You can't see their screen: your brain is offline.";
-            if (remote != null && remote.Kind == "deepseek") return "You can't see their screen: DeepSeek can't look at pictures. Tell them a free NVIDIA key can (right-click you > Brain > Get a free NVIDIA key).";
             byte[] shot = Eyes.Jpeg(Eyes.Shoot(), 1280);
             if (shot == null) return Eyes.Missing;
             string seen;
@@ -3191,7 +3191,6 @@ namespace CapriDesktop
         {
             Cloud remote = Brain.Remote;
             if (Brain.Model == null) return "My brain's offline, so I can't watch your screen yet.";
-            if (remote != null && remote.Kind == "deepseek") return "DeepSeek can't see, so I can't watch your screen. A free NVIDIA key can: " + Brain.FreeKeyHow + ".";
             if (remote != null && remote.Model == Brain.Unsighted) return remote.Model + " can't see screens. Pick one that can " + Brain.BrainMenu + (remote.Kind == "nvidia" ? ", like nvidia/nemotron-3.5-super-vl-120b-a12b." : ".");
             return null;
         }
