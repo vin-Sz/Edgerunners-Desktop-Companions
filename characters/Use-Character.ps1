@@ -2,7 +2,8 @@
 # Each file in characters/<name>/sprites or voice with the same name as one in assets/ is used instead of Capri's, and
 # characters/<name>/icon.ico replaces her chip icon, so drawings go in one at a time as they're finished.
 # Her name goes in the same way: characters/<name>/names.txt lists Capri's words and hers, changed in a copy of the code,
-# along with the app's own identity from characters/app.txt (Lucy Desktop: its settings folder, updates and installer).
+# along with the app's own identity from characters/app.txt (Edgerunners Desktop: its settings folder, updates and installer).
+# Her own lines go in from characters/<name>/Character.cs, in place of app/Character.cs.
 # ci/build-windows.ps1 dot-sources this, so it changes that script's $shared, $resources, $icon, $sources and $root.
 param([Parameter(Mandatory = $true)][string]$Character)
 
@@ -64,7 +65,9 @@ New-Item -ItemType Directory -Path (Join-Path $staged 'app'), (Join-Path $staged
 $found = @{}
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $root 'app') -Filter *.cs) {
-    $code = [IO.File]::ReadAllText($file.FullName, $utf8)
+    # A character's own lines (characters/<name>/Character.cs) take the place of app/Character.cs.
+    $ownLines = Join-Path $characterRoot 'Character.cs'
+    $code = [IO.File]::ReadAllText($(if ($file.Name -eq 'Character.cs' -and (Test-Path -LiteralPath $ownLines)) { $ownLines } else { $file.FullName }), $utf8)
     foreach ($rule in $rules) {
         $count = ([regex]::Matches($code, [regex]::Escape($rule[1]))).Count
         if ($count -gt 0) { $code = $code.Replace($rule[1], $rule[2]); $found[$rule[1]] = $found[$rule[1]] + $count }

@@ -1,0 +1,81 @@
+# Builds the characters you name and publishes them as one release of this repository, only when started by hand:
+# Actions > Release > Run workflow. The app's updater looks at these releases (characters/app.txt).
+# The version is Capri's (app/AssemblyInfo.cs) plus our own fourth number, like 0.7.7.1, then 0.7.7.2. After a Capri
+# update it starts again at 1 (0.7.8.1), and is still newer than every release before it.
+# Each character's updater only takes her own installer (characters/<name>/names.txt), so once a character has been
+# released, keep naming her: a newer release without her leaves her installs with nothing to update to.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      characters:
+        description: "Which characters, by folder name, with spaces between them"
+        required: true
+        default: 'talia'
+      number:
+        description: "Our own number for this Capri version: 1 for the first release, then 2, 3..."
+        required: true
+        default: '1'
+      notes:
+        description: "What's new, for the release page (optional)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'vin-Sz/Edgerunners-Desktop-Companions'
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CHARACTERS: ${{ inputs.characters }}
+      NUMBER: ${{ inputs.number }}
+      NOTES: ${{ inputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          $capri = [regex]::Match((Get-Content app/AssemblyInfo.cs -Raw), 'AssemblyVersion\("(\d+\.\d+\.\d+)"\)').Groups[1].Value
+          if (-not $capri) { throw "Couldn't read Capri's version from app/AssemblyInfo.cs." }
+          if ($env:NUMBER -notmatch '^[1-9]\d{0,3}$') { throw "The number has to be a whole number from 1 up." }
+          $version = "$capri.$env:NUMBER"
+          gh release view "v$version" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "v$version is already released. Run it again with the next number." }
+          $global:LASTEXITCODE = 0
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "capri=$capri" >> $env:GITHUB_OUTPUT
+
+      - name: Build and publish
+        shell: pwsh
+        env:
+          CHARACTER_VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
+          CAPRI: ${{ steps.version.outputs.capri }}
+        run: |
+          # The updater picks the installer by this name and checks it against SHA256SUMS.txt, since it isn't signed.
+          $characters = @($env:CHARACTERS -split '\s+' | Where-Object { $_ })
+          if ($characters.Count -eq 0) { throw "Name at least one character." }
+          $files = @()
+          $sums = ''
+          foreach ($character in $characters) {
+              if ($character -notmatch '^[a-z0-9-]+$') { throw "$character isn't a character's folder name." }
+              ./ci/build-windows.ps1 -OutputDirectory "out/$character" -Character $character
+              $proper = $character.Substring(0, 1).ToUpperInvariant() + $character.Substring(1)
+              $name = "EdgerunnersDesktop-$proper-Setup-$env:VERSION.exe"
+              Copy-Item "out/$character/Capri-Setup.exe" "out/$name"
+              $hash = (Get-FileHash "out/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+              $sums += "$hash  $name`n"
+              $files += "out/$name"
+          }
+          [IO.File]::WriteAllText("$PWD/out/SHA256SUMS.txt", $sums)
+          $notes = if ($env:NOTES) { $env:NOTES } else { "Edgerunners Desktop $env:VERSION, built on Capri $env:CAPRI. Characters: $($characters -join ', ')." }
+          gh release create "v$env:VERSION" @files out/SHA256SUMS.txt --title "Edgerunners Desktop $env:VERSION" --notes $notes --target $env:GITHUB_SHA

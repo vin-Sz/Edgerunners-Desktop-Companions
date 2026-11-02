@@ -35,7 +35,7 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [ ] Lucy's art, voice and icon
 
 **Step 3: text in the app**
-- [x] A new `app/Character.cs` holding her lines, with one-line pointers in Capri's files (`Brain.cs`, `Capri.cs`, `Talk.cs`, and `cross/Pet.cs`, `cross/Talk.cs` for Mac/Linux): pop-ups, Halloween, her "no", her error line, `LUCY: ` in her chat log
+- [x] `characters/lucy/Character.cs` holding her lines, used in place of `app/Character.cs` (Capri's lines, for a plain build), with one-line pointers in Capri's files (`Brain.cs`, `Capri.cs`, `Talk.cs`, and `cross/Pet.cs`, `cross/Talk.cs` for Mac/Linux): pop-ups, Halloween, her "no", her error line, `LUCY: ` in her chat log
 - [ ] Her lines still waiting for your OK: the drafts at the top of `lines.md` (Cyberpunk spotted, lag)
 - [ ] Her personality in `Character.cs` too, once you've tried it in the app (the item in Step 1). Her prompt also says "a glitch tag like [SIGNAL CORRUPTED]" (`Brain.cs`), which changes with it
 - [ ] Update the personality checks in the smoke test (`Capri.cs`): `todaysPersona` (a SHA-256 of the whole prompt) and its length, 5659 since 0.7.7, next to it, and the check a little before it that looks for Capri phrases like "a playful chaos gremlin". Also any tests that check lines word for word
@@ -44,17 +44,18 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [x] Her name in menus, the tray, her talk box, the mini player and messages: `names.txt` here, applied by `-Character lucy` to a copy of the code, so Capri's files don't change. Windows only for now
 - [ ] "Capri Mainframe" → "Lucy Mainframe": it's in her prompt too, so it goes with her personality (the self-test checks the prompt)
 - [ ] The installer's names (`Setup.cs`, its own build line)
-- [x] **The app's own identity: Lucy Desktop** (`characters/app.txt`, used by every `-Character` build). Settings and install in `%LOCALAPPDATA%\Lucy Desktop`, its own autostart entry, Start menu shortcut, uninstall entry and single-copy lock, so it runs next to a real Capri without touching it. Updates come from this repository's releases. Still Capri's on purpose: the file name `Capri.exe`, her voice pack and HD voice downloads, and links to Lachy's website. Windows only; Mac/Linux still use Capri's
+- [x] **The app's own identity: Edgerunners Desktop** (`characters/app.txt`, used by every `-Character` build, whichever character it wears). Settings and install in `%LOCALAPPDATA%\Edgerunners Desktop`, its own autostart entry, Start menu shortcut, uninstall entry and single-copy lock, so it runs next to a real Capri without touching it. Updates come from this repository's releases. Still Capri's on purpose: the file name `Capri.exe`, her voice pack and HD voice downloads, and links to Lachy's website. Windows only; Mac/Linux still use Capri's
 - [ ] Not yet renamed: the speaker "Capri" in her chat history (`Brain.cs` `Transcribe`), which the self-test may check
 
 ## Releases
 
-- **Make one:** GitHub → Actions → **Release Lucy Desktop** → Run workflow, with the number (1 for the first). GitHub builds it with `-Character lucy` and publishes `LucyDesktop-Setup-<version>.exe` and `SHA256SUMS.txt` (`.github/workflows/release-lucy.yml`). Not run yet: the first run is its test
+- **Make one:** GitHub → Actions → **Release** → Run workflow, with the characters (`talia` by default) and the number (1 for the first). GitHub builds each one and publishes `EdgerunnersDesktop-Talia-Setup-<version>.exe` (and so on) and `SHA256SUMS.txt` (`.github/workflows/release.yml`). Not run yet: the first run is its test
+- **Each character updates to her own installer:** the name comes from her `names.txt`. So once a character has a release, keep naming her in new ones, or her installs have nothing to update to
 - **Versions:** Capri's version plus our own fourth number: `0.7.7.1`, `0.7.7.2`, … and after a Capri update `0.7.8.1`. Each one is newer than all before it, so the updater always offers the latest
-- **The updater** in an installed Lucy Desktop checks this repository's latest release every few hours. It only takes an installer whose checksum matches `SHA256SUMS.txt`, since ours isn't signed like Lachy's
+- **The updater** in an installed Edgerunners Desktop checks this repository's latest release every few hours. It only takes an installer whose checksum matches `SHA256SUMS.txt`, since ours isn't signed like Lachy's
 - **Until the first release** it says "Couldn't check for updates" in Mainframe, because there's nothing to find yet
 - **Windows will warn** ("Windows protected your PC", unknown publisher) the first time someone runs the installer, because it isn't signed. More info → Run anyway. Signing costs money every year; not worth it for a fan project unless you share it widely
-- **Don't release before** the self-test passes with `-Character lucy`
+- **Don't release before** the self-test passes with `-Character talia`, or whichever characters you're releasing
 - [x] The Obsidian vault note is `Lucy Memories.md` (`Character.VaultNote`)
 
 **YouTube Music** (`app/YouTubeMusic.cs`, for YouTube Music for Desktop / ytmdesktop2)

@@ -35,6 +35,8 @@
   <ItemGroup Condition="'$(Character)' != ''">
     <CharacterSprite Include="../characters/$(Character)/sprites/*.png" />
     <CharacterVoice Include="../characters/$(Character)/voice/*.wav" />
+    <Compile Remove="../app/Character.cs" Condition="Exists('../characters/$(Character)/Character.cs')" />
+    <Compile Include="../characters/$(Character)/Character.cs" Link="Shared/Character.cs" Condition="Exists('../characters/$(Character)/Character.cs')" />
     <EmbeddedResource Remove="@(CharacterSprite->'../assets/sprites/%(Filename)%(Extension)')" />
     <EmbeddedResource Remove="@(CharacterVoice->'../assets/voice/%(Filename)%(Extension)')" />
     <EmbeddedResource Include="@(CharacterSprite)" LogicalName="Capri.Sprite.%(Filename)%(Extension)" />

@@ -1,4 +1,4 @@
-# Merges lachydotmcg/capri-desktop into main whenever it has new commits. The README always keeps Lucy's version.
+# Merges lachydotmcg/capri-desktop into main whenever it has new commits. The README always keeps this fork's version.
 # Any other conflict stops the sync and opens an issue, so it can be merged by hand.
 #
 # Upstream sometimes changes its own workflow files, and GitHub won't let the built-in token push those. Add a
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   sync:
-    if: github.repository == 'vin-Sz/lucy-desktop'
+    if: github.repository == 'vin-Sz/Edgerunners-Desktop-Companions'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
           Merge capri-desktop${version:+ $version} from upstream
 
           Brings in lachydotmcg/capri-desktop up to $tip ($new new commits).
-          README keeps the Lucy fork's version.
+          README keeps this fork's version.
           EOF
           git push origin HEAD:main
           echo "merged=$tip" >> "$GITHUB_OUTPUT"

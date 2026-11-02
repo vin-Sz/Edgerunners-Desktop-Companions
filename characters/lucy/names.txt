@@ -25,3 +25,6 @@
 "Capri started fresh" => "Lucy started fresh"
 "outside Capri" => "outside Lucy"
 "Capri is still running" => "Lucy is still running"
+
+# Her installer, so a build of hers only ever updates to hers.
+""Capri-Setup" => ""EdgerunnersDesktop-Lucy-Setup"

@@ -1,0 +1,29 @@
+# Her name where you see it. Building with -Character talia changes each "Capri's words" => "hers" below, exactly as written
+# (spaces and capitals count), in a copy of the code that only the build uses. Capri's files stay as Lachy wrote them.
+# Only whole phrases, never "Capri" alone: the code also uses that name for things you don't see, like the updater.
+# The build says when a phrase isn't found any more, like after a sync that reworded it.
+
+"Text = "Capri";" => "Text = "Talia";"
+"CAPRI >" => "TALIA >"
+"CAPRI  /  " => "TALIA  /  "
+"Hide Capri" => "Hide Talia"
+"Show Capri" => "Show Talia"
+"Quit Capri" => "Quit Talia"
+"Capri · " => "Talia · "
+"Capri desktop companion" => "Talia desktop companion"
+"Capri is riding your cursor" => "Talia is riding your cursor"
+"Talk to Capri" => "Talk to Talia"
+"Say something to Capri" => "Say something to Talia"
+"CAPRI IS CONTROLLING" => "TALIA IS CONTROLLING"
+"Capri is working on your task" => "Talia is working on your task"
+"Capri says" => "Talia says"
+"Capri mini player" => "Talia mini player"
+"Capri is replying slowly" => "Talia is replying slowly"
+"Capri could not start" => "Talia could not start"
+"Capri closed while starting" => "Talia closed while starting"
+"Capri started fresh" => "Talia started fresh"
+"outside Capri" => "outside Talia"
+"Capri is still running" => "Talia is still running"
+
+# Her installer, so a build of hers only ever updates to hers.
+""Capri-Setup" => ""EdgerunnersDesktop-Talia-Setup"

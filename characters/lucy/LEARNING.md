@@ -5,6 +5,26 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 2 Nov: room for Talia, and the rename
+
+**What changed:** the repo is now Edgerunners Desktop Companions, and Talia has her own folder, `characters/talia`. A `-Character talia` build shows her name and says her own lines. Every character's build is now called Edgerunners Desktop, and the release workflow is `release.yml`, which asks which characters to build.
+
+**Why the lines moved:** `app/Character.cs` held Lucy's lines, and every build used that file, so Talia would have talked like Lucy. Now each character has her own `Character.cs`, and the build uses it in place of the one in `app/`. That file went back to Capri's words, so a plain build is plain Capri again. The swap is in `Use-Character.ps1` on Windows and `cross/Capri.Cross.csproj` on Mac and Linux.
+
+**Why the installer name has her name in it:** all characters share one list of releases, and the updater picks an installer by its name. If they all had the same name, Lucy's install could update itself into Talia. So the name is in each character's `names.txt`, not the shared `app.txt`. It has one catch: once a character has a release, she needs to be in every later one too, or her installs find nothing to update to.
+
+**Why the workflows had to change with the rename:** both start with "only run if this repo is `vin-Sz/lucy-desktop`". After a rename that's false, and GitHub just skips the job with no error, so the Capri sync would have quietly stopped until someone noticed.
+
+**Idea: keep what's shared apart from what's hers.** The app's name, settings folder and updater are the same for everyone, so they're in one file. Her name, lines, art and personality are hers, so they're in her folder. Adding a third character now only means adding a folder.
+
+**Why Talia isn't written like Lucy:** she's a teenager in the show, so she's a friend and nothing romantic. Her draft says so outright, and Lucy's "good boy" line stays out.
+
+**Not done: her personality isn't built in.** A Talia build still starts as "You are Capri" until you paste `characters/talia/personality.md` in through YOU > Personality. Building it in also means updating the self-test's fingerprint, so that's best done once her text is final.
+
+**Checked:** all four builds compile (`-Character talia`, `-Character lucy`, plain Capri, and Mac/Linux with Talia). The self-test and the release workflow haven't been run.
+
+---
+
 ## 2 Nov: merging Capri 0.7.10
 
 **What changed:** 30 of Lachy's commits came in. Check-ins now show in her bubble and speak, she lies on the taskbar instead of floating above it, clicks go through her over full-screen games, she can watch your screen while listening and comment in your language, and there's a long list of fixes (Gemini keys, Discord deafen, clearing her drawings, idle CPU).
