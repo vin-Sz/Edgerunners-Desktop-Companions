@@ -5,6 +5,23 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 2 Nov: merging Capri 0.7.10
+
+**What changed:** 30 of Lachy's commits came in. Check-ins now show in her bubble and speak, she lies on the taskbar instead of floating above it, clicks go through her over full-screen games, she can watch your screen while listening and comment in your language, and there's a long list of fixes (Gemini keys, Discord deafen, clearing her drawings, idle CPU).
+
+Two files conflicted, and the answer in both was "keep both":
+
+- `app/Player.cs`: Lachy split `SendToSession` in two, so a key press always waits a beat afterwards (`Pressed()`). Our one YouTube Music line was sitting right at the split. It moved into the new `SendNow`, so a like still reaches YouTube Music and gets the same beat.
+- `cross/Smoke.cs` (the Mac and Linux self-test): Lachy added a check that she recognises herself in screenshots. In the same spot, Capri's self-test has a check that says "no personality.md to edit", and ours tests `personality.md`. We keep the new check and our personality test, and drop the "no personality.md" check, because for Lucy it isn't true.
+
+**Idea: a clean merge isn't the same as a correct one.** Git only spots two edits to the same lines. It can't tell that a change broke something a file away. So after a merge, I also check what Git can't see: is her personality text unchanged (it is, so her fingerprint is still right), and did all her name swaps still find their phrases?
+
+**Not done: on Mac and Linux she's told she's Capri with red hair.** This update's new line says "the small red-haired anime girl with a speech bubble is you, Capri", so she knows not to describe herself in screenshots. It's only in the Mac and Linux code. Those builds don't get her name swaps (`names.txt` only covers the Windows copy), so Lucy on those systems gets that line as written. Her Windows build isn't affected.
+
+**Checked:** all three builds compile (plain Capri, `-Character lucy`, and Mac/Linux). The self-test is yours to run.
+
+---
+
 ## 1 Nov: merging Capri 0.7.9
 
 **What changed:** 37 of Lachy's commits came in. The big one is **chaos mode** (`app/Clones.cs`, new): she copies herself across your desktop, the copies keep doubling, drag your windows around, and holding Esc puts everything back. It's marked beta. Also: she draws diagrams and talks you through them, her Discord status moves, she reads her own clock when you ask the time, and a pile of fixes for freezing and quitting.
