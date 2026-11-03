@@ -1,15 +1,8 @@
 # Merges lachydotmcg/capri-desktop into main whenever it has new commits. The README always keeps this fork's version.
+# Any other conflict stops the sync and opens an issue, so it can be merged by hand.
 #
-# When any other file conflicts, Claude finishes the merge on a sync/capri-<sha> branch, following the rules in CLAUDE.md,
-# and this opens a pull request for it. CI then builds and smoke-tests it on Windows, Linux and Mac, and you merge it.
-# Without a Claude secret, or if Claude can't finish, it opens an issue instead so it can be merged by hand.
-#
-# Secrets (Settings > Secrets and variables > Actions):
-# - CLAUDE_CODE_OAUTH_TOKEN: run `claude setup-token` on your PC to make one from your Claude subscription.
-#   ANTHROPIC_API_KEY (an API key from console.anthropic.com) works instead.
-# - SYNC_TOKEN: a fine-grained token with Contents, Workflows and Pull requests (read and write) on this repo. Upstream sometimes
-#   changes its own workflow files, which the built-in token can't push, and pull requests the built-in token opens don't
-#   start CI. Without it, also turn on Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
+# Upstream sometimes changes its own workflow files, and GitHub won't let the built-in token push those. Add a
+# fine-grained token with Contents and Workflows (read and write) on this repo as the SYNC_TOKEN secret to cover that.
 name: Sync upstream
 
 on:
@@ -20,8 +13,6 @@ on:
 permissions:
   contents: write
   issues: write
-  pull-requests: write
-  id-token: write
 
 concurrency:
   group: sync-upstream
@@ -31,12 +22,8 @@ jobs:
   sync:
     if: github.repository == 'vin-Sz/Edgerunners-Desktop-Companions'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    env:
-      HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
-      GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
@@ -57,10 +44,6 @@ jobs:
 
           new=$(git log --oneline HEAD..upstream/main | wc -l)
           tip=$(git rev-parse --short upstream/main)
-          version=$(git show upstream/main:site/release.json 2>/dev/null | grep -oP '"tag_name"\s*:\s*"v?\K[^"]+' || true)
-          echo "tip=$tip" >> "$GITHUB_OUTPUT"
-          echo "new=$new" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
           git merge --no-ff --no-commit upstream/main || true
 
           conflicts=$(git diff --name-only --diff-filter=U)
@@ -77,9 +60,11 @@ jobs:
             echo "conflicts<<EOF" >> "$GITHUB_OUTPUT"
             echo "$left" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "tip=$tip" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          version=$(git show upstream/main:site/release.json 2>/dev/null | grep -oP '"tag_name"\s*:\s*"v?\K[^"]+' || true)
           git commit -F - <<EOF
           Merge capri-desktop${version:+ $version} from upstream
 
@@ -89,93 +74,20 @@ jobs:
           git push origin HEAD:main
           echo "merged=$tip" >> "$GITHUB_OUTPUT"
 
-      # Claude only starts once per upstream commit: a sync branch for this one means it's already done or waiting in a PR.
-      - name: Start the merge for Claude
-        id: prep
-        if: steps.merge.outputs.conflicts != '' && env.HAS_CLAUDE == 'true'
-        env:
-          TIP: ${{ steps.merge.outputs.tip }}
-        run: |
-          branch="sync/capri-$TIP"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
-            echo "$branch is already there, so Claude has had this one. Waiting for its pull request to be merged."
-            echo "waiting=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git checkout -b "$branch"
-          git merge --no-ff --no-commit upstream/main || true
-          if git diff --name-only --diff-filter=U | grep -qx README.md; then git checkout --ours README.md; git add README.md; fi
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/setup-dotnet@v5
-        if: steps.prep.outputs.ready == 'true'
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Claude merges it
-        if: steps.prep.outputs.ready == 'true'
-        continue-on-error: true
-        timeout-minutes: 60
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
-          prompt: |
-            A merge of lachydotmcg/capri-desktop (the `upstream/main` remote branch, ${{ steps.merge.outputs.new }} new commits,
-            version ${{ steps.merge.outputs.version }}) into this fork is in progress on the current branch and has conflicts in:
-
-            ${{ steps.merge.outputs.conflicts }}
-
-            Finish the merge by following "Merging capri-desktop" in CLAUDE.md. Read it first. Look at what the fork changed
-            (`git diff $(git merge-base HEAD upstream/main) HEAD -- <file>`) and what upstream changed in each conflicted
-            file before resolving it, and after resolving, look for leftovers of fork code that upstream now does itself.
-            Run every check in CLAUDE.md and fix anything they find. Then `git add` everything and `git commit` with the
-            message format from CLAUDE.md. Do not push, and do not switch branches: the workflow pushes and opens the pull request.
-            If you can't make it build, still don't commit: leave it uncommitted and explain why in your last message.
-          claude_args: >-
-            --max-turns 150
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git merge-base:*),Bash(git add:*),Bash(git rm:*),Bash(git checkout --ours:*),Bash(git checkout --theirs:*),Bash(git commit:*),Bash(grep:*),Bash(dotnet build:*),Bash(python3 ci/check-names.py)"
-
-      - name: Open a pull request for Claude's merge
-        id: pr
-        if: steps.prep.outputs.ready == 'true'
-        env:
-          BRANCH: ${{ steps.prep.outputs.branch }}
-          TIP: ${{ steps.merge.outputs.tip }}
-          VERSION: ${{ steps.merge.outputs.version }}
-          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
-        run: |
-          if [ -n "$(git diff --name-only --diff-filter=U)" ] || [ -f .git/MERGE_HEAD ] || ! git merge-base --is-ancestor upstream/main HEAD; then
-            echo "::warning::Claude didn't finish the merge."
-            exit 0
-          fi
-          git push origin "$BRANCH"
-          # An older sync pull request is behind this one, so it's closed in its favour.
-          for old in $(gh pr list --state open --json number,headRefName --jq '.[] | select(.headRefName | startswith("sync/capri-")) | .number'); do
-            gh pr close "$old" --delete-branch --comment "Replaced by a newer capri-desktop sync." || true
-          done
-          body=$(printf 'Merges capri-desktop%s up to `%s`. Claude resolved the conflicts in:\n\n%s\n\nHow each one was resolved is in the merge commit message. CI builds it and runs the smoke tests on Windows, Linux and Mac: merge once they pass.' "${VERSION:+ $VERSION}" "$TIP" "$(echo "$CONFLICTS" | sed 's/^/- `/; s/$/`/')")
-          url=$(gh pr create --base main --head "$BRANCH" --title "Merge capri-desktop${VERSION:+ $VERSION} from upstream" --body "$body")
-          echo "Opened $url"
-          echo "opened=$url" >> "$GITHUB_OUTPUT"
-
       - name: Open an issue for a conflict
-        if: steps.merge.outputs.conflicts != '' && steps.prep.outputs.waiting != 'true' && steps.pr.outputs.opened == ''
+        if: steps.merge.outputs.conflicts != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONFLICTS: ${{ steps.merge.outputs.conflicts }}
           TIP: ${{ steps.merge.outputs.tip }}
         run: |
           title="Upstream sync needs a hand"
-          why=$([ "$HAS_CLAUDE" = "true" ] && echo "Claude tried and couldn't finish it (its log is in this workflow run)." || echo "Add a CLAUDE_CODE_OAUTH_TOKEN secret and Claude will merge these for you, see sync-upstream.yml.")
-          body=$(printf 'Merging capri-desktop up to %s conflicts in:\n\n%s\n\n%s\n\nMerge it by hand:\n\n```bash\ngit fetch upstream\ngit merge upstream/main\n```\n\nClose this once main has the merge.' "$TIP" "$(echo "$CONFLICTS" | sed 's/^/- `/; s/$/`/')" "$why")
-          existing=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number' || true)
+          body=$(printf 'Merging capri-desktop up to %s conflicts in:\n\n%s\n\nMerge it by hand:\n\n```bash\ngit fetch upstream\ngit merge upstream/main\n```\n\nThe sync tries again every 6 hours and closes nothing on its own; close this once main has the merge.' "$TIP" "$(echo "$CONFLICTS" | sed 's/^/- `/; s/$/`/')")
+          existing=$(gh issue list 2>/dev/null --state open --search "\"$title\" in:title" --json number --jq '.[0].number' 2>/dev/null || true)
           if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "$body" || echo "::warning::Couldn't comment on issue $existing."
+            gh issue comment "$existing" --body "$body" || true
           else
-            gh issue create --title "$title" --body "$body" || echo "::warning::Couldn't open an issue. Are Issues turned on in Settings > General?"
+            gh issue create --title "$title" --body "$body" || true
           fi
           echo "::error::Merging capri-desktop conflicts in: $(echo $CONFLICTS)"
           exit 1
