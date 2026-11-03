@@ -13,7 +13,6 @@ namespace CapriDesktop
     internal static class YouTubeMusic
     {
         private const int DefaultPort = 13091;
-        private const string Off = "Couldn't reach YouTube Music. It has to be open with a song on, and its API turned on in its settings.";
         // Sends a GET (body null) or a POST to its API and returns the answer, or null when the app or its API is off. Tests swap it out.
         internal static Func<string, string, string> Call = Ask;
 
@@ -46,24 +45,6 @@ namespace CapriDesktop
             if (Regex.IsMatch(said, @"^(?:please\s+)?(?:like|heart)\s+" + It + @"$|^(?:please\s+)?add\s+" + It + @"\s+to\s+(?:my\s+)?(?:likes|liked songs)$", RegexOptions.IgnoreCase)) return "like";
             if (Regex.IsMatch(said, @"^(?:please\s+)?(?:unlike|unheart)\s+" + It + @"$|^(?:please\s+)?(?:remove|take)\s+" + It + @"\s+(?:out\s+of|from)\s+(?:my\s+)?(?:likes|liked songs)$", RegexOptions.IgnoreCase)) return "unlike";
             return null;
-        }
-
-        // A like for whatever's on: Spotify's goes the mini player's way (Player.cs), YouTube Music's through its API.
-        internal static string LikePlaying(bool want)
-        {
-            string title = "the song";
-#if !CROSS
-            Tune tune = Tunes.Current();
-            if (tune != null && tune.Spotify)
-            {
-                if (!Tunes.Send(tune, want ? "like" : "unlike")) return "Couldn't reach Spotify's heart.";
-                return want ? "Liked " + tune.Title + " on Spotify." : "Took " + tune.Title + " out of their Liked Songs on Spotify.";
-            }
-            if (tune != null && !Owns(tune.App)) return "Only Spotify and YouTube Music songs can be liked, and " + Tunes.AppName(tune.App) + " is playing.";
-            if (tune != null) title = tune.Title;
-#endif
-            if (Liked() == null || !SetLiked(want)) return Off;
-            return want ? "Liked " + title + " on YouTube Music." : "Took " + title + " out of their likes on YouTube Music.";
         }
 
 #if !CROSS
@@ -121,7 +102,8 @@ namespace CapriDesktop
         internal static string Check()
         {
             Func<string, string, string> callWas = Call;
-            Func<Tune> currentWas = Tunes.Current;
+            Func<List<Tune>> sessionsWas = Hands.Sessions;
+            Func<Tune, string, bool> pressWas = Hands.SessionPress;
             Func<Tune, string, bool> sendWas = Tunes.Send;
             Func<string, string> fetchWas = Hands.Fetch;
             Action<string> runWas = Hands.Run;
@@ -134,8 +116,10 @@ namespace CapriDesktop
             {
                 Hands.Run = delegate(string id) { ran.Add(id); };
                 Call =delegate(string path, string body) { sent.Add(path + " " + body); return state == null ? null : path == "/track/state" ? state : "true"; };
-                Tune ytm = new Tune { App = "net.venipa.ytmdesktop", Title = "Numb", Artist = "Linkin Park" };
-                Tune spotify = new Tune { App = "Spotify.exe", Title = "Numb", Artist = "Linkin Park" };
+                Tune ytm = new Tune { App = "net.venipa.ytmdesktop", Title = "Numb", Artist = "Linkin Park", Playing = true };
+                Tune spotify = new Tune { App = "Spotify.exe", Title = "Numb", Artist = "Linkin Park", Playing = true };
+                // Her media tool likes the playing song through its session, which goes Tunes.Send's way.
+                Hands.SessionPress = delegate(Tune pressing, string what) { return Tunes.Send(pressing, what); };
                 if (!ytm.Hearts || !spotify.Hearts || new Tune { App = "Chrome" }.Hearts || Tunes.AppName(ytm.App) != "YouTube Music") return "YouTube Music's songs got no heart in the mini player, or Chrome's did.";
                 bool? unliked = Liked();
                 state = "{\"liked\":true,\"disliked\":false}";
@@ -150,16 +134,16 @@ namespace CapriDesktop
                 string tool;
                 ToolArguments args;
                 if (!Hands.Direct("like this song", out tool, out args) || tool != "media" || args.Action != "like") return "\"Like this song\" didn't become a like: " + tool;
-                Tunes.Current = delegate { return ytm; };
+                Hands.Sessions = delegate { return new List<Tune> { ytm }; };
                 sent.Clear();
                 string said = Hands.Do("media", args);
-                if (said != "Liked Numb on YouTube Music." || !sent.Contains("/track/like true")) return "A like for YouTube Music went wrong: " + said + " / " + string.Join(", ", sent.ToArray());
+                if (said != "Liked the song." || !sent.Contains("/track/like true")) return "A like for YouTube Music went wrong: " + said + " / " + string.Join(", ", sent.ToArray());
                 List<string> pressed = new List<string>();
-                Tunes.Current = delegate { return spotify; };
+                Hands.Sessions = delegate { return new List<Tune> { spotify }; };
                 Tunes.Send = delegate(Tune pressing, string what) { pressed.Add(what); return true; };
                 args.Action = "unlike";
                 said = Hands.Do("media", args);
-                if (said != "Took Numb out of their Liked Songs on Spotify." || pressed.Count != 1 || pressed[0] != "unlike") return "An unlike for Spotify went wrong: " + said;
+                if (said != "Removed the song from your likes." || pressed.Count != 1 || pressed[0] != "unlike") return "An unlike for Spotify went wrong: " + said;
 
                 if (!Hands.Direct("play numb on youtube music", out tool, out args) || tool != "play_music" || args.App != "youtube music" || args.Song != "numb") return "\"Play numb on YouTube Music\" read wrong: " + tool + " " + (args == null ? "" : args.App + " / " + args.Song);
                 Hands.Fetch = delegate { return "\"videoId\":\"kXYiU_JCYtU\""; };
@@ -180,7 +164,8 @@ namespace CapriDesktop
             finally
             {
                 Call = callWas;
-                Tunes.Current = currentWas;
+                Hands.Sessions = sessionsWas;
+                Hands.SessionPress = pressWas;
                 Tunes.Send = sendWas;
                 Hands.Fetch = fetchWas;
                 Hands.Run = runWas;
