@@ -183,3 +183,13 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 **Idea: a `paths` filter, read from top to bottom.** A list of paths says which changes start a workflow, and a line starting with `!` takes some back out. The last line that matches a file wins. That's why `characters/talia/personality.md` comes last in `talia-smoke.yml`: `!**/*.md` skips notes, but that one `.md` file goes into her build.
 
 **Idea: Git can't merge two changes that touch.** Git compares by lines, so even two different edits conflict if they're on the same line or right next to each other. That's why moving our `'Character', 'YouTubeMusic'` names to their own line wouldn't help: nothing can go between `$sources` and the line after it without touching his line.
+
+---
+
+## 4 Nov: The self-test still looked for Capri's name in one more place
+
+**What changed:** one more line in `characters/talia/checks.txt`, so the self-test expects "You are Talia" in what her build sends to ElevenLabs.
+
+**Why did the last fix miss it?** A rule in that file swaps one exact piece of text, and the same words can be written differently in the code. The last rule matched `"You are Capri" }`, as the chat checks write it. The ElevenLabs check writes `\"You are Capri"`, with a backslash in front because the words sit inside a piece of JSON. Same words, different characters, so the rule didn't touch them.
+
+**Idea: a test stops at its first failure.** The self-test gives up at the first check that fails, so it can't show what's wrong further along. That's why fixing one check can reveal the next. A new failure after a fix usually means the test got further, not that the fix made things worse.
