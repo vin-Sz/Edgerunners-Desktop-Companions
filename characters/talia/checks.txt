@@ -9,6 +9,8 @@
 "Brain.DefaultPersonality.IndexOf("When someone donates or tips", StringComparison.Ordinal) > 0 && Brain.DefaultPersonality.IndexOf("Thanks for the eddies. Good boy.", StringComparison.Ordinal) > 0" => "true"
 "Brain.DefaultPersonality.IndexOf("it helps keep me online!", StringComparison.Ordinal) > 0 && " => ""
 
+# Prompts are told apart by whether they hold her personality, which names Talia instead of Project Capricorn.
+""Project Capricorn", StringComparison" => ""Talia Yang", StringComparison"
 # Not every Halloween line of hers says "Happy Halloween".
 "spookyLine.IndexOf("Happy Halloween", StringComparison.Ordinal) < 0" => "spookyLine.Trim().Length == 0"
 "halloweenWrong = "a Halloween line without Happy Halloween: " + spookyLine" => "halloweenWrong = "an empty Halloween line""
