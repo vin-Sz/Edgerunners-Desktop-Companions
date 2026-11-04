@@ -214,4 +214,18 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 
 **Why did the last fix miss it?** A rule in that file swaps one exact piece of text, and the same words can be written differently in the code. The last rule matched `"You are Capri" }`, as the chat checks write it. The ElevenLabs check writes `\"You are Capri"`, with a backslash in front because the words sit inside a piece of JSON. Same words, different characters, so the rule didn't touch them.
 
-**Idea: a test stops at its first failure.** The self-test gives up at the first check that fails, so it can't show what's wrong further along. That's why fixing one check can reveal the next. A new failure after a fix usually means the test got further, not that the fix made things worse.
+**Correction to what this note first said:** I wrote that the self-test stops at its first failure. It doesn't. After a failed step it starts a fresh copy of the app and carries on, so one run can find several problems.
+
+---
+
+## 4 Nov: Why Talia's self-test failed without saying why
+
+**What changed:**
+- The run's summary page, and so `./ci/status.ps1`, now shows the checks that failed and why the script stopped. Before, it only showed `failure.txt`.
+- The check on the labels she knows about now reads the copy of the code she was built from. It's another line in `characters/talia/checks.txt`.
+
+**Why was it silent?** The self-test writes two files. `failure.txt` only gets some kinds of failure, and every result goes in `smoke-test.txt`. A whole section can fail and appear only in the second file. The summary page read only the first, and the full log needs a GitHub login, so the run just said it failed. Once the page listed the results, the answer was one line out of 869 results that passed or failed.
+
+**Why did that check fail?** It makes sure that when she explains a button, the button really exists, by searching the source files for its label. Her build has "Quit Talia", but the check was searching Lachy's `app/Mainframe.cs`, which rightly still says "Quit Capri". Her app was fine. The test was looking at the wrong file.
+
+**Idea: test what you built.** Her build is made from a changed copy of the code, so any check that reads source files needs to read that copy, or it's comparing her to Capri.

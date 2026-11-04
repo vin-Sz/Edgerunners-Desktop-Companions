@@ -13,6 +13,8 @@
 ""Project Capricorn", StringComparison" => ""Talia Yang", StringComparison"
 ""You are Capri" }" => ""You are Talia" }"
 "\"You are Capri"" => "\"You are Talia""
+# The labels she knows about are compared with the copy of the code she was built from, since Lachy's files still say Capri.
+"File.ReadAllText(Path.Combine(selfRoot, "app", selfEntry.File))" => "File.ReadAllText(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "character-talia", "app", selfEntry.File))"
 # Not every Halloween line of hers says "Happy Halloween".
 "spookyLine.IndexOf("Happy Halloween", StringComparison.Ordinal) < 0" => "spookyLine.Trim().Length == 0"
 "halloweenWrong = "a Halloween line without Happy Halloween: " + spookyLine" => "halloweenWrong = "an empty Halloween line""
