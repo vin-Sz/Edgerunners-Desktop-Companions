@@ -19,6 +19,10 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
+      # GitHub's Windows screen starts at 1024 x 768, too small for her windows at 150% and 200%.
+      - name: Make the screen 1080p
+        shell: pwsh
+        run: ./ci/wide-screen.ps1
       - name: Build and smoke test
         shell: pwsh
         run: ./ci/build-windows.ps1 -OutputDirectory out/windows -SmokeTest -SmokeSeconds 900
