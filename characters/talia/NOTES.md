@@ -10,6 +10,7 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 | `Character.cs` | Her lines from the code (pop-ups, Halloween, her "no", her error line). Used in place of `app/Character.cs` |
 | `names.txt` | Her name where you see it, and her installer's name |
 | `checks.txt` | The self-test's checks of Capri's personality, changed in a copy of the code to fit Talia's text |
+| `CAPRI-LEFTOVERS.md` | What she inherited from Capri that may not suit her, with decisions waiting. Read it before drawing |
 | `krita/` | One ready-to-draw `.kra` per animation. Remake with `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\talia\krita -Character Talia` |
 | `sprites/` | *(later)* her animations, same file names and sizes as `assets/sprites`. `characters/lucy/ART.md` and `characters/lucy/templates` apply to her too |
 | `voice/` | *(later)* her spoken greetings |

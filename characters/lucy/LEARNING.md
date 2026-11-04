@@ -5,6 +5,16 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 4 Nov: A list of what Talia inherited from Capri
+
+**What changed:** nothing in the app. `characters/talia/CAPRI-LEFTOVERS.md` is a new list of everything in her build that came from Capri and may not suit her, with decisions for you to make.
+
+**Why:** the fork treated characters as interchangeable: same app, new name, lines and art. That works when the characters are similar, but Capri is a program and Talia is a human, so some of what she inherited only makes sense for Capri. Her animation list is the clearest case: `glitch` makes sense for software, but not automatically for a person.
+
+**One idea worth knowing:** a find-and-replace can only change what it's told to look for. Her name list deliberately covers only whole phrases, so it never touches instructions like "you're Capri herself", which you never see on screen but the AI does. So a build can look finished and still be telling the AI she's someone else.
+
+---
+
 ## 2 Nov: room for Talia, and the rename
 
 **What changed:** the repo is now Edgerunners Desktop Companions, and Talia has her own folder, `characters/talia`. A `-Character talia` build shows her name and says her own lines. Every character's build is now called Edgerunners Desktop, and the release workflow is `release.yml`, which asks which characters to build.
