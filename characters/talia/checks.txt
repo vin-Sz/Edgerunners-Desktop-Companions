@@ -8,3 +8,9 @@
 "PASS her personality: a playful, teasing chaos gremlin who's openly fond of them and calls them a good boy, with" => "PASS her personality: guarded and sarcastic, with"
 "Brain.DefaultPersonality.IndexOf("When someone donates or tips", StringComparison.Ordinal) > 0 && Brain.DefaultPersonality.IndexOf("Thanks for the eddies. Good boy.", StringComparison.Ordinal) > 0" => "true"
 "Brain.DefaultPersonality.IndexOf("it helps keep me online!", StringComparison.Ordinal) > 0 && " => ""
+
+# Not every Halloween line of hers says "Happy Halloween".
+"spookyLine.IndexOf("Happy Halloween", StringComparison.Ordinal) < 0" => "spookyLine.Trim().Length == 0"
+"halloweenWrong = "a Halloween line without Happy Halloween: " + spookyLine" => "halloweenWrong = "an empty Halloween line""
+# Her menu's title has her name.
+"menu.Items[0].Text.StartsWith("CAPRI", StringComparison.Ordinal)" => "menu.Items[0].Text.StartsWith("TALIA", StringComparison.Ordinal)"
