@@ -62,6 +62,14 @@ jobs:
             if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
             Write-Output "::error title=Talia self-test - $part::$text"
           }
+          # A check can fail without writing failure.txt, and then its reason is only in the results.
+          $results = Join-Path $env:RUNNER_TEMP 'w\smoke\runtime\smoke-test.txt'
+          if (Test-Path -LiteralPath $results) {
+            $lines = @(Get-Content -LiteralPath $results | Where-Object { $_ -match '^(FAIL |TOTAL )' })
+            $text = ($lines -join "`n") -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
+            if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
+            if ($text) { Write-Output "::error title=Talia self-test - failed checks::$text" }
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
