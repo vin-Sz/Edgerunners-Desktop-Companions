@@ -5,6 +5,20 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 4 Nov: Lachy's update tonight merges itself
+
+**What changed:** nothing in the app. A scheduled job called "Merge tonight's Capri update" checks for his update at about 23:50 on 4 Nov, then at about 01:50, 03:50, 05:50, 07:50, 09:50 and 23:50 on 5 Nov. It merges the update into `main`, waits for GitHub's tests, then merges `main` into `talia-built-in` and pushes both. It runs inside the Claude app on this PC, so the PC has to be awake and the app open. If it misses a time, it runs the next time the app starts.
+
+**Why not just Sync upstream?** That run is on GitHub and doesn't need this PC, but it only comes once a day, at about 07:17 here, and it gives up on any conflict. It's still there as the backup for a clean merge.
+
+**What it won't do:** it won't force a push, make a release or tag, or touch her wording. If a conflict touches characters, a prompt or `Safety`, or the compile fails, it stops without pushing and says why. New text that says Capri gets listed for you and isn't changed.
+
+**How it's allowed to push:** the list in `C:\Users\vince\.claude\settings.json` under `permissions` names the exact commands, limited to one separate folder, `edgerunners-merge` in Temp. Pushing is allowed to `main` and `talia-built-in` and nowhere else. The job also runs in Auto mode, where a safety check still looks at each action. Delete those lines and the job after tonight if you'd rather be asked again.
+
+**One idea worth knowing:** a second working folder for the same repo is called a worktree. It has its own checked-out files but shares the same history, so the job can merge there without disturbing whatever another session is doing in the main folder.
+
+---
+
 ## 4 Nov: Each character gets her own memory
 
 **What changed:** a character build now keeps her notes, memories, chat logs, current chat and edited personality in `characters\<name>` inside the app's folder. `characters/own-files.txt` says which files. Her memory file's title and the instructions for writing it use her name too. Capri's facing-left art also leaves the build as soon as a character has her own version of that sheet.
