@@ -1,5 +1,6 @@
 # Merges lachydotmcg/capri-desktop into main whenever it has new commits. The README always keeps this fork's version.
-# Any other conflict stops the sync and opens an issue, so it can be merged by hand.
+# Any other conflict stops the sync and turns the run red, with the files listed on its summary page, so it can be merged
+# by hand. It can't open an issue, because this fork has issues turned off.
 #
 # Upstream sometimes changes its own workflow files, and GitHub won't let the built-in token push those. Add a
 # fine-grained token with Contents and Workflows (read and write) on this repo as the SYNC_TOKEN secret to cover that.
@@ -7,12 +8,11 @@ name: Sync upstream
 
 on:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 6 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
-  issues: write
 
 concurrency:
   group: sync-upstream
@@ -74,20 +74,18 @@ jobs:
           git push origin HEAD:main
           echo "merged=$tip" >> "$GITHUB_OUTPUT"
 
-      - name: Open an issue for a conflict
+      - name: Say what conflicts
         if: steps.merge.outputs.conflicts != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONFLICTS: ${{ steps.merge.outputs.conflicts }}
           TIP: ${{ steps.merge.outputs.tip }}
         run: |
-          title="Upstream sync needs a hand"
-          body=$(printf 'Merging capri-desktop up to %s conflicts in:\n\n%s\n\nMerge it by hand:\n\n```bash\ngit fetch upstream\ngit merge upstream/main\n```\n\nThe sync tries again every 6 hours and closes nothing on its own; close this once main has the merge.' "$TIP" "$(echo "$CONFLICTS" | sed 's/^/- `/; s/$/`/')")
-          existing=$(gh issue list 2>/dev/null --state open --search "\"$title\" in:title" --json number --jq '.[0].number' 2>/dev/null || true)
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "$body" || true
-          else
-            gh issue create --title "$title" --body "$body" || true
-          fi
+          {
+            echo "Merging capri-desktop up to $TIP conflicts in:"
+            echo
+            echo "$CONFLICTS" | sed 's/^/- `/; s/$/`/'
+            echo
+            echo 'Merge it by hand with `git fetch upstream` and `git merge upstream/main`. This sync tries again every day.'
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "::error::Merging capri-desktop conflicts in: $(echo $CONFLICTS)"
           exit 1
