@@ -6,9 +6,10 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 
 | File | What it is |
 | --- | --- |
-| `personality.md` | Her personality, first draft. Not built in yet: paste it in through YOU > Personality |
-| `Character.cs` | Her lines from the code (pop-ups, Halloween, her "no", her error line), first drafts. Used in place of `app/Character.cs` |
+| `personality.md` | Her personality. A `-Character talia` build on Windows makes it her default, because `builtin-personality.txt` is here. Mac and Linux builds don't have this yet |
+| `Character.cs` | Her lines from the code (pop-ups, Halloween, her "no", her error line). Used in place of `app/Character.cs` |
 | `names.txt` | Her name where you see it, and her installer's name |
+| `checks.txt` | What changes in a copy of the code because she isn't Capri: the self-test's personality checks, and no "good boy" for donors on stream |
 | `krita/` | One ready-to-draw `.kra` per animation. Remake with `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\talia\krita -Character Talia` |
 | `sprites/` | *(later)* her animations, same file names and sizes as `assets/sprites`. `characters/lucy/ART.md` and `characters/lucy/templates` apply to her too |
 | `voice/` | *(later)* her spoken greetings |
@@ -19,10 +20,11 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 - [x] Her folder, her name and her own lines in a `-Character talia` build
 - [x] Research her (`reports/Talia Yang personality and voice.md`). Its speech analysis leans on one unofficial transcript of one episode, and nobody compiling it watched the show, so what you saw wins
 - [x] Second draft of `personality.md` and her lines, from that research and your answers: she talks about her family and illness, and she knows Capri
-- [ ] Check the draft against the show: E02 for her teasing, E07 for how she bickers with Capri
 - [x] Where she is on the show's timeline: kept vague on purpose. She knows her history but doesn't say how it ended, so she keeps her chrome jokes and doesn't spoil the finale
-- [ ] Try the personality in the real app, then build it in as her default
-- [ ] Her art, voice and icon
+- [x] Build the personality in as her default (4 Nov). Not checked against the show on purpose: you chose not to rewatch E02 and E07, so her teasing and her bickering with Capri rest on the research. If something sounds wrong when you do talk to her, say so and it gets fixed
+- [x] Self-test on GitHub instead of your PC: the **Talia self-test** Action runs when `characters/` or `ci/` changes
+- [ ] Her art and icon
+- [ ] Her voice: later, on purpose. It's the least important part for now
 - [ ] "Capri Mainframe" and "Hey Capri": still Capri's, for the same reasons as in Lucy's notes
 
 ## One rule that stays

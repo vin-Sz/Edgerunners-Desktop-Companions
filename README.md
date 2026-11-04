@@ -6,7 +6,7 @@ Desktop companions of characters from *Cyberpunk: Edgerunners*, built on top of 
 
 | Character | From | Status |
 |---|---|---|
-| **Talia Yang** | *Cyberpunk: Edgerunners 2* | Main focus. Her name and first draft lines are in; her personality and art are next |
+| **Talia Yang** | *Cyberpunk: Edgerunners 2* | Main focus. Her name, lines and personality are in; her art is next |
 | **Lucy** | *Cyberpunk: Edgerunners* | On hold for now. Personality and lines are drafted, her art is in progress |
 
 ## Why this fork exists
@@ -36,9 +36,10 @@ Any drawing or voice line a character doesn't have yet falls back to Capri's, so
 🛠️ **Work in progress.** There's no download yet. If you want a working companion today, get [Capri](https://github.com/lachydotmcg/capri-desktop).
 
 - [x] Building with a character's own art, voice, icon, name and lines
-- [x] Talia's folder, name and first draft lines
-- [ ] Talia's personality, built in as her default
-- [ ] Talia's sprites, animations, voice lines and icon
+- [x] Talia's folder, name and lines
+- [x] Talia's personality, built in as her default (Windows)
+- [ ] Talia's sprites, animations and icon
+- [ ] Talia's voice lines
 - [ ] First build you can download
 
 ## Made with help from Claude

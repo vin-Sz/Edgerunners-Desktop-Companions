@@ -51,7 +51,7 @@ if (Test-Path -LiteralPath $ownIcon) {
 # app and the installer are built from. The installer's line in ci/build-windows.ps1 reads app\ and assets\chip.png from
 # $root, so $root becomes the copy's folder once the rest of the build has what it needs from the real one.
 $rules = New-Object System.Collections.Generic.List[object]
-foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $characterRoot 'names.txt'))) {
+foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'checks.txt'))) {
     if (-not (Test-Path -LiteralPath $list)) { continue }
     foreach ($line in Get-Content -LiteralPath $list -Encoding UTF8) {
         $rule = [regex]::Match($line, '^"(.+)"\s*=>\s*"(.*)"\s*$')
@@ -75,6 +75,38 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $root 'app') -Filter *.c
     # A release's own number (GitHub's release workflow sets it), so the updater knows which release is installed.
     if ($version -and $file.Name -eq 'AssemblyInfo.cs') { $code = [regex]::Replace($code, '(Assembly(?:File)?Version\(")[^"]*', '${1}' + $version) }
     [IO.File]::WriteAllText((Join-Path $staged ('app\' + $file.Name)), $code, $utf8)
+}
+# A character with a builtin-personality.txt gets her personality.md as her default personality, in the copy of the code.
+# The self-test can't know her text's checksum and length ahead of time, so in the copy it works them out from her own text.
+# The plain build's self-test still pins Capri's safety lines exactly.
+$ownPersonality = Join-Path $characterRoot 'personality.md'
+if (Test-Path -LiteralPath (Join-Path $characterRoot 'builtin-personality.txt')) {
+    if (-not (Test-Path -LiteralPath $ownPersonality)) { throw "$ownPersonality is missing." }
+    $plain = [regex]::Replace([IO.File]::ReadAllText($ownPersonality, $utf8).TrimStart([char]0xFEFF).Replace("`r`n", "`n").Replace("`r", "`n"), '<!--.*?(-->|$)', '', 'Singleline')
+    $plain = (($plain -split "`n") | Where-Object { $_.Trim().Length -gt 0 } | ForEach-Object { $_.TrimEnd() }) -join "`n"
+    if ($plain.Length -eq 0) { throw "$ownPersonality has no text." }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $stamp = ([BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($plain)), 0, 8)).Replace('-', '').ToLowerInvariant()
+    $sha.Dispose()
+    $literal = '"' + $plain.Replace('\', '\\').Replace('"', '\"').Replace("`n", '\n') + '"'
+    $brainPath = Join-Path $staged 'app\Brain.cs'
+    $brain = [IO.File]::ReadAllText($brainPath, $utf8)
+    $capriStamp = [regex]::Match($brain, 'internal const string DefaultStamp = "([0-9a-f]{16})";')
+    $defaultPattern = '(?s)internal const string DefaultPersonality =.*?";(?=\r?\n\s*\r?\n)'
+    if (-not $capriStamp.Success -or -not [regex]::IsMatch($brain, $defaultPattern)) { throw "Can't find her default personality in Brain.cs any more. Check what Capri's code says now and update Use-Character.ps1." }
+    $brain = ([regex]$defaultPattern).Replace($brain, { param($m) 'internal const string DefaultPersonality = ' + $literal + ';' }, 1)
+    $brain = $brain.Replace($capriStamp.Value, 'internal const string DefaultStamp = "' + $stamp + '";')
+    $brain = $brain.Replace('Retired = new List<string> { ', 'Retired = new List<string> { "' + $capriStamp.Groups[1].Value + '", ')
+    [IO.File]::WriteAllText($brainPath, $brain, $utf8)
+    $capriPath = Join-Path $staged 'app\Capri.cs'
+    $capri = [IO.File]::ReadAllText($capriPath, $utf8)
+    $hashPattern = 'const string todaysPersona = "[0-9a-f]{64}";'
+    $lengthPattern = 'Brain\.Persona\.Length == \d+'
+    if (-not [regex]::IsMatch($capri, $hashPattern) -or -not [regex]::IsMatch($capri, $lengthPattern)) { throw "Can't find the self-test's personality checksum in Capri.cs any more. Check what Capri's code says now and update Use-Character.ps1." }
+    $capri = ([regex]$hashPattern).Replace($capri, { param($m) 'string todaysPersona; using (System.Security.Cryptography.SHA256 ownSha = System.Security.Cryptography.SHA256.Create()) todaysPersona = BitConverter.ToString(ownSha.ComputeHash(new System.Text.UTF8Encoding(false).GetBytes(Brain.DefaultPersonality + "\n" + Brain.Safety + "\n" + Brain.Machinery))).Replace("-", "").ToLowerInvariant();' })
+    $capri = [regex]::Replace($capri, $lengthPattern, 'Brain.Persona.Length > 0')
+    [IO.File]::WriteAllText($capriPath, $capri, $utf8)
+    $swapped.Add('personality (stamp ' + $stamp + ')')
 }
 foreach ($rule in $rules) { if (-not $found.ContainsKey($rule[1])) { Write-Warning ($rule[0] + ": `"" + $rule[1] + "`" isn't in the code any more. Check what Capri's code says now and update the line.") } }
 $sources = @($sources | ForEach-Object { Join-Path $staged ('app\' + (Split-Path -Leaf $_)) })

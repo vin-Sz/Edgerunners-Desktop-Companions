@@ -156,3 +156,17 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 **Idea: point, don't move.** Lachy keeps updating `Capri.cs`, and a sync merges his changes into ours. If we both change the same lines, Git can't choose (a *merge conflict*). Deleting his list and editing every place that used it would touch many lines. Instead, his list stays but points at ours, so only one line differs from his. If a sync ever conflicts there, the fix is obvious.
 
 **Idea: the build has a guest list.** `ci/build-windows.ps1` only compiles the files it names. A new `.cs` file does nothing until it's added to `$sources`.
+
+---
+
+## 4 Nov: Talia's personality goes in at build time
+
+**What changed:** a `-Character talia` build now takes `characters/talia/personality.md` and makes it her default personality. `Use-Character.ps1` does this in the build's temporary copy of the code, so `app/Brain.cs` stays exactly as Lachy wrote it. The self-test also runs on her build on GitHub now, instead of on your PC.
+
+**Why not edit `Brain.cs`?** The notes' first plan was to move her personality into `Character.cs`, which means changing Lachy's lines. Those lines change in nearly every Capri update, so we'd get merge conflicts again and again. Changing the copy means his updates merge cleanly, and the build stops with a clear message if it can't find what it's looking for.
+
+**Idea: a test that checks its own answer proves less.** The self-test compares her prompt to a fixed checksum. Her build can't use Capri's, so it works one out from her own text, and that check always agrees with itself in her build. It's still fine, because the plain Capri build keeps the fixed checksum, and that's what guards the safety lines. Other checks do real work for her: she must have the no-romance line and must never say "good boy".
+
+**Why she lost "good boy" in two more places:** it wasn't only in her personality. Two stream prompts in `Computer.cs` also told her to call donors that, which is wrong for a teenager. `checks.txt` changes those in the copy too.
+
+**Worth knowing:** the same research-based text now has a few of Lachy's tuned rules, like asking something back at most one reply in four. He learned those from real users, and they were missing from her draft.

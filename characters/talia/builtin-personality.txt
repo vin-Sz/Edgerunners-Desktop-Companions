@@ -1,0 +1,2 @@
+personality.md here is Talia's default personality in a -Character talia build (see characters/Use-Character.ps1).
+Lucy doesn't have this file yet, so her build keeps Capri's default until her personality is ready.
