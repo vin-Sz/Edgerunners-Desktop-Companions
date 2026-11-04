@@ -265,3 +265,15 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 **Why did that check fail?** It makes sure that when she explains a button, the button really exists, by searching the source files for its label. Her build has "Quit Talia", but the check was searching Lachy's `app/Mainframe.cs`, which rightly still says "Quit Capri". Her app was fine. The test was looking at the wrong file.
 
 **Idea: test what you built.** Her build is made from a changed copy of the code, so any check that reads source files needs to read that copy, or it's comparing her to Capri.
+
+---
+
+## 4 Nov: a script does the routine part of merging Lachy's updates
+
+**What changed:** `ci/merge-capri.ps1` merges his latest into the branch you're on. It fixes three conflicts that keep coming back, compiles the Capri and Talia builds, and commits, but it never pushes. Sync upstream on GitHub now uses it too, so a routine update can finish with nobody involved. If anything's left, it prints only those conflicts.
+
+**Why a script?** The same few conflicts came back with each update, and working them out by hand used up time and Claude's tokens on something with one right answer. Saved in a script, that answer costs nothing to run again.
+
+**Idea: a fix has to prove it's safe.** Taking Lachy's version of `ci/build-windows.ps1` and re-adding our lines would quietly lose anything else we'd changed there. So the script first applies our lines to the older version both sides started from, and checks that the result is exactly our file. If it isn't, we changed something else, and the file is left for a person.
+
+**How it was tested:** by replaying real past merges in a throwaway copy, without running the app. For the 58-commit merge, the result was identical to the one done by hand. Two older merges with real decisions in them (`app/Capri.cs`, `app/Player.cs`) were correctly left for a person. Sync upstream's new version can only be tried once it's on `main`.
