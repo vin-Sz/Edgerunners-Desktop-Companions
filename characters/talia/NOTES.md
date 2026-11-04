@@ -9,7 +9,7 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 | `personality.md` | Her personality. A `-Character talia` build on Windows makes it her default, because `builtin-personality.txt` is here. Mac and Linux builds don't have this yet |
 | `Character.cs` | Her lines from the code (pop-ups, Halloween, her "no", her error line). Used in place of `app/Character.cs` |
 | `names.txt` | Her name where you see it, and her installer's name |
-| `checks.txt` | What changes in a copy of the code because she isn't Capri: the self-test's personality checks, and no "good boy" for donors on stream |
+| `checks.txt` | The self-test's checks of Capri's personality, changed in a copy of the code to fit Talia's text |
 | `krita/` | One ready-to-draw `.kra` per animation. Remake with `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\talia\krita -Character Talia` |
 | `sprites/` | *(later)* her animations, same file names and sizes as `assets/sprites`. `characters/lucy/ART.md` and `characters/lucy/templates` apply to her too |
 | `voice/` | *(later)* her spoken greetings |

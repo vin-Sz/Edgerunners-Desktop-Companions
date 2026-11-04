@@ -165,8 +165,5 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 
 **Why not edit `Brain.cs`?** The notes' first plan was to move her personality into `Character.cs`, which means changing Lachy's lines. Those lines change in nearly every Capri update, so we'd get merge conflicts again and again. Changing the copy means his updates merge cleanly, and the build stops with a clear message if it can't find what it's looking for.
 
-**Idea: a test that checks its own answer proves less.** The self-test compares her prompt to a fixed checksum. Her build can't use Capri's, so it works one out from her own text, and that check always agrees with itself in her build. It's still fine, because the plain Capri build keeps the fixed checksum, and that's what guards the safety lines. Other checks do real work for her: she must have the no-romance line and must never say "good boy".
-
-**Why she lost "good boy" in two more places:** it wasn't only in her personality. Two stream prompts in `Computer.cs` also told her to call donors that, which is wrong for a teenager. `checks.txt` changes those in the copy too.
-
+**Idea: a test that checks its own answer proves less.** The self-test compares her prompt to a fixed checksum. Her build can't use Capri's, so it works one out from her own text, and that check always agrees with itself in her build. It's still fine, because the plain Capri build keeps the fixed checksum, and that's what guards the safety lines. 
 **Worth knowing:** the same research-based text now has a few of Lachy's tuned rules, like asking something back at most one reply in four. He learned those from real users, and they were missing from her draft.
