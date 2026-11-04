@@ -8,7 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <DefineConstants>$(DefineConstants);CROSS</DefineConstants>
     <NoWarn>$(NoWarn);CS0649;CS0169;CS0414;CA1416;SYSLIB0014</NoWarn>
-    <Version>0.7.10</Version>
+    <Version>0.8.2</Version>
     <Product>Capri</Product>
     <ApplicationIcon>../assets/chip.ico</ApplicationIcon>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
@@ -30,6 +30,8 @@
     <EmbeddedResource Include="../assets/sprites/*.png" LogicalName="Capri.Sprite.%(Filename)%(Extension)" />
     <EmbeddedResource Include="../assets/voice/*.wav" LogicalName="Capri.Voice.%(Filename)%(Extension)" />
     <EmbeddedResource Include="../assets/chip.png" LogicalName="Capri.Chip.png" />
+    <EmbeddedResource Include="../assets/cursor.png" LogicalName="Capri.Cursor.png" />
+    <AvaloniaResource Include="../assets/fonts/ShareTechMono-Regular.ttf" Link="Assets/ShareTechMono-Regular.ttf" />
   </ItemGroup>
   <!-- dotnet build -p:Character=lucy: a character's own sprites and voice take the place of Capri's with the same names (characters/Use-Character.ps1 on Windows) -->
   <ItemGroup Condition="'$(Character)' != ''">
@@ -41,6 +43,5 @@
     <EmbeddedResource Remove="@(CharacterVoice->'../assets/voice/%(Filename)%(Extension)')" />
     <EmbeddedResource Include="@(CharacterSprite)" LogicalName="Capri.Sprite.%(Filename)%(Extension)" />
     <EmbeddedResource Include="@(CharacterVoice)" LogicalName="Capri.Voice.%(Filename)%(Extension)" />
-    <AvaloniaResource Include="../assets/fonts/ShareTechMono-Regular.ttf" Link="Assets/ShareTechMono-Regular.ttf" />
   </ItemGroup>
 </Project>

@@ -186,7 +186,7 @@ namespace CapriDesktop
         internal const string NotAKey = "That doesn't look like an NVIDIA, OpenAI, Claude or DeepSeek key. NVIDIA's start with nvapi-.";
         internal const string FreeKeySteps = "Make a key on NVIDIA's page and copy it. Then right-click me > Brain > " + KeyChoice + " and paste it.";
         internal const string DiscordPage = "https://discord.gg/F4fDHfGtFk";
-        internal const string HelpPage = "https://lachydotmcg.github.io/capri-desktop/help/";
+        internal const string HelpPage = "https://capriai.app/help/";
         // Mac and Linux don't update themselves yet, so she checks GitHub's latest release now and then and offers its page.
         private const string LatestRelease = "https://api.github.com/repos/lachydotmcg/capri-desktop/releases/latest";
         private const string ReleasesPage = "https://github.com/lachydotmcg/capri-desktop/releases/latest";
@@ -460,6 +460,7 @@ namespace CapriDesktop
             // Her mouse and keyboard jobs too, once /dev/uinput lets her make her own (Fingers). The smoke test keeps the five.
             fingers = Program.Smoke == null && Fingers.Problem == null;
             Security.Has = delegate(int toggle) { return toggle <= Security.Power || (toggle == Security.Mouse && fingers); };
+            Hands.OwnHands = fingers;
             Security.Load(Saved.Permissions);
             Security.Changed = delegate { Saved.Permissions = Security.Saved; Save(); if (ContextMenu != null) Sync(); };
             LoginFile = Program.Smoke != null ? Path.Combine(Program.Smoke, OperatingSystem.IsMacOS() ? "capri.plist" : "capri.desktop") : Limbs.LoginFile();
@@ -470,6 +471,8 @@ namespace CapriDesktop
             Brain.FreeKeyHow = "right-click me > Brain > Get a free NVIDIA key";
             Brain.Bin = OperatingSystem.IsMacOS() ? "Trash" : "trash";
             Brain.MemoryPath = Path.Combine(Program.Smoke ?? folder, "me.md");
+            // Their personality.md, made only when they pick Edit (back in 0.8.0). Her safety lines stay in her code after it.
+            Brain.PersonalityPath = Path.Combine(Program.Smoke ?? folder, Brain.PersonalityName);
             // Remember our chats, like on Windows: every chat goes in a daily transcript, and the brain they picked folds older
             // lines into memories.md, which she reads every chat.
             Brain.MemoriesPath = Path.Combine(Program.Smoke ?? folder, "memories.md");
@@ -478,8 +481,6 @@ namespace CapriDesktop
             Brain.FoldsGlances = false;
             Brain.Keeping = !Saved.NoMemories;
             if (Program.Smoke == null) Brain.Keeper = Brain;
-            Brain.PersonalityPath = Path.Combine(Program.Smoke ?? folder, Brain.PersonalityName);
-            Brain.MakePersonality();
             Brain.Language = Brain.LanguageCode(Saved.Language) == "en" ? null : Saved.Language;
             Brain.Nickname = Brain.Nick(Saved.Nickname).Length == 0 ? null : Brain.Nick(Saved.Nickname);
             Brain.Wordiness = Math.Max(0, Math.Min(2, Saved.Replies));
@@ -499,11 +500,22 @@ namespace CapriDesktop
             Hands.Nap = NapTool;
             Hands.MoveSelf = MoveTool;
             Hands.Animate = AnimateTool;
+            // Her settings tool reads and changes what her menus show.
+            Hands.SettingOn = SettingOn;
+            Hands.SetSetting = SetSetting;
+            Hands.LevelOf = LevelOf;
+            Hands.SetLevel = SetLevel;
+            Hands.SettingAction = delegate(ToolArguments args) { return SettingAction(args.Action); };
             if (Program.Smoke == null)
             {
                 Hands.Work = delegate(string job, string asked) { return Chores.Run(Brain, job, asked); };
-                Chores.Mouse = delegate { return Dispatcher.UIThread.Invoke(MouseShare); };
+                Chores.Mouse = delegate { return Dispatcher.UIThread.Invoke(MouseShare) ?? KWinMouse.Ask(); };
                 Chores.Says = delegate(string line) { Dispatcher.UIThread.Post(delegate { Reply(asking, "(chat)", line); }); };
+                // Her own pointer, like Windows': it glides while their mouse stays put, and hides for her screenshots.
+                Chores.Track = delegate(double x, double y) { Dispatcher.UIThread.Post(delegate { HerPointer.Point(DesktopPixel(x, y)); }); };
+                Chores.Tapped = delegate { Dispatcher.UIThread.Post(delegate { HerPointer.Tap(); }); };
+                Chores.Hidden = delegate(bool hidden) { Dispatcher.UIThread.Invoke(delegate { if (hidden) HerPointer.Hide(); else if (herPointer != null) { HerPointer.Show(); Look.OnTopAgain(herPointer); } }); };
+                Chores.Parked = delegate { Dispatcher.UIThread.Post(delegate { if (herPointer != null) herPointer.Park(); }); };
             }
             if (Program.Smoke == null) presence = new Presence(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
             // A cloud key they saved thinks for her instead of Ollama, on the model they picked.
@@ -529,6 +541,8 @@ namespace CapriDesktop
                 Sfx.TypeOut = delegate(short[] samples) { Limbs.Speak(Voice.Wave(samples, Sfx.Rate)); };
                 Sfx.Untyped = Limbs.Hush;
             }
+            Look.OverGames = !Saved.NotOnTop && Program.Smoke == null;
+            Look.AboveGames(this);
             Title = "Capri";
             SystemDecorations = SystemDecorations.None;
             Background = Brushes.Transparent;
@@ -753,6 +767,7 @@ namespace CapriDesktop
         private void Tick()
         {
             double now = Now;
+            CheckStyle();
             if (presence != null && now >= nextStatus) { nextStatus = now + 1; presence.Show(Saved.NoDiscord ? null : Doing); }
             if (Program.Smoke == null && now >= nextUpdate) { nextUpdate = now + 6 * 3600; CheckUpdate(); }
             if (UpdateNews != null && !away && !dragging && Talk.Quiet) { Talk.Answer("(update)", UpdateNews); UpdateNews = null; }
@@ -915,6 +930,25 @@ namespace CapriDesktop
             try { board.SetTextAsync(Fingers.Setup); }
             catch (Exception) { return; }
             Talk.Answer("(mouse setup)", "Copied a command for you. Paste it in a terminal, type your password, then close and open me again so I can use your mouse and keyboard.");
+        }
+
+        private HerCursor herPointer;
+
+        private HerCursor HerPointer { get { if (herPointer == null) herPointer = new HerCursor { Topmost = true }; return herPointer; } }
+
+        // A spot 0 to 1 across the bounding box of every screen, in desktop pixels: where her pointer goes for it.
+        private PixelPoint DesktopPixel(double x, double y)
+        {
+            int left = int.MaxValue, top = int.MaxValue, right = int.MinValue, bottom = int.MinValue;
+            foreach (Screen screen in Screens.All)
+            {
+                left = Math.Min(left, screen.Bounds.X);
+                top = Math.Min(top, screen.Bounds.Y);
+                right = Math.Max(right, screen.Bounds.Right);
+                bottom = Math.Max(bottom, screen.Bounds.Bottom);
+            }
+            if (right <= left || bottom <= top) return new PixelPoint(0, 0);
+            return new PixelPoint(left + (int)Math.Round(x * (right - left - 1)), top + (int)Math.Round(y * (bottom - top - 1)));
         }
 
         // Where the mouse is, 0 to 1 across the bounding box of every screen, which is how her mouse and her screenshots map too.
@@ -1479,15 +1513,14 @@ namespace CapriDesktop
             sounds.Items.Add(typingItem);
             MenuItem notes = new MenuItem { Header = "Open her notes (me.md)" };
             notes.Click += delegate { OpenNotes(); };
-            memoriesItem = new MenuItem { Header = "Remember our chats", ToggleType = MenuItemToggleType.CheckBox };
-            memoriesItem.Click += delegate { SetRemembering(Saved.NoMemories); };
-            MenuItem memories = new MenuItem { Header = "Open her memories (memories.md)" };
-            memories.Click += delegate { OpenMemories(); };
-            // Lucy brings personality.md back (Capri 0.7.6 dropped it); her safety lines still follow it from code.
             MenuItem personality = new MenuItem { Header = "Edit her personality (personality.md)" };
             personality.Click += delegate { OpenPersonality(); };
             MenuItem resetPersonality = new MenuItem { Header = "Reset her personality to default" };
             resetPersonality.Click += delegate { ResetPersonality(); };
+            memoriesItem = new MenuItem { Header = "Remember our chats", ToggleType = MenuItemToggleType.CheckBox };
+            memoriesItem.Click += delegate { SetRemembering(Saved.NoMemories); };
+            MenuItem memories = new MenuItem { Header = "Open her memories (memories.md)" };
+            memories.Click += delegate { OpenMemories(); };
             MenuItem nickname = new MenuItem { Header = "What should she call you?" };
             nickname.Click += delegate { AskNickname(); };
             settings.Items.Add(nickname);
@@ -1661,10 +1694,10 @@ namespace CapriDesktop
             }
             settings.Items.Add(securityMenu);
             settings.Items.Add(notes);
-            settings.Items.Add(memoriesItem);
-            settings.Items.Add(memories);
             settings.Items.Add(personality);
             settings.Items.Add(resetPersonality);
+            settings.Items.Add(memoriesItem);
+            settings.Items.Add(memories);
             MenuItem sizes = new MenuItem { Header = "Size" };
             for (int i = 0; i < Sizes.Length; i++)
             {
@@ -2008,12 +2041,11 @@ namespace CapriDesktop
         internal bool Napping { get { return napping; } }
 
         // Her own moves, like on Windows: "teleport here" glitches her over to their mouse, "go to my other monitor" to the same
-        // spot on another screen, and she sits, stands, hangs, hides and comes back. Riding the cursor and the Mainframe are
-        // Windows-only so far.
+        // spot on another screen, and she sits, stands, hangs, hides and comes back. Sitting on a window they name, lying down,
+        // walking or wandering off when asked, riding the cursor and the Mainframe are Windows-only so far, and her hands say so
+        // before they get here.
         internal string MoveSelf(string action, string screen)
         {
-            if (action == "move_mainframe") return "My Mainframe is only on Windows so far. Here my settings are in my right-click menu.";
-            if (action == "ride_cursor" || action == "hop_off") return "Riding your cursor is only on Windows so far.";
             if (action == "hide")
             {
                 if (away) return "Already hidden.";
@@ -2199,6 +2231,149 @@ namespace CapriDesktop
 
         private bool Drowsy { get { return clip == idle && seat == null && !walking && !dragging && !pressed && !falling && outro == null && !away && !quitting && Talk.Quiet && (ContextMenu == null || !ContextMenu.IsOpen); } }
 
+        // How one of her switches is set right now for her settings tool, the way her menus show it, or null for one only Windows has.
+        internal bool? SettingOn(string name)
+        {
+            if (!Dispatcher.UIThread.CheckAccess()) return Dispatcher.UIThread.InvokeAsync(delegate { return SettingOn(name); }).GetAwaiter().GetResult();
+            switch (name)
+            {
+                case "voice": return Speaks;
+                case "quiet": return Shushed;
+                case "check_ins": return CheckIns;
+                case "wander": return Saved.Wander > 0;
+                case "dance_to_music": return !Saved.NoDance;
+                case "always_on_top": return OnTop;
+                case "typing_sound": return TypingSound;
+                case "glitch_in": return !Saved.NoIntro;
+                case "watch_my_screen": return Saved.Watch;
+                case "startup": return StartsAtLogin;
+                case "discord_presence": return !Saved.NoDiscord;
+                case "voice_layers": return VoiceFx.Layers.On;
+                default: return null;
+            }
+        }
+
+        // Flips one of her switches the way its menu item does, without her line about it, since her brain tells them what happened.
+        internal string SetSetting(string name, bool on)
+        {
+            if (!Dispatcher.UIThread.CheckAccess()) return Dispatcher.UIThread.InvokeAsync(delegate { return SetSetting(name, on); }).GetAwaiter().GetResult();
+            if (SettingOn(name) == on) return null;
+            switch (name)
+            {
+                case "voice": SetSpeak(on); break;
+                case "quiet": ToggleShush(false); break;
+                case "check_ins": SetCheckIns(on); break;
+                case "wander": SetWander(on ? 2 : 0); break;
+                case "dance_to_music": SetDanceToMusic(on); break;
+                case "always_on_top": SetOnTop(on); break;
+                case "typing_sound": SetTypingMode(on ? 1 : 2); break;
+                case "glitch_in": SetIntro(on); break;
+                case "watch_my_screen": SetWatch(on, false); break;
+                case "startup": SetLogin(on, false); break;
+                case "discord_presence": SetDiscord(on); break;
+                case "voice_layers": SetLayers(VoiceFx.Layers.Turned(on)); break;
+            }
+            Sync();
+            return name == "voice" && on && !Speaks ? "Set up a voice in Settings > Voice first." : null;
+        }
+
+        // The step nearest a value, for sliders whose value can sit between their steps.
+        private static int Nearest(int[] steps, int value)
+        {
+            int near = 0;
+            for (int i = 0; i < steps.Length; i++) if (Math.Abs(steps[i] - value) < Math.Abs(steps[near] - value)) near = i;
+            return near;
+        }
+
+        // Which step one of her sliders is on, counted from the bottom the way her menus show it, or -1 for one only Windows has.
+        internal int LevelOf(string name)
+        {
+            if (!Dispatcher.UIThread.CheckAccess()) return Dispatcher.UIThread.InvokeAsync(delegate { return LevelOf(name); }).GetAwaiter().GetResult();
+            switch (name)
+            {
+                case "size": return Math.Max(0, Array.IndexOf(Sizes, Saved.Size));
+                case "wander": return Saved.Wander;
+                case "pop_ins": return PopPace;
+                case "sleep": return Nearest(Sleeps, SleepAfter);
+                case "volume": return Nearest(Volumes, Voice.Loudness);
+                case "voice_speed": return Nearest(Paces, VoiceFx.Speed);
+                case "replies": return Brain.Wordiness;
+                case "bubble": return BubbleTime;
+                case "glance_gap": return Math.Max(0, Array.IndexOf(GlanceGaps, GlanceGap));
+                case "voice_pitch": return VoiceFx.Pitch + VoiceFx.MostPitch;
+                case "voice_robot": return Nearest(Amounts, VoiceFx.Robot);
+                case "voice_glitch": return Nearest(Amounts, VoiceFx.Glitch);
+                case "voice_layers": return VoiceFx.Layers.On ? 1 : 0;
+                case "layer_1_pitch": return LayerPitchStep(VoiceFx.Layers.Pitch1);
+                case "layer_2_pitch": return LayerPitchStep(VoiceFx.Layers.Pitch2);
+                case "layer_1_delay": return Nearest(LayerDelays, VoiceFx.Layers.Delay1);
+                case "layer_2_delay": return Nearest(LayerDelays, VoiceFx.Layers.Delay2);
+                case "sounds": return Nearest(SoundLevels, Sfx.Level);
+                case "language": return Math.Max(0, Array.IndexOf(Hands.StepsOf(name), Brain.Language ?? "English"));
+                case "typing_sound": return Math.Max(0, Math.Min(2, Saved.Typing));
+                default: return -1;
+            }
+        }
+
+        // The step of a voice layer's pitch menu nearest a pitch in semitones.
+        private static int LayerPitchStep(double pitch)
+        {
+            int near = 0;
+            for (int i = 0; i < LayerPitches.Length; i++) if (Math.Abs(LayerPitches[i] - pitch) < Math.Abs(LayerPitches[near] - pitch)) near = i;
+            return near;
+        }
+
+        // Moves one of her sliders to a step the way its menu does, without her line about it.
+        internal string SetLevel(string name, int step)
+        {
+            if (!Dispatcher.UIThread.CheckAccess()) return Dispatcher.UIThread.InvokeAsync(delegate { return SetLevel(name, step); }).GetAwaiter().GetResult();
+            if (!Hands.CrossSetting(name)) return "That Capri setting is only on Windows for now.";
+            step = Hands.ClampLevel(name, step);
+            if (step < 0) return null;
+            VoiceFx.Layering layers = VoiceFx.Layers;
+            if (name.StartsWith("layer_", StringComparison.Ordinal)) SetLayers(new VoiceFx.Layering(layers.On, name == "layer_1_pitch" ? LayerPitches[step] : layers.Pitch1, name == "layer_1_delay" ? LayerDelays[step] : layers.Delay1, name == "layer_2_pitch" ? LayerPitches[step] : layers.Pitch2, name == "layer_2_delay" ? LayerDelays[step] : layers.Delay2));
+            else switch (name)
+            {
+                case "size": Resize(Sizes[step]); break;
+                case "wander": SetWander(step); break;
+                case "pop_ins": SetPopPace(step); break;
+                case "sleep": SetSleepAfter(Sleeps[step]); break;
+                case "volume": SetVolume(Volumes[step]); break;
+                case "voice_speed": SetPace(Paces[step]); break;
+                case "replies": SetReplies(step); break;
+                case "bubble": SetBubbleTime(step); break;
+                case "glance_gap": SetGlanceGap(GlanceGaps[step]); break;
+                case "voice_pitch": SetPitch(step - VoiceFx.MostPitch); break;
+                case "voice_robot": SetRobot(Amounts[step]); break;
+                case "voice_glitch": SetGlitch(Amounts[step]); break;
+                case "sounds": SetSounds(SoundLevels[step]); break;
+                case "language": SetLanguage(Hands.StepsOf(name)[step]); break;
+                case "typing_sound": SetTypingMode(step); break;
+            }
+            Sync();
+            return null;
+        }
+
+        // A voice preview her settings tool asked for plays once the reply it came with is over, unless they've asked something
+        // else since.
+        private bool styleCheckDue;
+        private int styleAsked;
+        internal void CheckStyle()
+        {
+            if (styleCheckDue && styleAsked != asking) styleCheckDue = false;
+            if (styleCheckDue && Talk.Finished) { styleCheckDue = false; HearStyle(); }
+        }
+        // Her settings tool's actions. Mac and Linux have preview_voice, which plays her voice as it's set now after this reply.
+        internal string SettingAction(string action)
+        {
+            if (!Dispatcher.UIThread.CheckAccess()) return Dispatcher.UIThread.InvokeAsync(delegate { return SettingAction(action); }).GetAwaiter().GetResult();
+            if (action != "preview_voice") return "That action is only on Windows for now.";
+            if (!Speaks) return "My voice isn't ready. Set it up in Settings > Voice first.";
+            styleCheckDue = true;
+            styleAsked = asking;
+            return "I'll play my current voice after this reply.";
+        }
+
         internal bool Shushed { get { return shushed; } }
         internal bool QuietShown { get { return quietItem.IsChecked; } }
 
@@ -2207,14 +2382,14 @@ namespace CapriDesktop
 
         // Quiet, like Windows' quiet key, for when they focus or game: she stops what she's saying and doesn't glance, pop in,
         // check in, cheer or joke until it's turned off, but still answers when they talk to her. Starting her again ends it.
-        internal void ToggleShush()
+        internal void ToggleShush(bool say = true)
         {
             shushed = !shushed;
             nextPopIn = -1;
             nextGlance = -1;
             ForgetNudges();
             if (shushed) voice.Stop();
-            Talk.Answer("(quiet)", shushed ? "Going quiet. Right-click me > Quiet when you want me back." : "I'm back, choom.");
+            if (say) Talk.Answer("(quiet)", shushed ? "Going quiet. Right-click me > Quiet when you want me back." : "I'm back, choom.");
             Sync();
             if (ShushChanged != null) ShushChanged();
         }
@@ -2222,9 +2397,9 @@ namespace CapriDesktop
         internal bool StartsAtLogin { get { return File.Exists(LoginFile); } }
         internal bool LoginShown { get { return loginItem.IsChecked; } }
 
-        internal void SetLogin(bool on)
+        internal void SetLogin(bool on, bool say = true)
         {
-            if (!Limbs.SetLogin(LoginFile, Environment.ProcessPath, on, OperatingSystem.IsMacOS())) Talk.Answer("(start at login)", "Couldn't change that, choom. I need to be able to write " + LoginFile + ".");
+            if (!Limbs.SetLogin(LoginFile, Environment.ProcessPath, on, OperatingSystem.IsMacOS()) && say) Talk.Answer("(start at login)", "Couldn't change that, choom. I need to be able to write " + LoginFile + ".");
             Sync();
         }
 
@@ -3162,7 +3337,7 @@ namespace CapriDesktop
             }
         }
 
-        internal void SetWatch(bool on)
+        internal void SetWatch(bool on, bool say = true)
         {
             Saved.Watch = on;
             watchTicket++;
@@ -3173,7 +3348,7 @@ namespace CapriDesktop
             Save();
             Sync();
             string blind = on ? Unseeing() : null;
-            if (blind != null) Talk.Answer("(watch my screen)", blind);
+            if (say && blind != null) Talk.Answer("(watch my screen)", blind);
         }
 
         internal void SetGlanceGap(int seconds)
@@ -3381,26 +3556,32 @@ namespace CapriDesktop
         {
             text = (text ?? "").Trim();
             if (text.Length == 0) return;
-            if (text.Length > 240) text = text.Substring(0, 240);
             if (meeting.Asking) { Met(text); return; }
             int ticket = ++asking;
             Brain.Cancel();
             voice.Stop();
-            bool askPlease;
-            string heard = text;
-            text = Hands.Manners(text, out askPlease);
-            if (askPlease) { Reply(ticket, heard, Hands.SayPlease); return; }
             string tool;
             ToolArguments args;
             bool noted;
             try { noted = Hands.Heard(text, out tool, out args) && tool == "remember"; }
             catch (Exception) { noted = false; tool = null; args = null; }
-            // Clones and chaos mode are Windows-only: she says so herself, brain or no brain, instead of her brain joking about them.
-            if (noted || tool == "clone")
+            // Something that can't work here, like clones and chaos mode, which are Windows-only: she says so herself and why,
+            // brain or no brain, instead of her brain joking about it. Asked for that and something she can do too, like "open
+            // Spotify. Chaos mode", the rest goes ahead and she says why after it (a Codex review, 2 Nov).
+            string doable;
+            if (noted || (tool != null && Hands.Unable(tool, args) != null && Hands.KitFor().Rest(text, out doable) == null))
             {
                 string done = Hands.Do(tool, args);
                 Brain.Remember(text, done);
                 Reply(ticket, text, done);
+                return;
+            }
+            // Asked in other words for something only Windows has, like "can you draw on my screen?", she says so too (F69).
+            string lacking = Hands.KitFor().Lacking(text);
+            if (lacking != null)
+            {
+                Brain.Remember(text, lacking);
+                Reply(ticket, text, lacking);
                 return;
             }
             // Her nap, her own moves and her animations work before she has a brain, like on Windows.
@@ -3756,13 +3937,19 @@ namespace CapriDesktop
 
         internal void SetTyping(bool on)
         {
-            Saved.Typing = on ? 1 : 2;
-            Sfx.Typing = on;
-            Save();
+            SetTypingMode(on ? 1 : 2);
             Sfx.Type("click clack", Talk.LettersPerSecond, 1);
         }
 
-        internal void AutoTyping() { Saved.Typing = 0; }
+        // Her typing sound's mode: 0 Auto, only while she can't talk, 1 on and 2 off.
+        internal void SetTypingMode(int mode)
+        {
+            Saved.Typing = Math.Max(0, Math.Min(2, mode));
+            Sfx.Typing = TypingSound;
+            Save();
+            Sync();
+        }
+        internal void AutoTyping() { SetTypingMode(0); }
 
         private void TypeAlong(string said, int ticket)
         {
@@ -3929,11 +4116,49 @@ namespace CapriDesktop
             if (voiceProblem != null) voiceMenu.Items.Add(new MenuItem { Header = voiceProblem, IsEnabled = false });
         }
 
+        // The settings 0.7.8 added, kept again in cross-new.json, which 0.7.6 and 0.7.7 never touch: an older copy rewrites
+        // cross.json without them, so coming back from one finds them here instead of starting over on ElevenLabs.
+        [DataContract]
+        internal sealed class NewSettings
+        {
+            [DataMember] internal string VoiceProvider;
+            [DataMember] internal string LocalVoiceUrl;
+            [DataMember] internal string LocalVoiceModel;
+            [DataMember] internal string LocalVoiceName;
+            [DataMember] internal string LocalVoiceFormat;
+            [DataMember] internal string BrainServer;
+            [DataMember] internal string ServerModel;
+        }
+
+        // Every copy from 0.7.8 on saves a provider, so a cross.json without one was last saved by an older copy.
+        internal static Settings Kept(Settings saved, NewSettings newer)
+        {
+            if (saved == null || newer == null || saved.VoiceProvider != null) return saved;
+            saved.VoiceProvider = newer.VoiceProvider;
+            saved.LocalVoiceUrl = newer.LocalVoiceUrl;
+            saved.LocalVoiceModel = newer.LocalVoiceModel;
+            saved.LocalVoiceName = newer.LocalVoiceName;
+            saved.LocalVoiceFormat = newer.LocalVoiceFormat;
+            saved.BrainServer = newer.BrainServer;
+            saved.ServerModel = newer.ServerModel;
+            return saved;
+        }
+
+        internal static NewSettings Newest(Settings saved)
+        {
+            return new NewSettings { VoiceProvider = saved.VoiceProvider, LocalVoiceUrl = saved.LocalVoiceUrl, LocalVoiceModel = saved.LocalVoiceModel, LocalVoiceName = saved.LocalVoiceName, LocalVoiceFormat = saved.LocalVoiceFormat, BrainServer = saved.BrainServer, ServerModel = saved.ServerModel };
+        }
+
         private Settings Load()
         {
             try
             {
-                using (FileStream stream = File.OpenRead(Path.Combine(folder, "cross.json"))) return (Settings)new DataContractJsonSerializer(typeof(Settings)).ReadObject(stream);
+                Settings saved;
+                using (FileStream stream = File.OpenRead(Path.Combine(folder, "cross.json"))) saved = (Settings)new DataContractJsonSerializer(typeof(Settings)).ReadObject(stream);
+                NewSettings newer = null;
+                try { using (FileStream stream = File.OpenRead(Path.Combine(folder, "cross-new.json"))) newer = (NewSettings)new DataContractJsonSerializer(typeof(NewSettings)).ReadObject(stream); }
+                catch (Exception) { }
+                return Kept(saved, newer);
             }
             // A new install starts in the computer's own language when she speaks it.
             catch (Exception) { return new Settings { Language = Brain.SystemLanguage(System.Globalization.CultureInfo.CurrentUICulture) }; }
@@ -3949,6 +4174,7 @@ namespace CapriDesktop
             {
                 Directory.CreateDirectory(folder);
                 using (FileStream stream = File.Create(Path.Combine(folder, "cross.json"))) new DataContractJsonSerializer(typeof(Settings)).WriteObject(stream, Saved);
+                using (FileStream stream = File.Create(Path.Combine(folder, "cross-new.json"))) new DataContractJsonSerializer(typeof(NewSettings)).WriteObject(stream, Newest(Saved));
             }
             catch (Exception) { }
         }

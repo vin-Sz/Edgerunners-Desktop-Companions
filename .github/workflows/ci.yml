@@ -16,17 +16,23 @@ permissions:
 jobs:
   windows:
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
+      # GitHub's Windows screen starts at 1024 x 768, too small for her windows at 150% and 200%.
+      - name: Make the screen 1080p
+        shell: pwsh
+        run: ./ci/wide-screen.ps1
+      # Built in the runner's short temp folder: this repo's long name, twice in the checkout path, takes her "Hey Capri"
+      # download past Windows' 260-letter path limit under out/windows, so the pack reads as missing files.
       - name: Build and smoke test
         shell: pwsh
-        run: ./ci/build-windows.ps1 -OutputDirectory out/windows -SmokeTest -SmokeSeconds 180
+        run: ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -SmokeTest -SmokeSeconds 900
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: smoke-windows
-          path: out/windows/smoke
+          path: ${{ runner.temp }}/w/smoke
 
   linux:
     runs-on: ubuntu-24.04
