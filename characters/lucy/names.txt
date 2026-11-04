@@ -25,6 +25,8 @@
 "Capri started fresh" => "Lucy started fresh"
 "outside Capri" => "outside Lucy"
 "Capri is still running" => "Lucy is still running"
+"What Capri remembers" => "What Lucy remembers"
+"You keep Capri's long-term memory" => "You keep Lucy's long-term memory"
 
 # Her installer, so a build of hers only ever updates to hers.
 ""Capri-Setup" => ""EdgerunnersDesktop-Lucy-Setup"

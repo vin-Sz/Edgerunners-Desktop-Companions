@@ -1,0 +1,10 @@
+# What each character keeps for herself: %LOCALAPPDATA%\Edgerunners Desktop\characters\<name>. Every -Character build uses these,
+# so one character never reads another's memories, chats or edited personality. Settings, keys and game notes stay shared.
+# Same format as app.txt, and {character} becomes her folder's name. Nothing is moved or deleted, so a character who already has
+# files in the shared folder keeps them there, and they need moving by hand. Mac and Linux builds don't have this yet.
+
+"Brain.MemoryPath = Path.Combine(data, "me.md");" => "string ownFolder = Path.Combine(Path.Combine(data, "characters"), "{character}"); Directory.CreateDirectory(ownFolder); Brain.MemoryPath = Path.Combine(ownFolder, "me.md");"
+"Brain.PersonalityPath = Path.Combine(data, Brain.PersonalityName);" => "Brain.PersonalityPath = Path.Combine(ownFolder, Brain.PersonalityName);"
+"Brain.MemoriesPath = Path.Combine(data, "memories.md");" => "Brain.MemoriesPath = Path.Combine(ownFolder, "memories.md");"
+"Brain.TranscriptPath = Path.Combine(data, "transcripts");" => "Brain.TranscriptPath = Path.Combine(ownFolder, "transcripts");"
+"brain.Load(Path.Combine(data, "chat.json"));" => "brain.Load(Path.Combine(ownFolder, "chat.json"));"

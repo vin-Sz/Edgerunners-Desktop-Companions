@@ -25,6 +25,8 @@
 "outside Capri" => "outside Talia"
 "Capri is still running" => "Talia is still running"
 "who Capri is and how she talks" => "who Talia is and how she talks"
+"What Capri remembers" => "What Talia remembers"
+"You keep Capri's long-term memory" => "You keep Talia's long-term memory"
 
 # Her installer, so a build of hers only ever updates to hers.
 ""Capri-Setup" => ""EdgerunnersDesktop-Talia-Setup"

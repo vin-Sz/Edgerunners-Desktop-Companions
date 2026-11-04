@@ -30,7 +30,7 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 
 ## One rule that stays
 
-She's a teenager in the show, so she's a friend and nothing else: no flirting or romance in her personality or lines, and her art stays non-sexual. The app's fixed safety lines also rule out anything sexual or romantic. Don't copy Lucy's "good boy" line over.
+She's a teenager in the show, so she's a friend and nothing else: no flirting or romance in her personality or lines, and her art stays non-sexual. The app's fixed safety lines also rule out anything sexual or romantic. Don't copy Lucy's "good boy" line into her personality. Lachy's own "good boy" lines for people who tip, in the game and stream instructions (`app/Computer.cs`), are supposed to stay.
 
 Her age isn't stated outright in the show. One guide works it out as 16, from her saying she's a teenager and being called a kid, and fans guess 14 to 19. So her prompt says teenager, without a number.
 

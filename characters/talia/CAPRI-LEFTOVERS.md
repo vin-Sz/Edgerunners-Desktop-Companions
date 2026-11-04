@@ -4,16 +4,15 @@ Talia's build is a copy of Capri's with a new name, personality and a few lines.
 
 Nothing here has been changed. Tick what you want, or just reply with the numbers. Everything is from reading the Windows code on 4 Nov, not from running the app. Mac and Linux have their own copies of some of this in `cross/`.
 
-**If you only have five minutes:** read 1, 2 and 5. Those affect what you draw or go against her rule.
+**If you only have five minutes:** read 2 and 5.
 
 ## Fix these whatever else you decide
 
 These aren't matters of taste. They're places where the app contradicts what you've already decided about her.
 
-**1. She's told to call people "good boy".** Her notes say not to copy that line over, and it's gone from her personality. It's still in the instructions for playing games and for streaming: `app/Computer.cs:204` and `:873`. So in those modes she'd be told to call people who tip her "good boy" or "good girl".
-- [ ] Remove it from her build (my pick). It's a small change in `checks.txt` or `names.txt`, so Lachy's files stay as they are
+**1. Done, nothing to change.** The "good boy" lines in the game and stream instructions stay, as you said.
 
-**2. Parts of the app tell her she *is* Capri.** Her name swap only covers things you see, not instructions sent to the AI. These all still say Capri:
+**2. Parts of the app tell her she *is* Capri.** *Memory is done (4 Nov): each character now has her own, and her memory instructions use her name. The rest of this table isn't changed.* Her name swap only covers things you see, not instructions sent to the AI. These all still say Capri:
 
 | Where | What it says | When |
 | --- | --- | --- |
@@ -22,22 +21,19 @@ These aren't matters of taste. They're places where the app contradicts what you
 | `app/Computer.cs:868` | "You're running Capri's live stream" | Streaming |
 | `app/Lookout.cs:28` | "You are Capri, their sharp, playful desktop companion" | Watching your screen for something |
 | `app/Minis.cs:115` | "You are Capri, playing against the user" | Desktop board games |
-| `app/Brain.cs:917` | "You keep Capri's long-term memory" | Writing her memories |
 | `app/Asides.cs:140`, `:778`, `:806` | "Capri's hands" | Talking to her during a job |
 
-This is worse for her than for Lucy, because Talia knows Capri as a separate person who got into her head. Her memories could end up describing her as Capri.
+This is worse for her than for Lucy, because Talia knows Capri as a separate person who got into her head.
 
 - [ ] Change the name in all of these (my pick)
 - [ ] Also rewrite "cocky little gremlin having the time of her life", which needs your wording. Mine would be "bored, sarcastic and pretending not to enjoy it"
 
-**3. Capri's left-facing art would show up in her build.** Capri has 15 separate `_flipped` sheets for sitting and lying down, and the build includes all of them. `ART.md` says that without flipped sheets the app just mirrors, but that's only true if the sheet isn't there at all. So once you've drawn `perch.png`, Talia would turn into Capri whenever she sits facing left. I think this is a mistake in our build and not something you need to draw around, but I haven't tested it.
-- [ ] Leave Capri's flipped sheets out of her build, and check on GitHub that she still mirrors properly (my pick)
+**3. Done (4 Nov), untested with real art.** Capri's 15 `_flipped` sheets are drawn separately and aren't mirrors: her artist swaps her red and black limbs so they stay on the correct sides. So once a character has her own sheet, Capri's flipped one now leaves the build and the app mirrors hers. Only real sheets will test it. If she has chrome on one side, that side will swap when she faces left, unless you draw a `_flipped` sheet too.
 
 ## Decide before you draw
 
-**4. How much of the 28 files you draw.** She's "abrupt and metallic" in the one review that describes how she moves, and that could save you a lot of work. `perch`, `perch_talk`, `perch_music`, `laydown`, `laydown_talk` and `laydown_sleep` are 60 frames each because Capri's artist drew her smooth. Talia could have fewer frames and still look right, maybe better. The build currently rejects sheets of a different size, so this needs a small change from me.
-- [ ] Draw fewer frames for the 60-frame sheets (my pick). Tell me how many and I'll set it up
-- [ ] Keep 60
+**4. How much of the 28 files you draw.** You're fine with fewer frames (4 Nov): Capri started low too. `perch`, `perch_talk`, `perch_music`, `laydown`, `laydown_talk` and `laydown_sleep` are 60 frames each. Capri's own sitting art used to be 16 frames at 8 per second, the same as her standing art, so that's my proposal.
+- [ ] 16 frames at 8 per second (my pick). Her Krita files, the build's size check and the self-test need changing to match, and the app can't use the new count until her own sheet replaces Capri's
 
 **5. The glitch animations (6 of the 28 files).** `glitch`, `perch_glitch`, `laydown_glitch`, `blink_glitch`, `perch_blink_glitch` and `laydown_blink_glitch`. These aren't rare: she glitches every 30 to 60 seconds while idle, and 10% of her blinks use the glitch version (`app/Capri.cs:2560`). You can't just skip them, because an undrawn sheet stays Capri's art.
 

@@ -39,6 +39,14 @@ $swap = {
     return '/resource:' + $own + ',Capri.' + $resource.Groups[2].Value + '.' + $resource.Groups[3].Value
 }
 $resources = @($resources | ForEach-Object { & $swap $_ })
+# Capri's facing-left sheets are drawn separately, not mirrored. Once a character has her own sheet, Capri's facing-left one
+# leaves the build, or she'd turn into Capri when she faces left. With none, the app mirrors hers (Clip's flippable).
+$resources = @($resources | Where-Object {
+    $left = [regex]::Match($_, ',Capri\.Sprite\.(.+)_flipped\.png$')
+    if (-not $left.Success) { return $true }
+    $sprites = Join-Path $characterRoot 'sprites'
+    (Test-Path -LiteralPath (Join-Path $sprites ($left.Groups[1].Value + '_flipped.png'))) -or -not (Test-Path -LiteralPath (Join-Path $sprites ($left.Groups[1].Value + '.png')))
+})
 
 $ownIcon = Join-Path $characterRoot 'icon.ico'
 if (Test-Path -LiteralPath $ownIcon) {
@@ -51,11 +59,11 @@ if (Test-Path -LiteralPath $ownIcon) {
 # app and the installer are built from. The installer's line in ci/build-windows.ps1 reads app\ and assets\chip.png from
 # $root, so $root becomes the copy's folder once the rest of the build has what it needs from the real one.
 $rules = New-Object System.Collections.Generic.List[object]
-foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'checks.txt'))) {
+foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $root 'characters\own-files.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'checks.txt'))) {
     if (-not (Test-Path -LiteralPath $list)) { continue }
     foreach ($line in Get-Content -LiteralPath $list -Encoding UTF8) {
         $rule = [regex]::Match($line, '^"(.+)"\s*=>\s*"(.*)"\s*$')
-        if ($rule.Success) { $rules.Add(@((Split-Path -Leaf $list), $rule.Groups[1].Value, $rule.Groups[2].Value)) }
+        if ($rule.Success) { $rules.Add(@((Split-Path -Leaf $list), $rule.Groups[1].Value, $rule.Groups[2].Value.Replace('{character}', $Character.ToLowerInvariant()))) }
     }
 }
 $version = $env:CHARACTER_VERSION

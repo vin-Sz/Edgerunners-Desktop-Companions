@@ -5,6 +5,18 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 4 Nov: Each character gets her own memory
+
+**What changed:** a character build now keeps her notes, memories, chat logs, current chat and edited personality in `characters\<name>` inside the app's folder. `characters/own-files.txt` says which files. Her memory file's title and the instructions for writing it use her name too. Capri's facing-left art also leaves the build as soon as a character has her own version of that sheet.
+
+**Why:** all characters share one app folder, so that switching doesn't lose settings. That was right for settings, but it meant Talia would have read Lucy's memories as her own. Personality went along for the same reason: an edit to Talia's shouldn't change Lucy.
+
+**Still shared on purpose:** settings, keys, downloaded voices and game notes, because those belong to you or the game, not to her.
+
+**One idea worth knowing:** "same folder" and "same character" are separate questions. Sharing is good for what belongs to the person using the app, and bad for what belongs to the character.
+
+---
+
 ## 4 Nov: A list of what Talia inherited from Capri
 
 **What changed:** nothing in the app. `characters/talia/CAPRI-LEFTOVERS.md` is a new list of everything in her build that came from Capri and may not suit her, with decisions for you to make.
