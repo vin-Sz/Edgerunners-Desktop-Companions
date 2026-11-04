@@ -21,6 +21,16 @@ function Get-PngSize([string]$path) {
     } finally { $stream.Dispose() }
 }
 
+# Sheets that may also come with fewer frames: Capri's count and speed, then the shorter count and speed. A sheet is read as
+# shorter from its width, so each one changes when hers goes in, and Capri's own art keeps her own numbers until then.
+$fewerFrames = @{
+    'perch' = @(60, 30, 16, 8); 'perch_talk' = @(60, 30, 16, 8); 'perch_music' = @(60, 30, 16, 8)
+    'perch_blink' = @(8, 30, 4, 8); 'perch_blink_glitch' = @(8, 30, 4, 8)
+    'laydown' = @(60, 30, 16, 8); 'laydown_talk' = @(60, 30, 16, 8); 'laydown_sleep' = @(60, 30, 16, 8)
+    'laydown_blink' = @(8, 30, 4, 8); 'laydown_blink_glitch' = @(8, 30, 4, 8)
+}
+$sheetWidths = @{}
+$shorterSheets = @{}
 $swapped = New-Object System.Collections.Generic.List[string]
 $swap = {
     param([string]$argument)
@@ -28,17 +38,35 @@ $swap = {
     if (-not $resource.Success) { return $argument }
     $folder = if ($resource.Groups[2].Value -eq 'Sprite') { 'sprites' } else { 'voice' }
     $own = Join-Path $characterRoot ($folder + '\' + $resource.Groups[3].Value)
-    if (-not (Test-Path -LiteralPath $own)) { return $argument }
+    $hasOwn = Test-Path -LiteralPath $own
     if ($folder -eq 'sprites') {
         # Her frame counts and sizes are set in the code, so a sheet of another size would cut her frames wrong.
         $capri = Get-PngSize $resource.Groups[1].Value
-        $theirs = Get-PngSize $own
-        if ($capri[0] -ne $theirs[0] -or $capri[1] -ne $theirs[1]) { throw ("$own is $($theirs[0])x$($theirs[1]) px, but Capri's is $($capri[0])x$($capri[1]). See characters/$Character/ART.md.") }
+        $sheetWidths[$resource.Groups[3].Value] = $capri[0]
+        if ($hasOwn) {
+            $theirs = Get-PngSize $own
+            $sheetWidths[$resource.Groups[3].Value] = $theirs[0]
+            $clipName = [regex]::Replace($resource.Groups[3].Value, '(_flipped)?\.png$', '')
+            $shorter = $fewerFrames[$clipName]
+            $isShorter = $shorter -and $capri[1] -eq $theirs[1] -and $theirs[0] -eq ($capri[0] / $shorter[0] * $shorter[2])
+            if ($isShorter) { $shorterSheets[$clipName] = $shorter }
+            elseif ($capri[0] -ne $theirs[0] -or $capri[1] -ne $theirs[1]) {
+                $allowed = if ($shorter) { " or $($capri[0] / $shorter[0] * $shorter[2])x$($capri[1]) for $($shorter[2]) frames" } else { '' }
+                throw ("$own is $($theirs[0])x$($theirs[1]) px, but it should be $($capri[0])x$($capri[1])$allowed. See characters/lucy/ART.md.")
+            }
+        }
     }
+    if (-not $hasOwn) { return $argument }
     $swapped.Add($folder + '/' + $resource.Groups[3].Value)
     return '/resource:' + $own + ',Capri.' + $resource.Groups[2].Value + '.' + $resource.Groups[3].Value
 }
 $resources = @($resources | ForEach-Object { & $swap $_ })
+# A facing-left sheet has to be cut like the facing-right one, since the app uses one frame count for both.
+foreach ($sheet in @($sheetWidths.Keys | Where-Object { $_ -like '*_flipped.png' })) {
+    $right = $sheet.Replace('_flipped.png', '.png')
+    $hasOwnLeft = Test-Path -LiteralPath (Join-Path $characterRoot ('sprites\' + $sheet))
+    if ($hasOwnLeft -and $sheetWidths[$right] -ne $sheetWidths[$sheet]) { throw "characters/$Character/sprites/$sheet is $($sheetWidths[$sheet]) px wide, but $right is $($sheetWidths[$right]). They need the same number of frames." }
+}
 # Capri's facing-left sheets are drawn separately, not mirrored. Once a character has her own sheet, Capri's facing-left one
 # leaves the build, or she'd turn into Capri when she faces left. With none, the app mirrors hers (Clip's flippable).
 $resources = @($resources | Where-Object {
@@ -59,12 +87,16 @@ if (Test-Path -LiteralPath $ownIcon) {
 # app and the installer are built from. The installer's line in ci/build-windows.ps1 reads app\ and assets\chip.png from
 # $root, so $root becomes the copy's folder once the rest of the build has what it needs from the real one.
 $rules = New-Object System.Collections.Generic.List[object]
-foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $root 'characters\own-files.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'checks.txt'))) {
+foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $root 'characters\own-files.txt'), (Join-Path $root 'characters\fewer-frames.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'checks.txt'))) {
     if (-not (Test-Path -LiteralPath $list)) { continue }
     foreach ($line in Get-Content -LiteralPath $list -Encoding UTF8) {
         $rule = [regex]::Match($line, '^"(.+)"\s*=>\s*"(.*)"\s*$')
         if ($rule.Success) { $rules.Add(@((Split-Path -Leaf $list), $rule.Groups[1].Value, $rule.Groups[2].Value.Replace('{character}', $Character.ToLowerInvariant()))) }
     }
+}
+foreach ($clipName in $shorterSheets.Keys) {
+    $numbers = $shorterSheets[$clipName]
+    $rules.Add(@('her shorter sheet', ('new Clip("' + $clipName + '", ' + $numbers[0] + ', ' + $numbers[1] + ','), ('new Clip("' + $clipName + '", ' + $numbers[2] + ', ' + $numbers[3] + ',')))
 }
 $version = $env:CHARACTER_VERSION
 if ($version -and $version -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw "CHARACTER_VERSION is $version, but it needs four numbers, like 0.7.7.1." }

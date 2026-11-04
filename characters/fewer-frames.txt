@@ -1,0 +1,10 @@
+# What lets a character's sitting and lying sheets have 16 frames at 8 a second, where Capri's have 60 at 30. Same format as
+# names.txt, for every character. None of it changes anything while a sheet still has 60 frames, so Capri's art plays as before.
+
+# The frame rate slider counts in Capri's 60 frames, so a shorter sheet plays at its own speed instead.
+"if ((clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && preferences.PerchFps != 30)" => "if (clip.Count == 60 && (clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && preferences.PerchFps != 30)"
+# In a 16-frame loop the blink starts at frame 9, the same as her standing loop, not frame 28.
+"int blinkFrom = clip == perch || clip == laydown ? PerchBlinkFrom : BlinkFrom;" => "int blinkFrom = clip.Count == 60 ? PerchBlinkFrom : BlinkFrom;"
+# While sheets go in one at a time, her sitting and talking sheets can have different counts, so the frame is found by how far through the loop she is.
+"if (PerchTalks(TalkingNow)) { shown = perchTalk; cell = loopCell; }" => "if (PerchTalks(TalkingNow)) { shown = perchTalk; cell = loopCell * perchTalk.Count / clip.Count; following = following * perchTalk.Count / clip.Count; }"
+"else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell; }" => "else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell * laydownTalk.Count / clip.Count; following = following * laydownTalk.Count / clip.Count; }"

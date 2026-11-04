@@ -1,4 +1,5 @@
-param([string]$Out)
+param([string]$Out, [switch]$FewerFrames)
+# -FewerFrames makes only the sitting and lying sheets that can be shorter (16 frames, blinks 4), like characters/talia/templates.
 Add-Type -AssemblyName System.Drawing
 New-Item -ItemType Directory -Force $Out | Out-Null
 
@@ -13,6 +14,17 @@ $sheets = @(
   @('laydown_blink_glitch',8,'lblink',372), @('laydown_sleep',60,'lie',372), @('laydown_glitch',10,'lie',440),
   @('laydown_leave',12,'lie',440)
 )
+# Where the blink sits in a sitting or lying loop, and how long it is.
+$blinkAt = 28; $blinkCells = 8
+if ($FewerFrames) {
+  $blinkAt = 9; $blinkCells = 4
+  $short = @()
+  foreach ($s in $sheets) {
+    if ($s[1] -eq 60) { $short += , @($s[0], 16, $s[2], $s[3]) }
+    elseif ($s[2] -eq 'pblink' -or $s[2] -eq 'lblink') { $short += , @($s[0], 4, $s[2], $s[3]) }
+  }
+  $sheets = $short
+}
 # Since 0.7.6 perch cells are cut narrower than her 384 px square: their middle sits 26 px left of it and their top 36 px
 # down it (PerchShiftX and PerchShiftY in app/Capri.cs). The seat (115, 303) and grab box (81, 65 to 265, 376) are in the square.
 $shiftX = -26; $shiftY = 36
@@ -72,10 +84,10 @@ foreach ($s in $sheets) {
     if ($kind -eq 'mouth' -or ($name -eq 'idle')) { $g.DrawRectangle($mouthPen, $x + 122, 126, 20, 14) }
     $label = [string]$i
     if ($name -eq 'idle' -and $i -ge 9 -and $i -le 12) { $label = "$i  (blink " + ($i - 9) + ")" }
-    if (($name -eq 'perch' -or $name -eq 'laydown') -and $i -ge 28 -and $i -le 35) { $label = "$i  (b" + ($i - 28) + ")" }
+    if (($name -eq 'perch' -or $name -eq 'laydown') -and $i -ge $blinkAt -and $i -lt $blinkAt + $blinkCells) { $label = "$i  (b" + ($i - $blinkAt) + ")" }
     if ($kind -eq 'blink' -or $kind -eq 'pblink') { $label = "$i  = idle " + ($i + 9) }
-    if ($kind -eq 'pblink') { $label = "$i = perch " + ($i + 28) }
-    if ($kind -eq 'lblink') { $label = "$i  = laydown " + ($i + 28) }
+    if ($kind -eq 'pblink') { $label = "$i = perch " + ($i + $blinkAt) }
+    if ($kind -eq 'lblink') { $label = "$i  = laydown " + ($i + $blinkAt) }
     if ($kind -eq 'mouth') { $label = "$i  " + $mouthNames[$i] }
     $g.DrawString($label, $font, $text, $x + 4, 2)
   }
@@ -85,6 +97,7 @@ foreach ($s in $sheets) {
   $bmp.Dispose()
 }
 
+if ($FewerFrames) { return }
 $bmp = New-Object System.Drawing.Bitmap 400, 400
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.DrawRectangle($border, 0, 0, 399, 399)
