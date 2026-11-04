@@ -44,13 +44,18 @@ jobs:
         if: failure()
         shell: pwsh
         run: |
-          $file = Join-Path $env:RUNNER_TEMP 'w\smoke\runtime\failure.txt'
-          if (Test-Path -LiteralPath $file) {
+          # The self-test writes to runtime and the installer check that follows it writes to package.
+          $reported = $false
+          foreach ($part in 'runtime', 'package') {
+            $file = Join-Path $env:RUNNER_TEMP "w\smoke\$part\failure.txt"
+            if (-not (Test-Path -LiteralPath $file)) { continue }
             $text = (Get-Content -LiteralPath $file -Raw) -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
             if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
-            Write-Output "::error title=Talia self-test::$text"
-          } else {
-            Write-Output "::error title=Talia self-test::No failure.txt, so it stopped during the build or before the test began."
+            Write-Output "::error title=Talia self-test ($part)::$text"
+            $reported = $true
+          }
+          if (-not $reported) {
+            Write-Output "::error title=Talia self-test::No failure.txt from the self-test or the installer check. The reason is in this step's log, which needs a GitHub login to read."
           }
       - uses: actions/upload-artifact@v4
         if: always()
