@@ -27,6 +27,16 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 4 Nov: 58 of Lachy's updates come in
+
+**What changed:** the daily Sync upstream run had been failing, so the fork had fallen 58 commits behind Lachy. This merges them by hand. The new things are mods (a Mods tab and a gallery, plus code mods and skin mods), Code/Husk Mode (she acts out what Claude Code and Codex are doing), calls that feel more like calls, her Settings window on Mac and Linux, any OpenAI-compatible provider with a key, a note saying why she closed if she closes by herself, and a Meta Quest port in `quest/`.
+
+**The three conflicts:** `README.md` stayed ours. In `ci/build-windows.ps1` we took Lachy's list of files and put `'Character', 'YouTubeMusic'` and the `if ($Character)` line back. In `cross/Capri.Cross.csproj` we kept both sides. `Safety` in `app/Brain.cs` is word for word what it was.
+
+**Idea: a rule that still matches isn't the same as a name that's covered.** The build warns when a line in `names.txt` or `app.txt` no longer finds its words, and all 61 still do. But it can't warn about words that are new. Some of Lachy's new text says Capri and has no rule yet, like "Import a Capri mod" and "Capri closed unexpectedly", so Talia's build shows those for now. Which of them to change is the owner's call, so none were added here.
+
+---
+
 ## 2 Nov: room for Talia, and the rename
 
 **What changed:** the repo is now Edgerunners Desktop Companions, and Talia has her own folder, `characters/talia`. A `-Character talia` build shows her name and says her own lines. Every character's build is now called Edgerunners Desktop, and the release workflow is `release.yml`, which asks which characters to build.
