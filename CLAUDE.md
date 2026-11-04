@@ -7,11 +7,15 @@ A fork of [capri-desktop](https://github.com/lachydotmcg/capri-desktop) that add
 - **Do what was asked, and flag the rest.** Don't add rules or change a character's wording or the app's prompts unless asked, even if you're sure it's better. Say what you noticed and let the owner decide.
 - **Work on your own and explain in writing.** The owner has little time and spends it drawing. Use small, separate commits, and explain them in plain language in `characters/lucy/LEARNING.md`, including the answer whenever they ask why something works the way it does.
 - **Only stop for what's really theirs:** character wording and tone, art, and decisions like the ones above.
+- **Other sessions may be working in this folder at the same time.** Before committing, look at `git status` and `git log -3`, and commit only your own files (`git commit -- <paths>`), never with `git add -A`.
 
 ## Testing
 
 - **Never run the self-test or launch the app on the owner's PC.** It's their working computer, and the test takes over sound, mic and windows for minutes. Compiling with `ci/build-windows.ps1` (no `-SmokeTest`) is fine.
-- **Run the self-test on GitHub by pushing a branch:** `ci.yml` tests Capri's build and `talia-smoke.yml` tests Talia's.
+- **Compile outside OneDrive:** `./ci/build-windows.ps1 -Character talia -OutputDirectory "$env:TEMP\edgerunners-build"`. This PC's Windows is German, so compiler errors come out in German.
+- **Run the self-test on GitHub by pushing a branch:** `ci.yml` tests Capri's build and `talia-smoke.yml` tests Talia's. Commits that only change notes, research or Krita files skip them.
+- **Read the results with `./ci/status.ps1`** (`-Branch main` for another branch). It gives each workflow's result and the reason for a failure. `gh` isn't installed here.
+- **`app/` is C# 5, and a new `.cs` file needs adding to `$sources` in `ci/build-windows.ps1`.** `CONTRIBUTING.md` has the rest of Lachy's house rules.
 
 ## Characters
 
@@ -22,3 +26,4 @@ A fork of [capri-desktop](https://github.com/lachydotmcg/capri-desktop) that add
 
 - Put fork code in our own files, with small hooks in Lachy's, or change a build copy through `characters/Use-Character.ps1`, so his updates keep merging.
 - Keep `Safety` in `app/Brain.cs` as it is. Lachy asks forks to keep those lines.
+- **When the daily Sync upstream run goes red, merge by hand into `main`.** The usual conflicts are one line each: `$sources` in `ci/build-windows.ps1` (take his line, put back `'Character', 'YouTubeMusic'` and the `if ($Character)` line after it) and the `Compile` list in `cross/Capri.Cross.csproj` (keep both sides). Check the result on GitHub before anything else builds on it.

@@ -167,3 +167,19 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 
 **Idea: a test that checks its own answer proves less.** The self-test compares her prompt to a fixed checksum. Her build can't use Capri's, so it works one out from her own text, and that check always agrees with itself in her build. It's still fine, because the plain Capri build keeps the fixed checksum, and that's what guards the safety lines. 
 **Worth knowing:** the same research-based text now has a few of Lachy's tuned rules, like asking something back at most one reply in four. He learned those from real users, and they were missing from her draft.
+
+---
+
+## 4 Nov: GitHub's tests run when they're useful
+
+**What changed:**
+- Saving a Krita file or a note no longer starts any tests. `ci.yml` skips `characters/` and the research, because Capri's own build doesn't use them.
+- Talia's self-test now also runs when `app/` or `assets/` change. Before, a Capri change could break her build and nothing would notice.
+- Sync upstream runs once a day and writes the conflicting files on its summary page.
+- `./ci/status.ps1` shows what GitHub last said about a branch and why anything failed.
+
+**Why did Sync upstream change?** It was meant to open an issue when a merge conflicted, but this fork has issues turned off. Opening one failed silently, and all you got was a red run every 6 hours, with no reason unless you opened the log. The conflicts themselves are small: both of you added a word to the same long line.
+
+**Idea: a `paths` filter, read from top to bottom.** A list of paths says which changes start a workflow, and a line starting with `!` takes some back out. The last line that matches a file wins. That's why `characters/talia/personality.md` comes last in `talia-smoke.yml`: `!**/*.md` skips notes, but that one `.md` file goes into her build.
+
+**Idea: Git can't merge two changes that touch.** Git compares by lines, so even two different edits conflict if they're on the same line or right next to each other. That's why moving our `'Character', 'YouTubeMusic'` names to their own line wouldn't help: nothing can go between `$sources` and the line after it without touching his line.
