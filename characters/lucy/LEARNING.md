@@ -5,6 +5,18 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 4 Nov: Left for you in the morning
+
+**First, see how the night's tests went:** run `./ci/status.ps1`. The PC was turned off while the tests for `c1d5505` were still running, so nobody has read their results. The self-test passed on the commit just before these changes. The Mac build often can't get a machine from GitHub, and that isn't a code failure.
+
+**Yours to decide, so left as they are:**
+- **Should `talia-built-in` go into `main`?** It's on GitHub but not in `main`. A new cloud session starts from `main` unless you name this branch, and the new Sync upstream only takes effect once it's in `main`.
+- **Where should Talia's build stop saying Capri?** Lachy's new text says "Import a Capri mod" and "Capri closed unexpectedly". Her help text says the Quit button "closes Capri". The rest of what she inherited is in `characters/talia/CAPRI-LEFTOVERS.md`.
+
+**Tonight's merge needs this PC:** "Merge tonight's Capri update" runs in the Claude app on this PC, so it waits while the PC is off and runs the next time the app starts. Sync upstream runs on GitHub at about 07:17 anyway, but gives up if a merge conflicts.
+
+---
+
 ## 4 Nov: Talia's sitting and lying sheets have 16 frames
 
 **What changed:** her ten sitting and lying Krita files went from 60 frames to 16, and their blinks from 8 frames to 4. All of them play at 8 frames a second. Her Krita files have new templates in `characters/talia/templates`, with Capri's art cut down to matching frames underneath. Those ten files were still empty, so no drawing was lost. Lucy's files and Capri's build are unchanged.
