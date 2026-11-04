@@ -38,24 +38,29 @@ jobs:
       # Same short temp folder as ci.yml, for the same 260-letter path limit.
       - name: Build as Talia and self-test
         shell: pwsh
-        run: ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -Character talia -SmokeTest -SmokeSeconds 900
+        run: |
+          # Keeps why the script stopped, so the next step can show it without a GitHub login.
+          try { ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -Character talia -SmokeTest -SmokeSeconds 900 }
+          catch {
+            ($_.Exception.Message + "`n" + $_.InvocationInfo.PositionMessage) | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'why-it-stopped.txt')
+            throw
+          }
       # Puts the reason on the run's summary page, where it can be read without opening the log.
       - name: Say what failed
         if: failure()
         shell: pwsh
         run: |
           # The self-test writes to runtime and the installer check that follows it writes to package.
-          $reported = $false
-          foreach ($part in 'runtime', 'package') {
-            $file = Join-Path $env:RUNNER_TEMP "w\smoke\$part\failure.txt"
-            if (-not (Test-Path -LiteralPath $file)) { continue }
-            $text = (Get-Content -LiteralPath $file -Raw) -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
-            if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
-            Write-Output "::error title=Talia self-test ($part)::$text"
-            $reported = $true
+          $reasons = [ordered]@{
+            'self-test' = Join-Path $env:RUNNER_TEMP 'w\smoke\runtime\failure.txt'
+            'installer check' = Join-Path $env:RUNNER_TEMP 'w\smoke\package\failure.txt'
+            'why the script stopped' = Join-Path $env:RUNNER_TEMP 'why-it-stopped.txt'
           }
-          if (-not $reported) {
-            Write-Output "::error title=Talia self-test::No failure.txt from the self-test or the installer check. The reason is in this step's log, which needs a GitHub login to read."
+          foreach ($part in $reasons.Keys) {
+            if (-not (Test-Path -LiteralPath $reasons[$part])) { continue }
+            $text = (Get-Content -LiteralPath $reasons[$part] -Raw) -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
+            if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
+            Write-Output "::error title=Talia self-test - $part::$text"
           }
       - uses: actions/upload-artifact@v4
         if: always()
