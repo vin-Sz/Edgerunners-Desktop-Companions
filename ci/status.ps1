@@ -4,6 +4,10 @@
 # It runs nothing on this PC. GitHub allows 60 of these calls an hour without a login; set GITHUB_TOKEN to get more.
 param([string]$Branch)
 $ErrorActionPreference = 'Stop'
+trap {
+    if ("$_" -match 'rate limit') { Write-Output "GitHub's limit of 60 calls an hour is used up on this connection, so try again later."; exit 1 }
+    break
+}
 $api = 'https://api.github.com/repos/vin-Sz/Edgerunners-Desktop-Companions'
 $headers = @{ 'User-Agent' = 'edgerunners-ci-status' }
 if ($env:GITHUB_TOKEN) { $headers['Authorization'] = 'Bearer ' + $env:GITHUB_TOKEN }
@@ -26,7 +30,9 @@ foreach ($group in @($runs | Group-Object name)) {
     foreach ($job in @((Invoke-RestMethod -Headers $headers -Uri $run.jobs_url).jobs | Where-Object { $_.conclusion -ne 'success' })) {
         $failedSteps = @($job.steps | Where-Object { $_.conclusion -eq 'failure' } | ForEach-Object { $_.name }) -join ', '
         Write-Output ("  {0}: {1}{2}" -f $job.name, $job.conclusion, $(if ($failedSteps) { " at $failedSteps" } elseif (-not $job.steps) { ' before any step ran' } else { '' }))
-        foreach ($note in @(Invoke-RestMethod -Headers $headers -Uri "$api/check-runs/$($job.id)/annotations")) {
+        # Saved first: wrapped directly in @(), GitHub's whole list arrives as a single item, so no note would match.
+        $notes = Invoke-RestMethod -Headers $headers -Uri "$api/check-runs/$($job.id)/annotations"
+        foreach ($note in $notes) {
             if ($note.annotation_level -ne 'failure' -or $note.message -like 'Process completed with exit code*') { continue }
             Write-Output ('    ' + ($note.message -replace "`r?`n", "`n    "))
         }
