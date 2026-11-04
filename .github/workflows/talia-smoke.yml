@@ -1,0 +1,51 @@
+# The Windows self-test on Talia's own build, on GitHub's machine, so it never has to run on your working PC.
+# It's a separate file from ci.yml because ci.yml is Capri's and merges in from capri-desktop.
+name: Talia self-test
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+    paths:
+      - 'characters/**'
+      - 'ci/**'
+      - '.github/workflows/talia-smoke.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: talia-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - name: Make the screen 1080p
+        shell: pwsh
+        run: ./ci/wide-screen.ps1
+      # Same short temp folder as ci.yml, for the same 260-letter path limit.
+      - name: Build as Talia and self-test
+        shell: pwsh
+        run: ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -Character talia -SmokeTest -SmokeSeconds 900
+      # Puts the reason on the run's summary page, where it can be read without opening the log.
+      - name: Say what failed
+        if: failure()
+        shell: pwsh
+        run: |
+          $file = Join-Path $env:RUNNER_TEMP 'w\smoke\runtime\failure.txt'
+          if (Test-Path -LiteralPath $file) {
+            $text = (Get-Content -LiteralPath $file -Raw) -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
+            if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
+            Write-Output "::error title=Talia self-test::$text"
+          } else {
+            Write-Output "::error title=Talia self-test::No failure.txt, so it stopped during the build or before the test began."
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-talia
+          path: ${{ runner.temp }}/w/smoke
