@@ -32,8 +32,7 @@ This is worse for her than for Lucy, because Talia knows Capri as a separate per
 
 ## Decide before you draw
 
-**4. How much of the 28 files you draw.** You're fine with fewer frames (4 Nov): Capri started low too. `perch`, `perch_talk`, `perch_music`, `laydown`, `laydown_talk` and `laydown_sleep` are 60 frames each. Capri's own sitting art used to be 16 frames at 8 per second, the same as her standing art, so that's my proposal.
-- [ ] 16 frames at 8 per second (my pick). Her Krita files, the build's size check and the self-test need changing to match, and the app can't use the new count until her own sheet replaces Capri's
+**4. Done (4 Nov).** Her sitting and lying sheets are 16 frames at 8 per second, and their blinks 4. The numbers are in "Her shorter sheets" in `NOTES.md`.
 
 **5. The glitch animations (6 of the 28 files).** `glitch`, `perch_glitch`, `laydown_glitch`, `blink_glitch`, `perch_blink_glitch` and `laydown_blink_glitch`. These aren't rare: she glitches every 30 to 60 seconds while idle, and 10% of her blinks use the glitch version (`app/Capri.cs:2560`). You can't just skip them, because an undrawn sheet stays Capri's art.
 

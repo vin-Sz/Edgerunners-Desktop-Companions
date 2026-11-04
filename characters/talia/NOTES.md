@@ -12,7 +12,8 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 | `checks.txt` | The self-test's checks of Capri's personality, changed in a copy of the code to fit Talia's text |
 | `CAPRI-LEFTOVERS.md` | What she inherited from Capri that may not suit her, with decisions waiting. Read it before drawing |
 | `krita/` | One ready-to-draw `.kra` per animation. Remake with `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\talia\krita -Character Talia` |
-| `sprites/` | *(later)* her animations, same file names and sizes as `assets/sprites`. `characters/lucy/ART.md` and `characters/lucy/templates` apply to her too |
+| `templates/` | Her shorter sitting and lying sheets (see below). They take the place of the same files in `characters/lucy/templates` |
+| `sprites/` | *(later)* her animations, same file names as `assets/sprites`, and the same sizes apart from her shorter sheets. `characters/lucy/ART.md` and `characters/lucy/templates` apply to her too |
 | `voice/` | *(later)* her spoken greetings |
 | `icon.ico`, `icon.png` | *(later)* her icon |
 
@@ -27,6 +28,19 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 - [ ] Her art and icon
 - [ ] Her voice: later, on purpose. It's the least important part for now
 - [ ] "Capri Mainframe" and "Hey Capri": still Capri's, for the same reasons as in Lucy's notes
+
+## Her shorter sheets
+
+You chose 16 frames at 8 a second for sitting and lying (4 Nov), which is what Capri's sitting art used to be. These are the numbers to use in place of the ones in `characters/lucy/ART.md`:
+
+| Sheets | Frames and speed | One sheet's size in the app | Notes |
+| --- | --- | --- | --- |
+| `perch`, `perch_talk`, `perch_music` | 16 at 8 a second | 3136×384 | A 2-second loop, the same length as Capri's |
+| `perch_blink`, `perch_blink_glitch` | 4 at 8 a second | 784×384 | Frames 0–3 replace `perch` frames 9–12 |
+| `laydown`, `laydown_talk`, `laydown_sleep` | 16 at 8 a second | 5952×250 | A 2-second loop |
+| `laydown_blink`, `laydown_blink_glitch` | 4 at 8 a second | 1488×250 | Frames 0–3 replace `laydown` frames 9–12 |
+
+Her Krita files are already these shapes, at twice the size. A sheet of hers uses the new numbers from the moment it goes in, and any sheet you haven't drawn stays Capri's 60 frames, so sitting and lying can look uneven until a set is finished. The "perch fps" slider does nothing to a 16-frame sheet.
 
 ## One rule that stays
 

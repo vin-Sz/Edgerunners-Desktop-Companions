@@ -5,6 +5,18 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 4 Nov: Talia's sitting and lying sheets have 16 frames
+
+**What changed:** her ten sitting and lying Krita files went from 60 frames to 16, and their blinks from 8 frames to 4. All of them play at 8 frames a second. Her Krita files have new templates in `characters/talia/templates`, with Capri's art cut down to matching frames underneath. Those ten files were still empty, so no drawing was lost. Lucy's files and Capri's build are unchanged.
+
+**Why the build reads the width:** the frame count and speed are written in the code, but any sheet you haven't drawn is still Capri's. Setting everything to 16 now would slice her 60-frame sheets into wrong pieces. So the build measures each sheet of hers: if it's 16 frames wide, that one sheet gets the new numbers. The small code changes this needs are in `characters/fewer-frames.txt`.
+
+**Why 16 frames still takes 2 seconds:** 60 frames at 30 a second and 16 at 8 a second are both a 2-second loop, so she doesn't move at a different pace. It just has fewer drawings in it.
+
+**One idea worth knowing:** frames that have to line up need to change together, or they drift. Her blink replaces frames 9–12 of the sitting loop, like her standing blink does, and talking swaps in the same moment of the loop. That's why those numbers moved with the frame count.
+
+---
+
 ## 4 Nov: Lachy's update tonight merges itself
 
 **What changed:** nothing in the app. A scheduled job called "Merge tonight's Capri update" checks for his update at about 23:50 on 4 Nov, then at about 01:50, 03:50, 05:50, 07:50, 09:50 and 23:50 on 5 Nov. It merges the update into `main`, waits for GitHub's tests, then merges `main` into `talia-built-in` and pushes both. It runs inside the Claude app on this PC, so the PC has to be awake and the app open. If it misses a time, it runs the next time the app starts.

@@ -81,7 +81,7 @@ Capri's perch is now 60 smooth frames by her artist, so 16 frames at 8 fps becam
 | 196 | `perch`, `perch_blink`, `perch_blink_glitch`, `perch_music` | 47, 267 |
 | 288 | `perch_glitch`, `perch_arrive`, `perch_leave` | 93, 267 |
 
-The templates already draw this, so just follow the red cross. If 60 frames is too much to draw, Lucy's perch can use fewer: change the count and fps in `new Clip("perch", …)` and `PerchBlinkFrom` (the perch frame where the blink starts, 28 now). Her smoke test checks Capri's numbers, so it needs the same change.
+The templates already draw this, so just follow the red cross. If 60 frames is too much to draw, a sitting or lying sheet can have 16 at 8 fps instead, and a blink 4: the build works it out from the sheet's width. Talia's are set up this way, see "Her shorter sheets" in `characters/talia/NOTES.md`.
 
 ### Lying frames (since 0.7.7)
 
