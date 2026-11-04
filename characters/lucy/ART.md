@@ -4,7 +4,9 @@ Everything the app needs from her art, measured from capri-desktop 0.7.7. Check 
 
 ## Using the templates
 
-**Ready-made Krita files:** `krita/` has one `.kra` per animation with the three layers below already set up and the two helper layers locked. Remake them (this overwrites them, drawings included) with:
+**Ready-made Krita files:** `krita/` has one `.kra` per animation with the three layers below already set up and the two helper layers locked. They're 2× the app's size (480×768 per standing frame) so there's room for detail, so every guide number below is doubled in them. Export them at that size; the app scales her down.
+
+Remake them after the templates change with the line below. Close them in Krita first. Your own layers are carried over (scaled to fit) and the old file is kept as `name (before remake).kra`. `-Only idle,blink` remakes just those.
 
 `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\lucy\krita`
 
