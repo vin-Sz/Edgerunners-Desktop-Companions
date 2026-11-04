@@ -5,10 +5,18 @@ name: Talia self-test
 on:
   push:
     branches-ignore: [gh-pages]
+    # Anything her build is made from runs it, including Capri's code and art. The ! lines skip what never goes into her
+    # build, so saving a Krita file or a note doesn't cost a test. Later lines win, so personality.md goes back in last.
     paths:
+      - 'app/**'
+      - 'assets/**'
       - 'characters/**'
       - 'ci/**'
       - '.github/workflows/talia-smoke.yml'
+      - '!**/*.md'
+      - '!characters/lucy/**'
+      - '!characters/*/krita/**'
+      - 'characters/talia/personality.md'
   workflow_dispatch:
 
 concurrency:

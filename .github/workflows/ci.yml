@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches-ignore: [gh-pages]
+    paths-ignore: ['characters/**', 'reports/**', 'research_notes/**', 'README.md', 'CLAUDE.md']
   pull_request:
+    paths-ignore: ['characters/**', 'reports/**', 'research_notes/**', 'README.md', 'CLAUDE.md']
   workflow_dispatch:
 
 concurrency:
