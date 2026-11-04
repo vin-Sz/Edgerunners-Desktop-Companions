@@ -25,7 +25,7 @@ foreach ($group in @($runs | Group-Object name)) {
     if ($run.status -ne 'completed' -or $run.conclusion -eq 'success') { continue }
     foreach ($job in @((Invoke-RestMethod -Headers $headers -Uri $run.jobs_url).jobs | Where-Object { $_.conclusion -ne 'success' })) {
         $failedSteps = @($job.steps | Where-Object { $_.conclusion -eq 'failure' } | ForEach-Object { $_.name }) -join ', '
-        Write-Output ("  {0}: {1}{2}" -f $job.name, $job.conclusion, $(if ($failedSteps) { " at $failedSteps" } elseif (-not $job.steps) { ' before it started (no machine picked it up)' } else { '' }))
+        Write-Output ("  {0}: {1}{2}" -f $job.name, $job.conclusion, $(if ($failedSteps) { " at $failedSteps" } elseif (-not $job.steps) { ' before any step ran' } else { '' }))
         foreach ($note in @(Invoke-RestMethod -Headers $headers -Uri "$api/check-runs/$($job.id)/annotations")) {
             if ($note.annotation_level -ne 'failure' -or $note.message -like 'Process completed with exit code*') { continue }
             Write-Output ('    ' + ($note.message -replace "`r?`n", "`n    "))
