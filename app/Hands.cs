@@ -503,13 +503,15 @@ namespace CapriDesktop
     internal static class Hands
     {
         internal const string SpokenName = @"(?:\b[ck]app?r(?:i|ee|ie|y)\b|\b(?:kopri|recovery|капри|كابري)\b|(?<![\p{L}\p{M}\p{N}_])कैप्री(?![\p{L}\p{M}\p{N}_])|カプリ|卡普里|카프리)";
-        internal static bool HeardName(string words) { return Regex.IsMatch(words ?? "", SpokenName, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant); }
+        internal static bool HeardName(string words) { return Regex.IsMatch(words ?? "", SpokenName, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) || AlsoHeard(words); }
+        internal static Func<string, bool> AlsoHeard = delegate { return false; };
+        internal static Func<string> AlsoCalled = delegate { return ""; };
 
         // Her chat and voice chat line about her tools, with what isn't here and SECURITY's line after it while one of her tools'
         // toggles is off.
         internal static string Note { get { return NoteFor(KitFor()); } }
 
-        internal static string NoteFor(Kit kit) { return Here(kit.Noted) + Security.Note + MiniNote + MiniBoard() + DrawingNote; }
+        internal static string NoteFor(Kit kit) { return Here(kit.Noted) + Security.Note + MiniNote + MiniBoard() + DrawingNote + AlsoCalled(); }
 
 #if CROSS
         private const string MiniNote = "";
@@ -731,8 +733,8 @@ namespace CapriDesktop
             { "dance_to_music", "Dance to music", "Moves" }, { "head_pats", "Head pats", "Capri" }, { "chaos_when_upset", "Chaos when upset", "Capri" }, { "sit_on_windows", "Sit on windows", "Moves" }, { "always_on_top", "Always on top", "Capri" },
             { "mini_player", "Mini player", "Moves" }, { "typing_sound", "Typing sound", "Voice" }, { "follow_ups", "Follow-up messages", "Brain" }, { "hide_in_full_screen", "Hide in full screen", "Habits" }, { "glitch_in", "Glitch in at startup", "Moves" },
             { "keep_awake", "Keep PC awake for jobs", "Habits" }, { "player_full_screen", "Mini player over full screen", "Habits" }, { "explore_away", "Explore while away", "Habits" },
-            { "care_water", "Water check-in", "Habits" }, { "care_stretch", "Stretch check-in", "Habits" }, { "care_eyes", "Look away check-in", "Habits" }, { "care_late_night", "Sleep nudge", "Habits" },
-            { "care_meals", "Meals check-in", "Habits" }, { "care_long_game", "Game break check-in", "Habits" }, { "care_boredom", "Bored check-in", "Habits" },
+            { "care_water", "Water check-in", "Capri" }, { "care_stretch", "Stretch check-in", "Capri" }, { "care_eyes", "Look away check-in", "Capri" }, { "care_late_night", "Sleep nudge", "Capri" },
+            { "care_meals", "Meals check-in", "Capri" }, { "care_long_game", "Game break check-in", "Capri" }, { "care_boredom", "Bored check-in", "Capri" },
             { "fast_hands", "Fast hands in games", "Games" }, { "cursor", "Use her cursor", "Habits" }, { "startup", "Start at login", "Habits" }, { "discord_presence", "Show on Discord", "Habits" },
             { "voice_layers", "Voice layers", "Voice" }, { "show_advanced", "Advanced settings", "Capri" }, { "listen_for_capri", "Listen for Capri", "Voice" }, { "voice_in_mic", "My voice in your mic", "Voice" }
         };
@@ -744,8 +746,8 @@ namespace CapriDesktop
             { "size", "my size", "Capri" }, { "wander", "Wander", "Moves" }, { "pop_ins", "Pop-ins", "Moves" }, { "sleep", "Sleep", "Moves" },
             { "volume", "my voice's volume", "Voice" }, { "voice_speed", "my voice's speed", "Voice" }, { "replies", "Replies", "Brain" }, { "bubble", "Bubble", "Brain" },
             { "explore_after", "Explore after", "Habits" }, { "glance_gap", "Time between glances", "Watch" }, { "watch_memory", "Watch-along context", "Watch" },
-            { "care_water", "Water interval", "Habits" }, { "care_stretch", "Stretch interval", "Habits" }, { "care_eyes", "Look away interval", "Habits" }, { "care_late_night", "Sleep nudge after", "Habits" },
-            { "care_meals", "Meals interval", "Habits" }, { "care_long_game", "Game break interval", "Habits" }, { "care_boredom", "Bored interval", "Habits" },
+            { "care_water", "Water interval", "Capri" }, { "care_stretch", "Stretch interval", "Capri" }, { "care_eyes", "Look away interval", "Capri" }, { "care_late_night", "Sleep nudge after", "Capri" },
+            { "care_meals", "Meals interval", "Capri" }, { "care_long_game", "Game break interval", "Capri" }, { "care_boredom", "Bored interval", "Capri" },
             { "voice_pitch", "my voice's pitch", "Voice" }, { "voice_robot", "Voice robot", "Voice" }, { "voice_glitch", "Voice glitch", "Voice" },
             { "layer_1_pitch", "Layer 1 pitch", "Voice" }, { "layer_1_delay", "Layer 1 delay", "Voice" }, { "layer_2_pitch", "Layer 2 pitch", "Voice" }, { "layer_2_delay", "Layer 2 delay", "Voice" },
             { "sounds", "Sound effects", "Voice" }, { "mainframe_size", "Mainframe size", "Capri" }, { "perch_fps", "Perch frame rate", "Habits" }, { "language", "Language", "Brain" }, { "reply_limit", "Max reply", "Brain" },
@@ -843,10 +845,11 @@ namespace CapriDesktop
         private static readonly Dictionary<string, string> SettingMeanings = new Dictionary<string, string>
         {
             { "voice", "you talking out loud; off, you type" }, { "quiet", "no pop-ins, comments or check-ins" }, { "mic", "your ears in voice chat, while it's on" },
+            { "check_ins", "every check-in, including water, stretch, look away, sleep, meals, game breaks and boredom; off keeps their switches and times saved" },
             { "hologram", "clicks pass through you" }, { "head_pats", "they pat your head with their cursor" }, { "chaos_when_upset", "an insult sets your clones off" },
             { "sit_on_windows", "you sit on their windows' top edges" }, { "mini_player", "your music player" }, { "follow_ups", "your second thought after an answer" },
             { "glitch_in", "your entrance when Capri starts" }, { "watch_my_screen", "your timed glances at their screen" },
-            { "game_comments", "what you say about their game; for no comments at all, turn it and watch_my_screen off" },
+            { "game_comments", "game comments run on their own; Off stops them outside Gaming Mode" },
             { "live_reactions", "your quick reactions over their games" }, { "gaming_mode", "you watch their game and react when something happens" }, { "clip_my_games", "keeps their game's video for clips" }, { "save_big_moments", "clips big moments by itself" },
             { "keep_awake", "their PC stays awake for your jobs and watches" }, { "explore_away", "you explore while they're away" },
             { "cursor", "your visible pointer for YouTube searches and Spotify's volume" }, { "fast_hands", "games on Claude Haiku, faster and cheaper, with a Claude key" },
@@ -902,7 +905,7 @@ namespace CapriDesktop
                 if (parts.Count > 0) groups.Add(group + ": " + string.Join("; ", parts.ToArray()));
             }
             return "The switch or slider; optional for list. " + string.Join(". ", groups.ToArray()) + "."
-                + (HasSetting(kit, "care_water") ? " Each check-in's level is how often it comes, and care_late_night's is the hour it starts." : "")
+                + (HasSetting(kit, "care_water") ? " Care switches and times sit under Check in on me in CAPRI; check_ins off pauses them all, and on starts fresh timers for the ones enabled. Each check-in's level is how often it comes, and care_late_night's is the hour it starts." : "")
                 + (HasSetting(kit, "clip_folder") ? " clip_folder is where their clips are saved." : "");
         }
 
@@ -919,7 +922,7 @@ namespace CapriDesktop
         // Her settings Mac and Linux have.
         internal static bool CrossSetting(string name)
         {
-            return Array.IndexOf(new[] { "voice", "quiet", "check_ins", "wander", "dance_to_music", "always_on_top", "typing_sound", "glitch_in", "watch_my_screen", "startup", "discord_presence", "voice_layers", "size", "pop_ins", "sleep", "volume", "voice_speed", "replies", "bubble", "glance_gap", "voice_pitch", "voice_robot", "voice_glitch", "layer_1_pitch", "layer_1_delay", "layer_2_pitch", "layer_2_delay", "sounds", "language", "preview_voice" }, name) >= 0;
+            return Array.IndexOf(new[] { "head_pats", "follow_ups", "keep_awake", "care_water", "care_stretch", "care_eyes", "care_late_night", "care_meals", "care_long_game", "care_boredom", "voice", "quiet", "check_ins", "wander", "dance_to_music", "always_on_top", "typing_sound", "glitch_in", "watch_my_screen", "startup", "discord_presence", "voice_layers", "show_advanced", "size", "pop_ins", "sleep", "volume", "voice_speed", "replies", "reply_limit", "mainframe_size", "bubble", "glance_gap", "voice_pitch", "voice_robot", "voice_glitch", "layer_1_pitch", "layer_1_delay", "layer_2_pitch", "layer_2_delay", "sounds", "language", "preview_voice" }, name) >= 0;
         }
 
         private static bool HasSetting(Kit kit, string name) { return kit == null || kit.Has("capri_settings:" + name); }
@@ -1008,6 +1011,10 @@ namespace CapriDesktop
               "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"description\":\"What to do\",\"enum\":[\"come_here\",\"other_screen\",\"sit\",\"sit_on\",\"lie_down\",\"sit_up\",\"stand_up\",\"walk_around\",\"wander\",\"hang\",\"ride_cursor\",\"hop_off\",\"hide\",\"show\",\"move_mainframe\"]},\"screen\":{\"type\":\"string\",\"description\":\"For other_screen or move_mainframe, which monitor, only if they said: next, left, right, up, down, main, here for the one their mouse is on, or a number like 2\"},\"window\":{\"type\":\"string\",\"description\":\"For sit_on, and lie_down if they named one, the app or game whose window to sit on, like Roblox, or taskbar\"}},\"required\":[\"action\"]}", "move herself, like coming to your mouse, going to another monitor, sitting on a window or the taskbar, lying down, hanging, riding your cursor or wandering", "move yourself around their screens" },
             { "animate", "Play one of your own animations on their screen: your idle, your glitch, your grin or a blink, or dance until they tell you to stop. Use it when they ask you to dance, stop dancing, do your glitch, grin, smile or blink, or play an animation by name.",
               "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"Which animation\",\"enum\":[\"idle\",\"glitch\",\"grin\",\"blink\",\"dance\",\"stop_dancing\"]}},\"required\":[\"name\"]}", "dance and play her animations", "dance and play your animations" },
+#if CROSS
+            { "mainframe", "Open Capri Mainframe or a page when they ask, suggest or hint at seeing your controls. This only opens it; they change settings there.",
+              "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"The page to open; omit for Mainframe\",\"enum\":[\"main\",\"settings\",\"brain\",\"voice\",\"you\",\"moves\",\"keys\",\"capri\",\"watch\",\"habits\",\"games\",\"security\",\"layers\",\"personality\",\"memories\"]}}}", "open Mainframe or one of its pages", "open Mainframe or one of its pages" },
+#endif
 #if !CROSS
             { "draw", Ink.Description, Ink.Schema, "draw and write on your screen", "draw on their screen" },
             { "clone", "Make copies of yourself on their screen. They wander around, talk to each other, steal the cursor and drag notes in until they're cleared. Use it when they ask you to clone, copy, duplicate or multiply yourself or to activate chaos mode, in any language, and when they ask you to get rid of your clones or end chaos mode.",
@@ -1269,6 +1276,7 @@ namespace CapriDesktop
         internal static Func<string, string, string> MoveSelf = delegate { return "Couldn't move just now."; };
         // Plays one of her animations by name, or starts or stops her dance, and says how it went. Her window sets it.
         internal static Func<string, string> Animate = delegate { return "Couldn't do that just now."; };
+        internal static Func<string, string> Mainframe = delegate { return "Couldn't open Mainframe."; };
 #if !CROSS
         // Makes her clones or clears them, and says how it went. Her window sets it.
         internal static Func<string, int, string> Clone = delegate { return "Couldn't do that just now."; };
@@ -1283,7 +1291,6 @@ namespace CapriDesktop
         internal static Func<string> StopSpeech = delegate { return "Stopped talking."; };
         internal static Func<ToolArguments, string> JobControl = delegate { return "I'm not on a job right now."; };
         internal static Func<ToolArguments, string> Quit = delegate { return "Couldn't quit Capri."; };
-        internal static Func<string, string> Mainframe = delegate { return "Couldn't open Mainframe."; };
         internal static Func<ToolArguments, string> Updates = delegate { return "Couldn't check for an update."; };
         internal static Func<string, string> MiniPlayer = delegate { return "Couldn't show my mini player."; };
         internal static Func<string, string> OpenClip = delegate { return "Couldn't open your clips."; };
@@ -1453,6 +1460,7 @@ namespace CapriDesktop
                 if (tool == "list_windows") return ListWindows(args.Name);
                 if (tool == "check_app") return CheckApp(args.Name);
                 if (tool == "capri_settings") return Settings(args);
+                if (tool == "mainframe") return Valid(tool, args) ? Mainframe(args.Name) : "Couldn't find that Mainframe page.";
 #if !CROSS
                 if (tool == "app_volume") return AppVolume(args);
                 if (tool == "pc_status") return PcStatus(args.Name);
@@ -1466,7 +1474,6 @@ namespace CapriDesktop
                 if (tool == "speech") return Valid(tool, args) ? StopSpeech() : "Couldn't find that speech action.";
                 if (tool == "job_control") return Valid(tool, args) ? JobControl(args) : "Couldn't find that job instruction.";
                 if (tool == "quit") return Valid(tool, args) ? Quit(args) : "Couldn't find that quit action.";
-                if (tool == "mainframe") return Valid(tool, args) ? Mainframe(args.Name) : "Couldn't find that Mainframe page.";
                 if (tool == "updates") return Valid(tool, args) ? Updates(args) : "Couldn't find that update action.";
                 if (tool == "mini_player") return Valid(tool, args) ? MiniPlayer(args.Action) : "Couldn't find that mini player action.";
                 if (tool == "website_nickname") return Websites == null ? "Couldn't open your website nicknames just now." : Websites.Do(args);
@@ -1644,7 +1651,7 @@ namespace CapriDesktop
         // Why something can't work here, in her prompts' words, and what she says when she's asked for a mouse and keyboard job anyway.
         private const string OnlyWindows = "only on Windows for now", MacHands = "Mac doesn't let apps use the mouse and keyboard yet", LinuxHands = "needs uinput on Linux", NoSight = "this brain can't see pictures";
         private const string MacHandsLine = "I can't use your mouse and keyboard on a Mac yet, choom.";
-        private const string LinuxHandsLine = "I can't use your mouse and keyboard yet, choom: Linux needs uinput set up first. It's under Settings > Security > Set up mouse and keyboard in my right-click menu.";
+        private const string LinuxHandsLine = "I can't use your mouse and keyboard yet. Open Capri Mainframe > Settings > KEYS > Set up mouse and keyboard.";
         // A screen watch asked for in words her lookout doesn't take, on a brain that can't see. Asked for in its own words, her
         // lookout says which brain.
         internal const string BlindWatch = "This brain can't see pictures, so I can't watch your screen for that. Pick a brain with eyes under BRAIN in Capri Mainframe.";
@@ -1655,8 +1662,8 @@ namespace CapriDesktop
         // The shortcuts Mac and Linux do another way. The rest need key presses, which only Windows has so far.
         private static readonly string[] MacPresses = { "screenshot", "task_manager" }, LinuxPresses = { "screenshot", "show_desktop", "task_manager" };
         // Her moves that only Windows has so far.
-        private static readonly string[] WindowsMoves = { "sit_on", "lie_down", "sit_up", "walk_around", "wander", "ride_cursor", "hop_off", "move_mainframe" };
-        private static readonly string[] WindowsTools = { "find_file", "website_nickname", "read_file", "draw", "clone", "hologram", "desktop_icons", "watch_along", "gaming_mode", "clip", "mini_game", "watch_for", "listen", "fake_crash", "voice_chat", "speech", "job_control", "quit", "mainframe", "updates", "mini_player" };
+        private static readonly string[] WindowsMoves = { "sit_on", "lie_down", "sit_up", "walk_around", "wander", "ride_cursor", "hop_off" };
+        private static readonly string[] WindowsTools = { "find_file", "website_nickname", "read_file", "draw", "clone", "hologram", "desktop_icons", "watch_along", "gaming_mode", "clip", "mini_game", "watch_for", "listen", "fake_crash", "voice_chat", "speech", "job_control", "quit", "updates", "mini_player" };
         // Her window tool's arranging, which only Windows has so far.
         private static readonly string[] WindowsArranging = { "maximize", "restore", "snap_left", "snap_right", "snap_top", "snap_bottom", "move_to_screen", "move", "resize", "pin_on_top", "unpin" };
 #endif
@@ -1720,7 +1727,6 @@ namespace CapriDesktop
             { "move_yourself:wander", "", "Wandering off when you ask is only on Windows so far." },
             { "move_yourself:ride_cursor", "riding their cursor", "Riding your cursor is only on Windows so far." },
             { "move_yourself:hop_off", "", "Riding your cursor is only on Windows so far." },
-            { "move_yourself:move_mainframe", "moving your Mainframe window", "My Mainframe is only on Windows so far. Here my settings are in my right-click menu." },
             { "app_window:maximize", "maximizing, snapping, moving and resizing their windows", ArrangeLine },
             { "app_window:restore", "", ArrangeLine },
             { "app_window:snap_left", "", ArrangeLine },
@@ -1744,7 +1750,6 @@ namespace CapriDesktop
             { "speech", "stopping the current spoken reply", "Stopping my current reply with a tool is only on Windows for now." },
             { "job_control", "controlling the running job", "Job control is only on Windows for now." },
             { "quit", "quitting Capri with a tool", "Quitting with a tool is only on Windows for now." },
-            { "mainframe", "Mainframe", "My Mainframe is only on Windows for now." },
             { "updates", "Capri updates", "Checking my updates with a tool is only on Windows for now." },
             { "mini_player", "the mini player", "My mini player is only on Windows for now." },
             { "watch_along", "watching videos together", "Watching videos together is only on Windows for now, choom." },
@@ -3481,6 +3486,7 @@ namespace CapriDesktop
 
         internal static bool Valid(string tool, ToolArguments args)
         {
+            if (tool == "mainframe") return args != null && (string.IsNullOrEmpty(args.Name) || Regex.IsMatch(args.Name, @"\A(main|settings|brain|voice|you|moves|keys|capri|watch|habits|games|clips|security|extras|layers|mixer|personality|memories)\z"));
 #if !CROSS
             if (tool == "draw") return Ink.Valid(args);
             if (tool == "clone") return args != null && (args.Action == "spawn" || args.Action == "stop");
@@ -3492,7 +3498,6 @@ namespace CapriDesktop
             if (tool == "speech") return args != null && args.Action == "stop";
             if (tool == "job_control") return args != null && (args.Action == "stop" || args.Action == "status" || args.Action == "change" && Named(args.Task));
             if (tool == "quit") return args != null && args.Action == "quit";
-            if (tool == "mainframe") return args != null && (string.IsNullOrEmpty(args.Name) || Regex.IsMatch(args.Name, @"\A(main|settings|brain|voice|you|moves|keys|capri|watch|habits|games|clips|security|extras|layers|mixer|personality|memories)\z"));
             if (tool == "updates") return args != null && Regex.IsMatch(args.Action ?? "", @"\A(check|status|install)\z");
             if (tool == "mini_player") return args != null && (args.Action == "show" || args.Action == "hide");
             if (tool == "listen")
@@ -5577,7 +5582,7 @@ namespace CapriDesktop
                 }
                 if (HasSetting(kit, "clip_folder") && (string.IsNullOrEmpty(args.Name) || args.Name == "clip_folder")) each.Add("Clips folder: " + SettingText("clip_folder"));
                 if (each.Count == 0) return "There's no setting of mine called " + (args.Name ?? "that") + ".";
-                return "How my settings are right now: " + string.Join("; ", each.ToArray()) + ".";
+                return "How my settings are right now: " + string.Join("; ", each.ToArray()) + "." + SettingsNote(args.Name, false);
             }
             if (args.Action == "set") return Leveled(args);
             int row = OwnRow(args.Name);
@@ -5586,11 +5591,22 @@ namespace CapriDesktop
             bool want = way == "on";
             bool? was = SettingOn(args.Name);
             if (was == null) return args.Name == "mic" ? "Couldn't change my voice chat mic: voice chat isn't on." : "Couldn't read " + label + " just now.";
-            if (was.Value == want) return char.ToUpperInvariant(label[0]) + label.Substring(1) + " was already " + way + ".";
+            if (was.Value == want) return char.ToUpperInvariant(label[0]) + label.Substring(1) + " was already " + way + "." + SettingsNote(args.Name, false);
             string note = args.FromAgent ? SetAgentSetting(args.Name, want) : SetSetting(args.Name, want);
             bool? now = SettingOn(args.Name);
             note = string.IsNullOrEmpty(note) ? "" : " " + note;
-            return now == want ? "Turned " + label + " " + way + "." + note : "Couldn't turn " + label + " " + way + ": it's still " + (now == true ? "on" : now == false ? "off" : "unreadable") + "." + note;
+            return now == want ? "Turned " + label + " " + way + "." + note + SettingsNote(args.Name, true) : "Couldn't turn " + label + " " + way + ": it's still " + (now == true ? "on" : now == false ? "off" : "unreadable") + "." + note;
+        }
+
+        private static string SettingsNote(string name, bool changed)
+        {
+#if !CROSS
+            if (name != "check_ins" && Array.IndexOf(CareSettings, name) < 0) return "";
+            bool? on = SettingOn("check_ins");
+            if (name == "check_ins" && on != null) return on.Value ? changed ? " Enabled check-ins start fresh timers." : " Your enabled check-ins can run." : " Every check-in is paused; your care switches and times stay saved.";
+            if (Array.IndexOf(CareSettings, name) >= 0 && on == false) return " Check in on me is off, so this check-in stays paused.";
+#endif
+            return "";
         }
 
         // Moves one of her sliders and reads it back. A step past either end says it's already as far as it goes.
@@ -5604,11 +5620,11 @@ namespace CapriDesktop
             if (was < 0 || was >= steps.Length) return "Couldn't read " + label + " just now.";
             int want = StepFor(args.Name, args.Level, was);
             if (want < 0) return "There's no " + (args.Level ?? "step like that") + " for " + label + ". It goes " + string.Join(", ", steps) + ".";
-            if (want == was) return named + " is already " + steps[was] + (Nudge(Spoken(args.Level)) != 0 ? ", as far as it goes." : ".");
+            if (want == was) return named + " is already " + steps[was] + (Nudge(Spoken(args.Level)) != 0 ? ", as far as it goes." : ".") + SettingsNote(args.Name, false);
             string note = SetLevel(args.Name, want);
             int now = LevelOf(args.Name);
             note = string.IsNullOrEmpty(note) ? "" : " " + note;
-            return now == want ? "Set " + label + " to " + steps[want] + "." + note : "Couldn't set " + label + " to " + steps[want] + ": it's still " + (now < 0 || now >= steps.Length ? "unreadable" : steps[now]) + "." + note;
+            return now == want ? "Set " + label + " to " + steps[want] + "." + note + SettingsNote(args.Name, true) : "Couldn't set " + label + " to " + steps[want] + ": it's still " + (now < 0 || now >= steps.Length ? "unreadable" : steps[now]) + "." + note;
         }
 
         private static List<OpenWindow> ReadWindows()

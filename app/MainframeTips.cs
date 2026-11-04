@@ -11,6 +11,7 @@ namespace CapriDesktop
     {
         private readonly Dictionary<Control, SettingHint> hints = new Dictionary<Control, SettingHint>();
         private readonly List<SettingHint> hintRows = new List<SettingHint>();
+        internal bool HuskTip { get { return hints.ContainsKey(huskMode); } }
         private readonly Timer hintDelay = new Timer { Interval = 400 };
         private HintCard hintCard;
         private SettingHint waitingHint, overHint, dismissedHint;
@@ -114,6 +115,7 @@ namespace CapriDesktop
             Explain(voiceNote, "Mic: default", "Mainframe.cs", null, "Voice status");
             foreach (Key fix in hearingFixes) Explain(fix, "Hearing status", "Mainframe.cs", null, "Hearing fix");
             Explain(hearingChoice, "Hearing engine", "Mainframe.cs", null, "Hearing");
+            Explain(micLoudness, "Her voice in your mic: loudness", "Mainframe.cs", micLoudnessName, "Her voice in your mic: loudness");
             Explain(showHide, "Hide Capri", "Mainframe.cs", null, "Hide / Show Capri");
             Explain(perch, "Ride cursor", "Mainframe.cs", null, "Ride cursor / Hop off");
             foreach (Control control in Controls)
@@ -125,6 +127,7 @@ namespace CapriDesktop
             Explain(layersKey, "Voice layers", "Mainframe.cs", null, "Layers");
             layersKey.StateValue = true;
             Explain(personalityKey, "Edit personality.md", "Mainframe.cs", null, "Her personality");
+            Explain(huskMode, "Code/Husk Mode", "Mainframe.cs", FindHintLabel("Code/Husk Mode"), "Code/Husk Mode");
             Control[] bindings = { talkKeys, muteKeys, typeKeys, hideKeys, pushKeys, gameKeys, confirmKeys, cancelKeys, clearKeys };
             string[] names = { "Talk key", "Mute mic key", "Type key", "Hide / Show key", "Push to talk key", "Gaming Mode key", "Confirm keys", "Cancel keys", "Turn push to talk off" };
             for (int i = 0; i < bindings.Length; i++) Explain(bindings[i], i == 4 ? "Push to talk: not set" : "KEYS >", "Mainframe.cs", null, names[i]);
@@ -132,6 +135,7 @@ namespace CapriDesktop
             Explain(custom, "Custom model name", "Mainframe.cs", null, "Custom model name");
             Explain(localAddress, "Local server address", "Mainframe.cs", FindHintLabel("Local server address"), "Local server address");
             Explain(security, "SECURITY >", "Mainframe.cs", null, "Security");
+            Explain(checkIns, "Check in on me");
             for (int i = 0; i < careTimes.Length; i++) Explain(careTimes[i], Care.Names[i], "Care.cs", null, Care.Names[i] + " time");
             Explain(clipChoose, "Save folder", "Mainframe.cs", FindHintLabel("Save folder"), "Save folder");
             Explain(clipsFolder, "Save folder", "Mainframe.cs", null, "Open clips folder");
@@ -257,7 +261,7 @@ namespace CapriDesktop
             if (hintCard != null) hintCard.Dispose();
         }
 
-        private sealed class HintCard : Form
+        internal sealed class HintCard : Form
         {
             private const TextFormatFlags Wrap = TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl;
             private Font titleFont, bodyFont;
@@ -385,6 +389,30 @@ namespace CapriDesktop
                         if (area.Contains(Bounds) && !Bounds.IntersectsWith(control)) return true;
                     }
                 return false;
+            }
+
+            internal bool Place(string name, float unit, Rectangle control, Rectangle area)
+            {
+                scale = unit;
+                if (titleFont != null) titleFont.Dispose();
+                if (bodyFont != null) bodyFont.Dispose();
+                titleFont = Neon.Type(10f * 96f / 72f * unit, true, GraphicsUnit.Pixel);
+                bodyFont = Ink(unit);
+                title = name;
+                Body = "";
+                int pad = (int)Math.Ceiling(12 * unit), gap = (int)Math.Ceiling(8 * unit);
+                Size words = TextRenderer.MeasureText(name, titleFont, Size.Empty, Wrap);
+                titleBox = new Rectangle(pad, pad, words.Width, words.Height);
+                bodyBox = Rectangle.Empty;
+                ClientSize = new Size(words.Width + pad * 2, words.Height + pad * 2);
+                int x = Math.Max(area.Left, Math.Min(control.Left, area.Right - Width));
+                int y = control.Bottom + gap;
+                if (y + Height > area.Bottom) y = control.Top - gap - Height;
+                Location = new Point(x, Math.Max(area.Top, y));
+                AccessibleName = title;
+                AccessibleDescription = title;
+                Neon.Clip(this, 9 * unit, 3 * unit);
+                return area.Contains(Bounds) && !Bounds.IntersectsWith(control);
             }
 
             protected override void WndProc(ref Message message)
