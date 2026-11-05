@@ -48,11 +48,13 @@ $swap = {
             $sheetWidths[$resource.Groups[3].Value] = $theirs[0]
             $clipName = [regex]::Replace($resource.Groups[3].Value, '(_flipped)?\.png$', '')
             $shorter = $fewerFrames[$clipName]
-            $isShorter = $shorter -and $capri[1] -eq $theirs[1] -and $theirs[0] -eq ($capri[0] / $shorter[0] * $shorter[2])
+            # A sheet can also be double Capri's size: the app cuts it by its own width and scales it to fit (characters/double-size.txt).
+            $scale = if ($theirs[1] -eq $capri[1] * 2) { 2 } else { 1 }
+            $isShorter = $shorter -and $capri[1] * $scale -eq $theirs[1] -and $theirs[0] -eq ($capri[0] / $shorter[0] * $shorter[2] * $scale)
             if ($isShorter) { $shorterSheets[$clipName] = $shorter }
-            elseif ($capri[0] -ne $theirs[0] -or $capri[1] -ne $theirs[1]) {
-                $allowed = if ($shorter) { " or $($capri[0] / $shorter[0] * $shorter[2])x$($capri[1]) for $($shorter[2]) frames" } else { '' }
-                throw ("$own is $($theirs[0])x$($theirs[1]) px, but it should be $($capri[0])x$($capri[1])$allowed. See characters/lucy/ART.md.")
+            elseif ($capri[0] * $scale -ne $theirs[0] -or $capri[1] * $scale -ne $theirs[1]) {
+                $allowed = if ($shorter) { ", or $($capri[0] / $shorter[0] * $shorter[2] * 2)x$($capri[1] * 2) or $($capri[0] / $shorter[0] * $shorter[2])x$($capri[1]) for $($shorter[2]) frames" } else { '' }
+                throw ("$own is $($theirs[0])x$($theirs[1]) px, but it should be $($capri[0] * 2)x$($capri[1] * 2) at double size or $($capri[0])x$($capri[1]) at Capri's$allowed. See characters/lucy/ART.md.")
             }
         }
     }
@@ -87,7 +89,7 @@ if (Test-Path -LiteralPath $ownIcon) {
 # app and the installer are built from. The installer's line in ci/build-windows.ps1 reads app\ and assets\chip.png from
 # $root, so $root becomes the copy's folder once the rest of the build has what it needs from the real one.
 $rules = New-Object System.Collections.Generic.List[object]
-foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $root 'characters\own-files.txt'), (Join-Path $root 'characters\fewer-frames.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'checks.txt'))) {
+foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $root 'characters\own-files.txt'), (Join-Path $root 'characters\fewer-frames.txt'), (Join-Path $root 'characters\double-size.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'checks.txt'))) {
     if (-not (Test-Path -LiteralPath $list)) { continue }
     foreach ($line in Get-Content -LiteralPath $list -Encoding UTF8) {
         $rule = [regex]::Match($line, '^"(.+)"\s*=>\s*"(.*)"\s*$')
