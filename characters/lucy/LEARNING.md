@@ -5,6 +5,27 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 5 Nov: 116 of Lachy's updates come in (his 0.8.3 and a bit more)
+
+**What changed:** the scheduled job merged Lachy's update into `main`. The new things are: she can join your Discord call for you and launch the game your friends pick, she hears Zoom, Teams and other call apps, and she knows who said what. Friends can ask her for things and you confirm (off by default). You can pick your speaker and screens. Any OpenAI-compatible provider now works on Windows, there are new Mainframe colours, and she tells you what's new once after an update. She can edit her notes in Mainframe and set reminders on dates, and there's a Play menu for mini-games. Mac and Linux get the full Mainframe, Mods and Code/Husk Mode, plus an AppImage on Linux. Package managers can now install her, and she keeps more passwords and tokens out of her logs.
+
+**The five conflicts:** `README.md` stayed ours. In `ci/build-windows.ps1` we took Lachy's list of files and put `'Character', 'YouTubeMusic'` and the `if ($Character)` line back. In `.github/workflows/ci.yml` we kept our short build folder and his new package test, pointed at that folder. In `app/Hands.cs` both sides had added a line in the same spot, so both stayed, with his "that errand has ended" check first so a cancelled errand can't start music. In `app/Mainframe.cs` one line had both his new colour and our change to the memory note's name, so it has both now. No words changed there. `Safety` in `app/Brain.cs` is word for word what it was, and Lachy didn't change it either. Nothing under `characters/` conflicted.
+
+**New text that still says Capri in Talia's build** (none of it changed, since it's your call):
+- **Telling you to say her name:** "Call mode (beta) on. Say Capri for your requests.", and the same idea in the call panel and in "Call mode is on; say Capri to ask."
+- **What the AI is told:** the rule that requests on a call are the ones addressed to Capri, and "Capri handles spoken messages" in the call job.
+- **Her what's-new note:** the fixed line "better calls, Mods and Capri VR", and "You just updated to Capri".
+- **Capri VR:** "Capri Room" and `Capri-VR-Quest.apk` in her help text. That's Capri's own Quest app, so it isn't a version of Talia.
+- **Menus and windows:** "Play a mini-game with Capri", "Open Capri Mainframe and change SECURITY", "Edgerunners Desktop is installed. Get it later in Capri Mainframe".
+- **Help answers:** new ones in `SelfKnow.cs` say "Capri" where the rest of the line says Talia, for example "Mainframe > TALIA > Quit Talia closes Capri".
+- **Code/Husk Mode on Mac and Linux:** "I need Capri's full app path" and "Move Capri into Applications".
+- **Package errors:** "Capri doesn't know the package manager".
+- **Lachy's Discord:** her menus now send people to `discord.gg/capridesktop`, which is his server. It doesn't say Capri on screen, but Talia's users would land there.
+
+**One idea worth knowing:** two people can change the same line without disagreeing. Git only sees that the line changed twice and stops. Here Lachy changed a colour and we changed a name, so the fix was to keep both changes rather than pick a side. A real disagreement is when both change the same thing, like two different words for one sentence.
+
+---
+
 ## 4 Nov: 58 of Lachy's updates come in
 
 **What changed:** the daily Sync upstream run had been failing, so the fork had fallen 58 commits behind Lachy. This merges them by hand. The new things are mods (a Mods tab and a gallery, plus code mods and skin mods), Code/Husk Mode (she acts out what Claude Code and Codex are doing), calls that feel more like calls, her Settings window on Mac and Linux, any OpenAI-compatible provider with a key, a note saying why she closed if she closes by herself, and a Meta Quest port in `quest/`.
