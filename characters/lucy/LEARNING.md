@@ -5,6 +5,24 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 5 Nov: Her art stays at double size (for now)
+
+**What changed:** the build now takes a sheet at double Capri's size and keeps it that way. Before, it refused anything but Capri's size, even though `ART.md` told you to export at double. `characters/double-size.txt` holds the small code changes this needs. Capri's own build is unchanged.
+
+**Why double:** the app's Giant setting shows her 622 px tall. A 384 px sheet gets enlarged there, which looks soft. A 768 px sheet only ever shrinks, so it stays sharp at every setting.
+
+**This is a working choice, not the final answer.** You said so yourself: the point right now is to have one finished state, so we can test and work with no Capri left in her. It isn't quite optimal, and we may change it. The cost is memory: my estimate is about 470 MB if all her art is loaded at once, against about 120 MB at Capri's size. Neither number has been measured, and neither has how smoothly she animates. Changing later is cheap, because the build can shrink finished sheets without you redrawing anything.
+
+**Checked:** on GitHub, using Capri's art scaled up as stand-ins, 790 of the self-test's checks passed and 1 failed. That one measures her talking mouth in Capri's pixels (at most 60 px), so double-size art can't pass it. 12 more were skipped when the test stopped there, so those haven't run at double size. Nothing has been tried with real art yet, or on Mac and Linux.
+
+**Bug it found:** she'd have been drawn twice as big on the fake crash screen. That's fixed.
+
+**Still to do:** many self-test checks expect Capri's exact art, such as the 60-pixel mouth limit above, her 60 sitting frames and her artist's left-facing sheets. They'll need changing when Talia's first real sitting sheets go in, whatever size they are. The 16-frame test on 4 Nov had stopped early too, so this isn't new.
+
+**One idea worth knowing:** some failures don't look like failures. Windows draws nothing at all from a picture wider than 32,767 px, and gives no error. My first test sheets hit that, and she simply vanished. Talia's widest sheet is 11,904 px, so she's fine. But Lucy's 60-frame lying files are 44,640 px when exported at double size, so they'd need fewer frames or Capri's size. The build now refuses such a sheet and says why, because a clear error is much easier to deal with than a character who silently disappears.
+
+---
+
 ## 5 Nov: One main line instead of two
 
 **What changed:** everything from `talia-built-in` is now in `main`, along with Lachy's 0.8.3, and this folder is on `main`. You work alone, so a long-running second branch wasn't protecting anything. It was costing you: new cloud sessions started without Talia's work, the new Sync upstream wasn't active, and she'd fallen 118 commits behind.

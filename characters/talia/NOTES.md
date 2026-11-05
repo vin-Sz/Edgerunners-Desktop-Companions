@@ -42,6 +42,12 @@ You chose 16 frames at 8 a second for sitting and lying (4 Nov), which is what C
 
 Her Krita files are already these shapes, at twice the size. A sheet of hers uses the new numbers from the moment it goes in, and any sheet you haven't drawn stays Capri's 60 frames, so sitting and lying can look uneven until a set is finished. The "perch fps" slider does nothing to a 16-frame sheet.
 
+## Her art's size
+
+Draw and export at the size her Krita files already are: double the numbers above and in `ART.md`, so 480×768 for a standing frame. The build keeps sheets at that size, so she stays sharp even at the Giant setting. At the default Medium she's shrunk to about a third, so set Krita's zoom to 35% to see how she'll really look.
+
+**This may change.** It's a working choice, made so there's one finished state to test with and no Capri left in her. It isn't quite optimal, because it uses more memory: an estimated 470 MB at most, not yet measured. The build can shrink finished sheets later, so changing this won't mean redrawing. The reasoning is in `characters/lucy/LEARNING.md` (5 Nov).
+
 ## One rule that stays
 
 She's a teenager in the show, so she's a friend and nothing else: no flirting or romance in her personality or lines, and her art stays non-sexual. The app's fixed safety lines also rule out anything sexual or romantic. Don't copy Lucy's "good boy" line into her personality. Lachy's own "good boy" lines for people who tip, in the game and stream instructions (`app/Computer.cs`), are supposed to stay.
