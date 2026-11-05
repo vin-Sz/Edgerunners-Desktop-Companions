@@ -45,6 +45,8 @@ $swap = {
         $sheetWidths[$resource.Groups[3].Value] = $capri[0]
         if ($hasOwn) {
             $theirs = Get-PngSize $own
+            # Windows silently draws nothing from a picture wider than this, so she'd just vanish.
+            if ($theirs[0] -gt 32767) { throw "$own is $($theirs[0]) px wide, and Windows can't draw a picture wider than 32767. Use fewer frames, or Capri's size. See characters/talia/NOTES.md." }
             $sheetWidths[$resource.Groups[3].Value] = $theirs[0]
             $clipName = [regex]::Replace($resource.Groups[3].Value, '(_flipped)?\.png$', '')
             $shorter = $fewerFrames[$clipName]

@@ -1,6 +1,8 @@
 # What lets a character's sitting and lying sheets have 16 frames at 8 a second, where Capri's have 60 at 30. Same format as
 # names.txt, for every character. None of it changes anything while a sheet still has 60 frames, so Capri's art plays as before.
 
+# The self-test draws frame 20 of each lying sheet, which a 16-frame sheet doesn't have.
+"Draw(graphics, lieClips[k], 20);" => "Draw(graphics, lieClips[k], 20 % lieClips[k].Count);"
 # The frame rate slider counts in Capri's 60 frames, so a shorter sheet plays at its own speed instead.
 "if ((clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && preferences.PerchFps != 30)" => "if (clip.Count == 60 && (clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && preferences.PerchFps != 30)"
 # In a 16-frame loop the blink starts at frame 9, the same as her standing loop, not frame 28.
