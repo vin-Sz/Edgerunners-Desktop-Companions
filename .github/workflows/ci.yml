@@ -30,6 +30,12 @@ jobs:
       - name: Build and smoke test
         shell: pwsh
         run: ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -SmokeTest -SmokeSeconds 900
+      - name: Package marker
+        if: always()
+        shell: pwsh
+        run: |
+          $env:CAPRI_DISPOSABLE_USER = '1'
+          ./ci/test-package-marker.ps1 -Setup "$env:RUNNER_TEMP\w\Capri-Setup.exe"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
