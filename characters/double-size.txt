@@ -6,6 +6,11 @@
 # Her dancing nod bends at rows measured in 384 px art, so a taller sheet needs them scaled to find her neck.
 "drop = nod * 10, lean = nod * 0.22f;" => "drop = nod * 10 * strip.Height / 384f, lean = nod * 0.22f;"
 "float head = (sitting ? 196 : 138) - rowsDown, chest = (sitting ? 232 : 176) - rowsDown, neck = (sitting ? 214 : 152) - rowsDown;" => "float head = (sitting ? 196 : 138) * high / 384f - rowsDown, chest = (sitting ? 232 : 176) * high / 384f - rowsDown, neck = (sitting ? 214 : 152) * high / 384f - rowsDown;"
+# On the fake crash screen she's sized from her sheet's pixels, so a double-size sheet would draw her twice as big.
+"new RectangleF(LieMiddle - wide * LieSize / 2, LieTop, wide * LieSize, strip.Height * LieSize)" => "new RectangleF(LieMiddle - wide * 250f / strip.Height * LieSize / 2, LieTop, wide * 250f / strip.Height * LieSize, 250 * LieSize)"
+# The self-test's colour check looks at a spot on her hair, and across her first frame, in 384 px art.
+"idle.Strip.GetPixel(95, 90)" => "idle.Strip.GetPixel(95 * idle.Strip.Height / 384, 90 * idle.Strip.Height / 384)"
+"for (int x = 0; x < 240; x += 2)" => "for (int x = 0; x < art.Width / idle.Count; x += 2)"
 
 # The self-test pins the exact outline of Capri's art, which no one else's art can match. ci.yml still checks it on Capri's own build.
 "if (idle.Strip.Width / idle.Count != 240 || idle.Strip.Height != 384 || napIdleBounds != new Rectangle(31, 17, 181, 350)" => "if (napIdleBounds.IsEmpty"
