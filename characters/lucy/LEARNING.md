@@ -5,6 +5,40 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 5 Nov: Do Lachy's mods make Talia's branch useless?
+
+**Answer: no.** A mod can change how she looks and add names she answers to. It can't make her a different character. This comes from reading the code in Capri 0.8.3 (`app/Mods.cs`, `app/SkinMods.cs`, `app/CodeMods.cs`). Nothing was run.
+
+| What Talia needs | Mod | Our branch |
+| --- | --- | --- |
+| Her art | Yes, a skin, on Windows, Mac and Linux | Yes, Windows only so far |
+| Her 16-frame sitting and lying sheets | No. A skin's sheets must be exactly Capri's size | Yes |
+| Mirroring her when she faces left | No. A skin has to include all 15 left-facing sheets | Yes |
+| Answering to "Talia" | Yes, a settings mod with `wake_names` | Not yet (still "Hey Capri") |
+| Her personality as the default | No. People would paste it in by hand | Yes |
+| Her own lines (`Character.cs`), name in menus, icon, greetings | No | Yes |
+| Her own memory and chats | No | Yes |
+| Installing beside a real Capri, with her own updates | No. She'd be a costume on Capri | Yes |
+| Fixing "You are Capri" in the app's prompts | No | Possible, waiting on your decision |
+
+**The three kinds of mod:**
+- **Settings mod (`.capri-mod`):** extra names, spellings of those names, and colours. The app tells her the extra names are nicknames, so she'd still be Capri, answering to Talia as well.
+- **Skin (`.capri-skin`):** a zip of pictures with the same names as Capri's sheets. Only pictures are accepted, so no voice and no icon.
+- **Code mod (`.capri-code`):** C# that the app compiles and runs, Windows only. Its official tools are small: say a line, write to the log, load art, play one of five sounds, play an intro. It has no way to change her prompt. It runs with full access to the PC, so it could probably reach inside the app and swap her personality anyway, but I haven't tried that. It would be a hack that any Lachy update could break, and everyone installing it would have to approve a mod that can do anything on their PC.
+
+**What mods do better:** no merging at all. Someone on official Capri would get Lachy's updates straight away, and a skin works on Mac and Linux, where our character swap doesn't exist yet.
+
+**Your art isn't locked in:** a small script could later turn her finished sheets into a skin, by repeating frames to reach 60 and mirroring for the left-facing ones. That's an estimate: the 16-to-60 stretch would be slightly uneven, and I haven't built it. Nothing needs doing now, since there's no finished art yet.
+
+**Things I noticed and left alone:**
+- **Talia's build gets the mods window too, pointed at Lachy's directory.** So someone using Talia can install the Maid Suit skin, or anything else made for Capri. I haven't looked at that skin's pictures, so whether it fits "her art stays non-sexual" is unchecked. Hiding skins or the directory in her build is your call.
+- **A skin made for Capri stops fitting once her 16-frame sheets are in.** The app would refuse it with a "has to match hers" message, which is safe, just a bit confusing.
+- **Lachy's mods repo already mentions a fourth kind, skills, for 0.8.4.** That's not out yet and isn't in this update.
+
+**One idea worth knowing:** a mod system only opens the doors its author chose to open. Lachy opened looks, names and sounds, and kept who she is in the code. So the question to ask of any mod system isn't "how powerful is it?" but "is the thing I want to change behind one of its doors?"
+
+---
+
 ## 4 Nov: Left for you in the morning
 
 **First, see how the night's tests went:** run `./ci/status.ps1`. The PC was turned off while the tests for `c1d5505` were still running, so nobody has read their results. The self-test passed on the commit just before these changes. The Mac build often can't get a machine from GitHub, and that isn't a code failure.
