@@ -5,6 +5,20 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 5 Nov: One main line instead of two
+
+**What changed:** everything from `talia-built-in` is now in `main`, along with Lachy's 0.8.3, and this folder is on `main`. You work alone, so a long-running second branch wasn't protecting anything. It was costing you: new cloud sessions started without Talia's work, the new Sync upstream wasn't active, and she'd fallen 118 commits behind.
+
+**Checked:** the only conflict was this log, and both sides' entries stayed. `Safety` matches Lachy's word for word. Talia's build and the Mac and Linux build compiled here. On GitHub, Talia's self-test and the Windows and Linux tests passed. The Mac test didn't run, because GitHub never gave it a machine, so Mac is untested on this merge.
+
+**Pushing to `main` doesn't release anything:** releases only start when someone runs them by hand on GitHub.
+
+**Cleaned up:** the one-night "Merge tonight's Capri update" job is deleted, because that update is in. The `talia-built-in` branch still exists, in case you want it, and is safe to delete.
+
+**One idea worth knowing:** a branch is just a name pointing at a commit. Here `main` was moved forward to the commit that already held everything, so nothing was copied or rewritten. Talia's history is still there, step by step. Short-lived branches still make sense for something risky, or for running the self-test before it reaches `main`.
+
+---
+
 ## 5 Nov: Do Lachy's mods make Talia's branch useless?
 
 **Answer: no.** A mod can change how she looks and add names she answers to. It can't make her a different character. This comes from reading the code in Capri 0.8.3 (`app/Mods.cs`, `app/SkinMods.cs`, `app/CodeMods.cs`). Nothing was run.
