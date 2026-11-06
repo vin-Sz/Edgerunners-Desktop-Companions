@@ -5,6 +5,12 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 6 Nov: A pocket version of this log
+
+**What changed:** nothing in the app. `characters/lucy/learning-on-the-go.html` takes the ideas from this log and turns them into short cards for reading on a phone, with C# compared to Python and C++. It's published as a page pinned in your claude.ai sidebar. This log stays the full record. The pocket page is a summary of it and only changes when someone updates it.
+
+---
+
 ## 5 Nov: Her art stays at double size (for now)
 
 **What changed:** the build now takes a sheet at double Capri's size and keeps it that way. Before, it refused anything but Capri's size, even though `ART.md` told you to export at double. `characters/double-size.txt` holds the small code changes this needs. Capri's own build is unchanged.

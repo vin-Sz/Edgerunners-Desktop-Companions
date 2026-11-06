@@ -1,0 +1,378 @@
+<title>Pocket C# Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow reading column of short cards, a sticky chip bar to jump between five chapters. Built for one thumb on a phone. */
+:root {
+  --bg: #f3f4f8;
+  --card: #ffffff;
+  --fg: #1b1d2a;
+  --muted: #5a5e74;
+  --line: #dcdfea;
+  --accent: #c81d63;
+  --accent-soft: #fbe3ec;
+  --code-bg: #eceef5;
+  --py: #2f6db3;
+  --cpp: #7a4bc2;
+  --cs: #11806a;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12131c; --card: #1b1d29; --fg: #e9eaf2; --muted: #a2a6bd; --line: #2d3042;
+    --accent: #ff6fa3; --accent-soft: #3a1d2b; --code-bg: #232636;
+    --py: #7fb2ef; --cpp: #b99af0; --cs: #5fd0b4; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12131c; --card: #1b1d29; --fg: #e9eaf2; --muted: #a2a6bd; --line: #2d3042;
+  --accent: #ff6fa3; --accent-soft: #3a1d2b; --code-bg: #232636;
+  --py: #7fb2ef; --cpp: #b99af0; --cs: #5fd0b4; color-scheme: dark;
+}
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--body); font-size: 18px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+header.top { padding-top: 28px; display: flex; flex-direction: column; gap: 8px; }
+.eyebrow { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: var(--display); font-size: 34px; line-height: 1.1; margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 60ch; }
+nav.chips {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); padding-block: 10px;
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--line);
+}
+nav.chips::-webkit-scrollbar { display: none; }
+nav.chips a {
+  flex: 0 0 auto; text-decoration: none; color: var(--fg);
+  font-size: 15px; font-weight: 700; padding: 8px 14px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--line);
+}
+nav.chips a:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+section { display: flex; flex-direction: column; gap: 14px; padding-top: 18px; }
+h2 { font-family: var(--display); font-size: 25px; line-height: 1.2; margin: 0; text-wrap: balance; display: flex; gap: 10px; align-items: baseline; }
+h2 .n { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+.intro { margin: 0; color: var(--muted); }
+article {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+h3 { font-family: var(--body); font-size: 20px; line-height: 1.3; margin: 0; text-wrap: balance; }
+.gist { margin: 0; font-weight: 700; color: var(--accent); }
+article p { margin: 0; }
+.src { font-family: var(--mono); font-size: 12.5px; color: var(--muted); letter-spacing: .02em; }
+code { font-family: var(--mono); font-size: .86em; background: var(--code-bg); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+pre {
+  margin: 0; background: var(--code-bg); border-radius: 10px; padding: 12px 14px;
+  font-family: var(--mono); font-size: 14.5px; line-height: 1.5; overflow-x: auto; min-width: 0;
+}
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+.cmp { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: baseline; min-width: 0; }
+.cmp .tag { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 6px; text-align: center; border: 1.5px solid currentColor; }
+.tag.py { color: var(--py); } .tag.cpp { color: var(--cpp); } .tag.cs { color: var(--cs); }
+.cmp code { justify-self: start; }
+.cmp > div { min-width: 0; }
+.warn { background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; font-size: 16.5px; }
+ul.tight { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+footer { color: var(--muted); font-size: 15px; padding-top: 18px; }
+footer code { font-size: 14px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">Edgerunners Desktop · learning, pocket size</span>
+    <h1>C# and this fork, one stop at a time</h1>
+    <p class="lede">Each card is one idea you can read between two bus stops. It assumes you know Python and some C++. The long version with all the dates is <code>characters/lucy/LEARNING.md</code>.</p>
+  </header>
+
+  <nav class="chips" aria-label="Chapters">
+    <a href="#csharp">C# basics</a>
+    <a href="#met">Seen in this code</a>
+    <a href="#fork">How the fork works</a>
+    <a href="#git">Git</a>
+    <a href="#tests">Tests</a>
+  </nav>
+
+  <!-- 1 -->
+  <section id="csharp" aria-labelledby="h-csharp">
+    <h2 id="h-csharp"><span class="n">1</span>C# if you know Python and C++</h2>
+    <p class="intro">Short version: C# looks like C++, but behaves more like Python. You get types and braces, and memory looks after itself.</p>
+
+    <article>
+      <h3>It's compiled, like C++</h3>
+      <p class="gist">Nothing runs until the whole program compiles.</p>
+      <p>Python reads your file line by line and only complains when it gets to a bad line. C# checks every file first, then builds one <code>.exe</code>. A single typo anywhere stops the whole build.</p>
+      <p>The compiler here is <code>csc.exe</code>, and it comes with Windows. There are no header files, unlike C++. Every file can see every other file it's compiled with.</p>
+    </article>
+
+    <article>
+      <h3>Memory cleans itself up, like Python</h3>
+      <p class="gist">No <code>delete</code>, no pointers to worry about.</p>
+      <p>You make things with <code>new</code>, like in C++, but you never free them. A garbage collector does that, as in Python. So you can't get the classic C++ crash from using memory that's already been freed.</p>
+    </article>
+
+    <article>
+      <h3>Every variable has a type</h3>
+      <p class="gist">Like C++. A string stays a string.</p>
+      <div class="cmp">
+        <span class="tag py">py</span><div><code>name = "Talia"</code></div>
+        <span class="tag cpp">c++</span><div><code>std::string name = "Talia";</code></div>
+        <span class="tag cs">c#</span><div><code>string name = "Talia";</code></div>
+      </div>
+      <p>You can write <code>var name = "Talia";</code> and C# works out the type, a bit like <code>auto</code> in C++. It's still fixed as a string afterwards.</p>
+    </article>
+
+    <article>
+      <h3>Lists and arrays</h3>
+      <p class="gist"><code>string[]</code> has a fixed size. <code>List&lt;string&gt;</code> can grow.</p>
+      <div class="cmp">
+        <span class="tag py">py</span><div><code>lines = ["Hi", "Yo"]</code></div>
+        <span class="tag cpp">c++</span><div><code>std::vector&lt;std::string&gt;</code></div>
+        <span class="tag cs">c#</span><div><code>List&lt;string&gt;</code> or <code>string[]</code></div>
+      </div>
+      <p>The <code>&lt;string&gt;</code> part works like C++ templates: it says what's inside.</p>
+    </article>
+
+    <article>
+      <h3><code>null</code> is Python's <code>None</code></h3>
+      <p class="gist">A missing value. Using it by accident crashes.</p>
+      <p>Calling something on <code>null</code> throws a <code>NullReferenceException</code>, the C# version of Python's <code>'NoneType' object has no attribute</code>.</p>
+      <p>You'll see <code>??</code> a lot. <code>a ?? b</code> means "use <code>a</code>, or <code>b</code> if <code>a</code> is null".</p>
+      <div class="cmp">
+        <span class="tag py">py</span><div><code>x if x is not None else ""</code></div>
+        <span class="tag cs">c#</span><div><code>x ?? ""</code></div>
+      </div>
+    </article>
+
+    <article>
+      <h3>Everything lives inside a class</h3>
+      <p class="gist">C# has no loose functions. A <code>static class</code> is how it does a Python module.</p>
+      <p>Python lets you write <code>def</code> at the top of a file. C# doesn't. So when the code only needs a bag of functions and values, it uses a <code>static class</code>: you can't make objects from it, you just call <code>Character.Declined</code>, the way you'd call <code>character.declined</code> after an import.</p>
+      <p><code>internal</code> means "anyone in this program can use it, nobody outside". <code>private</code> means "only this class".</p>
+    </article>
+
+    <article>
+      <h3>Namespaces, like C++</h3>
+      <p class="gist">A family name for a group of classes.</p>
+      <p>All of Capri's code sits in <code>namespace CapriDesktop { ... }</code>. <code>using System;</code> at the top of a file is like <code>using namespace std;</code> in C++, or a Python <code>import</code> that lets you skip the prefix.</p>
+    </article>
+
+    <article>
+      <h3>This project is stuck on C# 5</h3>
+      <p class="gist">Many tutorials show newer C#. Some of it won't compile here.</p>
+      <p>The compiler that comes with Windows only knows C# 5, from 2012. If you copy something from the internet and it fails, check for these first:</p>
+      <ul class="tight">
+        <li><code>$"Hi {name}"</code> (like a Python f-string): write <code>"Hi " + name</code> instead</li>
+        <li><code>thing?.Name</code>: check for <code>null</code> first instead</li>
+        <li><code>int Twice(int x) =&gt; x * 2;</code>: use a normal <code>{ return x * 2; }</code></li>
+        <li><code>(a, b)</code> tuples like Python's: not available</li>
+      </ul>
+    </article>
+
+    <article>
+      <h3>Reading a compiler error</h3>
+      <p class="gist">Go straight to the line and column it names.</p>
+<pre><code>Talk.cs(120,34): error CS1009:
+  Unrecognized escape sequence</code></pre>
+      <p>That's file <code>Talk.cs</code>, line 120, character 34. The real mistake is usually right there or just before it. On your PC the message comes in German (<code>Fehler</code> means error), but the line and column are the same.</p>
+      <p class="warn">If the path has <code>character-talia</code> in it, that's the build's copy. Fix it in <code>app\</code>, not in the copy.</p>
+    </article>
+  </section>
+
+  <!-- 2 -->
+  <section id="met" aria-labelledby="h-met">
+    <h2 id="h-met"><span class="n">2</span>C# you've already met here</h2>
+    <p class="intro">Real lines from this repo, explained.</p>
+
+    <article>
+      <h3><code>const</code> versus <code>static readonly</code></h3>
+      <p class="gist">Both mean "never changes". They differ in when the value is set.</p>
+<pre><code>internal const string Declined = "Nah. Not that one, Choomie.";
+internal static readonly string[] PopLines = { "Bored.", ... };</code></pre>
+      <p><code>const</code> is baked in at build time, like <code>constexpr</code> in C++. It only works for simple things: text and numbers. A list isn't simple, so <code>PopLines</code> is <code>static readonly</code>: it's set once when the app starts, and can't be changed after.</p>
+      <p>Lachy's <code>Brain.Declined</code> is a <code>const</code>, so Talia's has to be one too.</p>
+      <span class="src">characters/talia/Character.cs · log of 31 Oct</span>
+    </article>
+
+    <article>
+      <h3><code>@"..."</code> is Python's <code>r"..."</code></h3>
+      <p class="gist">A raw string: backslashes stay as backslashes.</p>
+      <div class="cmp">
+        <span class="tag py">py</span><div><code>r"\d+\s"</code></div>
+        <span class="tag cs">c#</span><div><code>@"\d+\s"</code></div>
+      </div>
+      <p>Regex patterns are full of <code>\</code>, so they use <code>@</code>. Forgetting it gives "unrecognized escape sequence". One odd difference: inside <code>@"..."</code>, a quote mark is written twice, <code>""</code>.</p>
+      <span class="src">app/YouTubeMusic.cs · log of 31 Oct</span>
+    </article>
+
+    <article>
+      <h3>A variable that holds a function</h3>
+      <p class="gist"><code>Func&lt;A, B, R&gt;</code> is a function you can store and swap. The last type is what it returns.</p>
+<pre><code>static Func&lt;string, string, string&gt; Call = Ask;</code></pre>
+      <p>Read it as: <code>Call</code> takes two strings and gives back a string, and right now it is <code>Ask</code>. It's like keeping a function in a Python variable, or a <code>std::function</code> in C++.</p>
+      <p>The self-test swaps <code>Call</code> for a fake, so it can test without the real YouTube Music app. More in chapter 5.</p>
+      <span class="src">app/YouTubeMusic.cs · log of 31 Oct</span>
+    </article>
+
+    <article>
+      <h3>Two things called <code>Character</code></h3>
+      <p class="gist">When names clash, the closest one wins. Write the full name to pick the other.</p>
+      <p>Inside Lachy's <code>Brain</code> class, <code>Character</code> already means her whole prompt, a string. So <code>Character.Declined</code> there failed with "a string has no <code>Declined</code>".</p>
+      <p>The fix is the full name: <code>CapriDesktop.Character.Declined</code>. It's like two people called Alex in one room: you add the family name. Python has the same thing when a local variable hides an imported module.</p>
+      <span class="src">app/Brain.cs · log of 31 Oct</span>
+    </article>
+
+    <article>
+      <h3>The build has a guest list</h3>
+      <p class="gist">A new <code>.cs</code> file does nothing until it's named in <code>$sources</code>.</p>
+      <p>Python finds files when you import them. Here the build script hands <code>csc.exe</code> an exact list of files, in <code>ci/build-windows.ps1</code>. That's why our <code>'Character', 'YouTubeMusic'</code> are written into that list, and why it's where merges keep conflicting.</p>
+    </article>
+  </section>
+
+  <!-- 3 -->
+  <section id="fork" aria-labelledby="h-fork">
+    <h2 id="h-fork"><span class="n">3</span>How the fork stays mergeable</h2>
+    <p class="intro">Lachy keeps updating Capri. Every idea here is about taking his updates without a fight.</p>
+
+    <article>
+      <h3>Our code goes in our own files</h3>
+      <p class="gist">His files get one-line hooks that say "ask our file".</p>
+      <p>If our code sits inside his file, one day his change lands next to ours and Git stops to ask. If all we added is one line, that conflict is easy to fix. It's less tidy (Spotify in one file, YouTube Music in another), but it keeps merges cheap.</p>
+      <span class="src">log of 31 Oct</span>
+    </article>
+
+    <article>
+      <h3>Point, don't move</h3>
+      <p class="gist">Leave his list where it is and make it point at ours.</p>
+<pre><code>private static readonly string[] PopLines = Character.PopLines;</code></pre>
+      <p>That one line in <code>app/Capri.cs</code> is the only difference from his file. Every place that used his list now gets ours, and none of them changed.</p>
+      <span class="src">log of 31 Oct</span>
+    </article>
+
+    <article>
+      <h3>Change a copy, not the original</h3>
+      <p class="gist">Her name is swapped in a throwaway copy of the code at build time.</p>
+      <p><code>Use-Character.ps1</code> copies the code, replaces the phrases from her <code>names.txt</code> in the copy, and compiles that. Lachy's files never change, so his updates can't conflict over her name.</p>
+      <p>The catch: a find-and-replace only finds what it's told to. New text from Lachy that says "Capri" shows up as Capri until someone adds a rule for it.</p>
+      <span class="src">log of 1 Nov · 4 Nov</span>
+    </article>
+
+    <article>
+      <h3>What's shared, and what's hers</h3>
+      <p class="gist">Things that belong to you are shared. Things that belong to her are kept apart.</p>
+      <p>Settings, keys and voices are yours, so all characters share them. Memories, chats and personality are hers, so each character has her own folder. Otherwise Talia would read Lucy's memories as her own.</p>
+      <span class="src">log of 4 Nov</span>
+    </article>
+
+    <article>
+      <h3>An app's identity is more than its name</h3>
+      <p class="gist">Windows tells apps apart by things you never see.</p>
+      <p>The settings folder, the autostart entry, and a <em>mutex</em>: a lock that makes sure only one copy runs. If two apps share these, they fight. That's why the build renames them as well as the words on screen.</p>
+      <span class="src">log of 1 Nov</span>
+    </article>
+
+    <article>
+      <h3>Mods only open the doors their author chose</h3>
+      <p class="gist">Ask "is what I want behind one of its doors?", not "how powerful is it?"</p>
+      <p>Lachy's mods can change her looks, names and sounds. Who she is stays in his code. That's why Talia still needs her own build.</p>
+      <span class="src">log of 5 Nov</span>
+    </article>
+  </section>
+
+  <!-- 4 -->
+  <section id="git" aria-labelledby="h-git">
+    <h2 id="h-git"><span class="n">4</span>Git, in small bites</h2>
+
+    <article>
+      <h3>A conflict means two changes touched</h3>
+      <p class="gist">Git compares lines. Two edits on the same line, or next to each other, make it stop.</p>
+      <p>It doesn't understand what either edit means. That's also why a conflict isn't always a disagreement: Lachy changed a colour and we changed a name on the same line, so the answer was to keep both.</p>
+      <span class="src">log of 4 Nov · 5 Nov</span>
+    </article>
+
+    <article>
+      <h3>A clean merge can still be wrong</h3>
+      <p class="gist">No conflict only means no two edits touched.</p>
+      <p>His change can break ours one file away and Git won't notice. So after a merge, compiling and testing still matter.</p>
+      <span class="src">log of 2 Nov</span>
+    </article>
+
+    <article>
+      <h3>A branch is just a name on a commit</h3>
+      <p class="gist">Moving a branch copies nothing.</p>
+      <p>When <code>main</code> took in <code>talia-built-in</code>, Git only moved the name <code>main</code> forward to a newer commit. All the history stayed as it was.</p>
+      <span class="src">log of 5 Nov</span>
+    </article>
+
+    <article>
+      <h3>A worktree is a second folder for one repo</h3>
+      <p class="gist">Its own files, but the same history.</p>
+      <p>The merge script runs in one, so it doesn't disturb whatever another session is doing in your main folder.</p>
+      <span class="src">log of 4 Nov</span>
+    </article>
+  </section>
+
+  <!-- 5 -->
+  <section id="tests" aria-labelledby="h-tests">
+    <h2 id="h-tests"><span class="n">5</span>Tests, and failures that hide</h2>
+
+    <article>
+      <h3>Tests swap out the real world</h3>
+      <p class="gist">Put a fake function in the variable, run the check, put the real one back.</p>
+<pre><code>Func&lt;string, string, string&gt; callWas = Call;
+Call = fake;   // writes down what was sent
+// ... run the checks ...
+Call = callWas;</code></pre>
+      <p>This tests Talia's side without the YouTube Music app, the internet or a real song. Python people know this as mocking.</p>
+      <span class="src">app/YouTubeMusic.cs · log of 31 Oct</span>
+    </article>
+
+    <article>
+      <h3>Fail early, and say why</h3>
+      <p class="gist">"idle.png is 900×384 px, but Capri's is 960×384" beats a character who just looks wrong.</p>
+      <p>The build checks each drawing's size as it comes in, because a wrong-sized sheet wouldn't crash. She'd just be cut into the wrong frames.</p>
+      <span class="src">log of 1 Nov</span>
+    </article>
+
+    <article>
+      <h3>Some failures make no sound at all</h3>
+      <p class="gist">Windows draws nothing from a picture wider than 32,767 px, and gives no error.</p>
+      <p>Test sheets that wide made her vanish. Talia's widest is 11,904 px, so she's fine. Lucy's 60-frame lying sheets at double size would be 44,640 px, so the build now refuses those with a message.</p>
+      <span class="src">log of 5 Nov</span>
+    </article>
+
+    <article>
+      <h3>Test what you actually built</h3>
+      <p class="gist">Her build is made from a changed copy, so checks must read that copy.</p>
+      <p>A check searched Lachy's <code>Mainframe.cs</code> for "Quit Talia" and failed, because his file rightly says "Quit Capri". The app was fine. The test was looking at the wrong file.</p>
+      <span class="src">log of 4 Nov</span>
+    </article>
+
+    <article>
+      <h3>A fingerprint of a text</h3>
+      <p class="gist">SHA-256 turns any text into a short code. Change one letter and the code changes completely.</p>
+      <p>The self-test keeps the code for her personality, so any change is noticed. The same idea checks downloaded installers: the updater only runs one whose code matches <code>SHA256SUMS.txt</code>. It's what Python's <code>hashlib.sha256</code> does.</p>
+      <span class="src">log of 1 Nov</span>
+    </article>
+
+    <article>
+      <h3>GET asks, POST does</h3>
+      <p class="gist">An API is a door an app leaves open for other programs.</p>
+      <p>YouTube Music runs a small web server at <code>127.0.0.1</code> ("this PC", nothing goes online). <code>GET /track/state</code> asks if a song is liked. <code>POST /track/like</code> likes it. Same idea as <code>requests.get</code> and <code>requests.post</code> in Python.</p>
+      <span class="src">log of 31 Oct</span>
+    </article>
+  </section>
+
+  <footer>Made from <code>characters/lucy/LEARNING.md</code> up to 6 Nov 2026. The source file for this page is <code>characters/lucy/learning-on-the-go.html</code>.</footer>
+</div>
