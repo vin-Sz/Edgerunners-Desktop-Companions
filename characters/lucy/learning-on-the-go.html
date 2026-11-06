@@ -3,7 +3,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: one narrow reading column of short cards, a sticky chip bar to jump between five chapters. Built for one thumb on a phone. */
+/* Layout: a course map (home) and one card at a time inside a lesson, with a sticky progress strip on top and big Back/Next buttons at the thumb. */
 :root {
   --bg: #f3f4f8;
   --card: #ffffff;
@@ -12,10 +12,15 @@
   --line: #dcdfea;
   --accent: #c81d63;
   --accent-soft: #fbe3ec;
+  --on-accent: #ffffff;
   --code-bg: #eceef5;
   --py: #2f6db3;
   --cpp: #7a4bc2;
   --cs: #11806a;
+  --good: #11806a;
+  --good-soft: #def3ec;
+  --bad: #b3361f;
+  --bad-soft: #f9e2dc;
   --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
   --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
@@ -23,356 +28,731 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #12131c; --card: #1b1d29; --fg: #e9eaf2; --muted: #a2a6bd; --line: #2d3042;
-    --accent: #ff6fa3; --accent-soft: #3a1d2b; --code-bg: #232636;
-    --py: #7fb2ef; --cpp: #b99af0; --cs: #5fd0b4; color-scheme: dark;
+    --accent: #ff6fa3; --accent-soft: #3a1d2b; --on-accent: #1b0a12; --code-bg: #232636;
+    --py: #7fb2ef; --cpp: #b99af0; --cs: #5fd0b4;
+    --good: #5fd0b4; --good-soft: #15342d; --bad: #ff8a73; --bad-soft: #3d1f1a; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #12131c; --card: #1b1d29; --fg: #e9eaf2; --muted: #a2a6bd; --line: #2d3042;
-  --accent: #ff6fa3; --accent-soft: #3a1d2b; --code-bg: #232636;
-  --py: #7fb2ef; --cpp: #b99af0; --cs: #5fd0b4; color-scheme: dark;
+  --accent: #ff6fa3; --accent-soft: #3a1d2b; --on-accent: #1b0a12; --code-bg: #232636;
+  --py: #7fb2ef; --cpp: #b99af0; --cs: #5fd0b4;
+  --good: #5fd0b4; --good-soft: #15342d; --bad: #ff8a73; --bad-soft: #3d1f1a; color-scheme: dark;
 }
-html { scroll-behavior: smooth; scroll-padding-top: 64px; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body {
   background: var(--bg); color: var(--fg);
   font-family: var(--body); font-size: 18px; line-height: 1.55;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0 48px;
+  padding-block: 0 40px;
 }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 .wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-header.top { padding-top: 28px; display: flex; flex-direction: column; gap: 8px; }
 .eyebrow { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
-h1 { font-family: var(--display); font-size: 34px; line-height: 1.1; margin: 0; text-wrap: balance; }
-.lede { margin: 0; color: var(--muted); max-width: 60ch; }
-nav.chips {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
-  background: var(--bg); padding-block: 10px;
-  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
-  border-bottom: 1px solid var(--line);
-}
-nav.chips::-webkit-scrollbar { display: none; }
-nav.chips a {
-  flex: 0 0 auto; text-decoration: none; color: var(--fg);
-  font-size: 15px; font-weight: 700; padding: 8px 14px; border-radius: 999px;
-  background: var(--card); border: 1px solid var(--line);
-}
-nav.chips a:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-section { display: flex; flex-direction: column; gap: 14px; padding-top: 18px; }
-h2 { font-family: var(--display); font-size: 25px; line-height: 1.2; margin: 0; text-wrap: balance; display: flex; gap: 10px; align-items: baseline; }
-h2 .n { font-family: var(--mono); font-size: 15px; color: var(--accent); }
-.intro { margin: 0; color: var(--muted); }
-article {
-  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
-}
-h3 { font-family: var(--body); font-size: 20px; line-height: 1.3; margin: 0; text-wrap: balance; }
-.gist { margin: 0; font-weight: 700; color: var(--accent); }
-article p { margin: 0; }
-.src { font-family: var(--mono); font-size: 12.5px; color: var(--muted); letter-spacing: .02em; }
+h1 { font-family: var(--display); font-size: 32px; line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-size: 23px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--body); font-size: 21px; line-height: 1.3; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.muted { color: var(--muted); }
 code { font-family: var(--mono); font-size: .86em; background: var(--code-bg); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
-pre {
-  margin: 0; background: var(--code-bg); border-radius: 10px; padding: 12px 14px;
-  font-family: var(--mono); font-size: 14.5px; line-height: 1.5; overflow-x: auto; min-width: 0;
-}
+pre { margin: 0; background: var(--code-bg); border-radius: 10px; padding: 12px 14px; font-family: var(--mono); font-size: 14px; line-height: 1.5; overflow-x: auto; min-width: 0; }
 pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.gist { font-weight: 700; color: var(--accent); }
 .cmp { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: baseline; min-width: 0; }
-.cmp .tag { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 6px; text-align: center; border: 1.5px solid currentColor; }
-.tag.py { color: var(--py); } .tag.cpp { color: var(--cpp); } .tag.cs { color: var(--cs); }
-.cmp code { justify-self: start; }
 .cmp > div { min-width: 0; }
-.warn { background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; font-size: 16.5px; }
+.tag { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 6px; text-align: center; border: 1.5px solid currentColor; }
+.tag.py { color: var(--py); } .tag.cpp { color: var(--cpp); } .tag.cs { color: var(--cs); }
+.note { background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; font-size: 16.5px; }
 ul.tight { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
-footer { color: var(--muted); font-size: 15px; padding-top: 18px; }
-footer code { font-size: 14px; }
+.map { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: baseline; }
+.map code { justify-self: start; }
+button { font: inherit; color: inherit; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 13px 18px; font-weight: 700; font-size: 17px; cursor: pointer; text-align: center; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > .btn { flex: 1 1 140px; }
+
+/* home */
+.hero { padding-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+.meter { height: 10px; background: var(--code-bg); border-radius: 999px; overflow: hidden; }
+.meter > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.stats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 15.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--fg); font-size: 18px; }
+.unit { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
+.unit-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.unit-head span { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.unit-blurb { color: var(--muted); font-size: 16px; }
+.lessons { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.lesson-row { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; padding: 12px 14px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; cursor: pointer; width: 100%; }
+.lesson-row:first-child { border-top: 0; }
+.lesson-row .t { min-width: 0; font-size: 17px; line-height: 1.35; }
+.lesson-row .m { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+.dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; font-weight: 600; border: 1.5px solid var(--line); color: var(--muted); }
+.dot.done { background: var(--good); border-color: var(--good); color: var(--card); }
+.dot.next { border-color: var(--accent); color: var(--accent); }
+.dot.part { border-color: var(--accent); border-style: dashed; color: var(--accent); }
+.review-card { border-color: var(--accent); }
+.pc-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 16.5px; }
+.pc-list span { font-family: var(--mono); font-size: 12.5px; color: var(--muted); display: block; }
+
+/* lesson */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 12px 10px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); }
+.bar-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.back { border: 0; background: none; padding: 6px 0; font-weight: 700; cursor: pointer; color: var(--accent); font-size: 16px; }
+.bar-top .where { font-family: var(--mono); font-size: 13px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.segs { display: flex; gap: 4px; }
+.segs i { flex: 1; height: 6px; border-radius: 3px; background: var(--code-bg); }
+.segs i.on { background: var(--accent); }
+.segs i.quiz { background: var(--line); }
+.segs i.quiz.on { background: var(--good); }
+.stage { display: flex; flex-direction: column; gap: 14px; padding-top: 6px; }
+.lesson-title { display: flex; flex-direction: column; gap: 4px; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt { text-align: left; border: 1.5px solid var(--line); background: var(--card); border-radius: 12px; padding: 12px 14px; cursor: pointer; font-size: 17px; line-height: 1.4; }
+.opt.right { border-color: var(--good); background: var(--good-soft); }
+.opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.opt:disabled { cursor: default; }
+.verdict { border-radius: 10px; padding: 10px 12px; font-size: 16.5px; }
+.verdict.right { background: var(--good-soft); }
+.verdict.wrong { background: var(--bad-soft); }
+.verdict b { display: block; }
+.nav { display: flex; gap: 10px; padding-top: 4px; }
+.nav .btn { flex: 1; }
+.nav .btn.primary { flex: 2; }
+.big-check { font-family: var(--display); font-size: 44px; color: var(--good); line-height: 1; }
+footer { color: var(--muted); font-size: 14.5px; padding-top: 22px; display: flex; flex-direction: column; gap: 6px; }
+@media (prefers-reduced-motion: no-preference) { .stage { animation: rise .22s ease-out; } @keyframes rise { from { transform: translateY(6px); opacity: .6; } to { transform: none; opacity: 1; } } }
 </style>
 
-<div class="wrap">
-  <header class="top">
-    <span class="eyebrow">Edgerunners Desktop · learning, pocket size</span>
-    <h1>C# and this fork, one stop at a time</h1>
-    <p class="lede">Each card is one idea you can read between two bus stops. It assumes you know Python and some C++. The long version with all the dates is <code>characters/lucy/LEARNING.md</code>.</p>
-  </header>
-
-  <nav class="chips" aria-label="Chapters">
-    <a href="#csharp">C# basics</a>
-    <a href="#met">Seen in this code</a>
-    <a href="#fork">How the fork works</a>
-    <a href="#git">Git</a>
-    <a href="#tests">Tests</a>
-  </nav>
-
-  <!-- 1 -->
-  <section id="csharp" aria-labelledby="h-csharp">
-    <h2 id="h-csharp"><span class="n">1</span>C# if you know Python and C++</h2>
-    <p class="intro">Short version: C# looks like C++, but behaves more like Python. You get types and braces, and memory looks after itself.</p>
-
-    <article>
-      <h3>It's compiled, like C++</h3>
-      <p class="gist">Nothing runs until the whole program compiles.</p>
-      <p>Python reads your file line by line and only complains when it gets to a bad line. C# checks every file first, then builds one <code>.exe</code>. A single typo anywhere stops the whole build.</p>
-      <p>The compiler here is <code>csc.exe</code>, and it comes with Windows. There are no header files, unlike C++. Every file can see every other file it's compiled with.</p>
-    </article>
-
-    <article>
-      <h3>Memory cleans itself up, like Python</h3>
-      <p class="gist">No <code>delete</code>, no pointers to worry about.</p>
-      <p>You make things with <code>new</code>, like in C++, but you never free them. A garbage collector does that, as in Python. So you can't get the classic C++ crash from using memory that's already been freed.</p>
-    </article>
-
-    <article>
-      <h3>Every variable has a type</h3>
-      <p class="gist">Like C++. A string stays a string.</p>
-      <div class="cmp">
-        <span class="tag py">py</span><div><code>name = "Talia"</code></div>
-        <span class="tag cpp">c++</span><div><code>std::string name = "Talia";</code></div>
-        <span class="tag cs">c#</span><div><code>string name = "Talia";</code></div>
-      </div>
-      <p>You can write <code>var name = "Talia";</code> and C# works out the type, a bit like <code>auto</code> in C++. It's still fixed as a string afterwards.</p>
-    </article>
-
-    <article>
-      <h3>Lists and arrays</h3>
-      <p class="gist"><code>string[]</code> has a fixed size. <code>List&lt;string&gt;</code> can grow.</p>
-      <div class="cmp">
-        <span class="tag py">py</span><div><code>lines = ["Hi", "Yo"]</code></div>
-        <span class="tag cpp">c++</span><div><code>std::vector&lt;std::string&gt;</code></div>
-        <span class="tag cs">c#</span><div><code>List&lt;string&gt;</code> or <code>string[]</code></div>
-      </div>
-      <p>The <code>&lt;string&gt;</code> part works like C++ templates: it says what's inside.</p>
-    </article>
-
-    <article>
-      <h3><code>null</code> is Python's <code>None</code></h3>
-      <p class="gist">A missing value. Using it by accident crashes.</p>
-      <p>Calling something on <code>null</code> throws a <code>NullReferenceException</code>, the C# version of Python's <code>'NoneType' object has no attribute</code>.</p>
-      <p>You'll see <code>??</code> a lot. <code>a ?? b</code> means "use <code>a</code>, or <code>b</code> if <code>a</code> is null".</p>
-      <div class="cmp">
-        <span class="tag py">py</span><div><code>x if x is not None else ""</code></div>
-        <span class="tag cs">c#</span><div><code>x ?? ""</code></div>
-      </div>
-    </article>
-
-    <article>
-      <h3>Everything lives inside a class</h3>
-      <p class="gist">C# has no loose functions. A <code>static class</code> is how it does a Python module.</p>
-      <p>Python lets you write <code>def</code> at the top of a file. C# doesn't. So when the code only needs a bag of functions and values, it uses a <code>static class</code>: you can't make objects from it, you just call <code>Character.Declined</code>, the way you'd call <code>character.declined</code> after an import.</p>
-      <p><code>internal</code> means "anyone in this program can use it, nobody outside". <code>private</code> means "only this class".</p>
-    </article>
-
-    <article>
-      <h3>Namespaces, like C++</h3>
-      <p class="gist">A family name for a group of classes.</p>
-      <p>All of Capri's code sits in <code>namespace CapriDesktop { ... }</code>. <code>using System;</code> at the top of a file is like <code>using namespace std;</code> in C++, or a Python <code>import</code> that lets you skip the prefix.</p>
-    </article>
-
-    <article>
-      <h3>This project is stuck on C# 5</h3>
-      <p class="gist">Many tutorials show newer C#. Some of it won't compile here.</p>
-      <p>The compiler that comes with Windows only knows C# 5, from 2012. If you copy something from the internet and it fails, check for these first:</p>
-      <ul class="tight">
-        <li><code>$"Hi {name}"</code> (like a Python f-string): write <code>"Hi " + name</code> instead</li>
-        <li><code>thing?.Name</code>: check for <code>null</code> first instead</li>
-        <li><code>int Twice(int x) =&gt; x * 2;</code>: use a normal <code>{ return x * 2; }</code></li>
-        <li><code>(a, b)</code> tuples like Python's: not available</li>
-      </ul>
-    </article>
-
-    <article>
-      <h3>Reading a compiler error</h3>
-      <p class="gist">Go straight to the line and column it names.</p>
-<pre><code>Talk.cs(120,34): error CS1009:
-  Unrecognized escape sequence</code></pre>
-      <p>That's file <code>Talk.cs</code>, line 120, character 34. The real mistake is usually right there or just before it. On your PC the message comes in German (<code>Fehler</code> means error), but the line and column are the same.</p>
-      <p class="warn">If the path has <code>character-talia</code> in it, that's the build's copy. Fix it in <code>app\</code>, not in the copy.</p>
-    </article>
-  </section>
-
-  <!-- 2 -->
-  <section id="met" aria-labelledby="h-met">
-    <h2 id="h-met"><span class="n">2</span>C# you've already met here</h2>
-    <p class="intro">Real lines from this repo, explained.</p>
-
-    <article>
-      <h3><code>const</code> versus <code>static readonly</code></h3>
-      <p class="gist">Both mean "never changes". They differ in when the value is set.</p>
-<pre><code>internal const string Declined = "Nah. Not that one, Choomie.";
-internal static readonly string[] PopLines = { "Bored.", ... };</code></pre>
-      <p><code>const</code> is baked in at build time, like <code>constexpr</code> in C++. It only works for simple things: text and numbers. A list isn't simple, so <code>PopLines</code> is <code>static readonly</code>: it's set once when the app starts, and can't be changed after.</p>
-      <p>Lachy's <code>Brain.Declined</code> is a <code>const</code>, so Talia's has to be one too.</p>
-      <span class="src">characters/talia/Character.cs · log of 31 Oct</span>
-    </article>
-
-    <article>
-      <h3><code>@"..."</code> is Python's <code>r"..."</code></h3>
-      <p class="gist">A raw string: backslashes stay as backslashes.</p>
-      <div class="cmp">
-        <span class="tag py">py</span><div><code>r"\d+\s"</code></div>
-        <span class="tag cs">c#</span><div><code>@"\d+\s"</code></div>
-      </div>
-      <p>Regex patterns are full of <code>\</code>, so they use <code>@</code>. Forgetting it gives "unrecognized escape sequence". One odd difference: inside <code>@"..."</code>, a quote mark is written twice, <code>""</code>.</p>
-      <span class="src">app/YouTubeMusic.cs · log of 31 Oct</span>
-    </article>
-
-    <article>
-      <h3>A variable that holds a function</h3>
-      <p class="gist"><code>Func&lt;A, B, R&gt;</code> is a function you can store and swap. The last type is what it returns.</p>
-<pre><code>static Func&lt;string, string, string&gt; Call = Ask;</code></pre>
-      <p>Read it as: <code>Call</code> takes two strings and gives back a string, and right now it is <code>Ask</code>. It's like keeping a function in a Python variable, or a <code>std::function</code> in C++.</p>
-      <p>The self-test swaps <code>Call</code> for a fake, so it can test without the real YouTube Music app. More in chapter 5.</p>
-      <span class="src">app/YouTubeMusic.cs · log of 31 Oct</span>
-    </article>
-
-    <article>
-      <h3>Two things called <code>Character</code></h3>
-      <p class="gist">When names clash, the closest one wins. Write the full name to pick the other.</p>
-      <p>Inside Lachy's <code>Brain</code> class, <code>Character</code> already means her whole prompt, a string. So <code>Character.Declined</code> there failed with "a string has no <code>Declined</code>".</p>
-      <p>The fix is the full name: <code>CapriDesktop.Character.Declined</code>. It's like two people called Alex in one room: you add the family name. Python has the same thing when a local variable hides an imported module.</p>
-      <span class="src">app/Brain.cs · log of 31 Oct</span>
-    </article>
-
-    <article>
-      <h3>The build has a guest list</h3>
-      <p class="gist">A new <code>.cs</code> file does nothing until it's named in <code>$sources</code>.</p>
-      <p>Python finds files when you import them. Here the build script hands <code>csc.exe</code> an exact list of files, in <code>ci/build-windows.ps1</code>. That's why our <code>'Character', 'YouTubeMusic'</code> are written into that list, and why it's where merges keep conflicting.</p>
-    </article>
-  </section>
-
-  <!-- 3 -->
-  <section id="fork" aria-labelledby="h-fork">
-    <h2 id="h-fork"><span class="n">3</span>How the fork stays mergeable</h2>
-    <p class="intro">Lachy keeps updating Capri. Every idea here is about taking his updates without a fight.</p>
-
-    <article>
-      <h3>Our code goes in our own files</h3>
-      <p class="gist">His files get one-line hooks that say "ask our file".</p>
-      <p>If our code sits inside his file, one day his change lands next to ours and Git stops to ask. If all we added is one line, that conflict is easy to fix. It's less tidy (Spotify in one file, YouTube Music in another), but it keeps merges cheap.</p>
-      <span class="src">log of 31 Oct</span>
-    </article>
-
-    <article>
-      <h3>Point, don't move</h3>
-      <p class="gist">Leave his list where it is and make it point at ours.</p>
-<pre><code>private static readonly string[] PopLines = Character.PopLines;</code></pre>
-      <p>That one line in <code>app/Capri.cs</code> is the only difference from his file. Every place that used his list now gets ours, and none of them changed.</p>
-      <span class="src">log of 31 Oct</span>
-    </article>
-
-    <article>
-      <h3>Change a copy, not the original</h3>
-      <p class="gist">Her name is swapped in a throwaway copy of the code at build time.</p>
-      <p><code>Use-Character.ps1</code> copies the code, replaces the phrases from her <code>names.txt</code> in the copy, and compiles that. Lachy's files never change, so his updates can't conflict over her name.</p>
-      <p>The catch: a find-and-replace only finds what it's told to. New text from Lachy that says "Capri" shows up as Capri until someone adds a rule for it.</p>
-      <span class="src">log of 1 Nov · 4 Nov</span>
-    </article>
-
-    <article>
-      <h3>What's shared, and what's hers</h3>
-      <p class="gist">Things that belong to you are shared. Things that belong to her are kept apart.</p>
-      <p>Settings, keys and voices are yours, so all characters share them. Memories, chats and personality are hers, so each character has her own folder. Otherwise Talia would read Lucy's memories as her own.</p>
-      <span class="src">log of 4 Nov</span>
-    </article>
-
-    <article>
-      <h3>An app's identity is more than its name</h3>
-      <p class="gist">Windows tells apps apart by things you never see.</p>
-      <p>The settings folder, the autostart entry, and a <em>mutex</em>: a lock that makes sure only one copy runs. If two apps share these, they fight. That's why the build renames them as well as the words on screen.</p>
-      <span class="src">log of 1 Nov</span>
-    </article>
-
-    <article>
-      <h3>Mods only open the doors their author chose</h3>
-      <p class="gist">Ask "is what I want behind one of its doors?", not "how powerful is it?"</p>
-      <p>Lachy's mods can change her looks, names and sounds. Who she is stays in his code. That's why Talia still needs her own build.</p>
-      <span class="src">log of 5 Nov</span>
-    </article>
-  </section>
-
-  <!-- 4 -->
-  <section id="git" aria-labelledby="h-git">
-    <h2 id="h-git"><span class="n">4</span>Git, in small bites</h2>
-
-    <article>
-      <h3>A conflict means two changes touched</h3>
-      <p class="gist">Git compares lines. Two edits on the same line, or next to each other, make it stop.</p>
-      <p>It doesn't understand what either edit means. That's also why a conflict isn't always a disagreement: Lachy changed a colour and we changed a name on the same line, so the answer was to keep both.</p>
-      <span class="src">log of 4 Nov · 5 Nov</span>
-    </article>
-
-    <article>
-      <h3>A clean merge can still be wrong</h3>
-      <p class="gist">No conflict only means no two edits touched.</p>
-      <p>His change can break ours one file away and Git won't notice. So after a merge, compiling and testing still matter.</p>
-      <span class="src">log of 2 Nov</span>
-    </article>
-
-    <article>
-      <h3>A branch is just a name on a commit</h3>
-      <p class="gist">Moving a branch copies nothing.</p>
-      <p>When <code>main</code> took in <code>talia-built-in</code>, Git only moved the name <code>main</code> forward to a newer commit. All the history stayed as it was.</p>
-      <span class="src">log of 5 Nov</span>
-    </article>
-
-    <article>
-      <h3>A worktree is a second folder for one repo</h3>
-      <p class="gist">Its own files, but the same history.</p>
-      <p>The merge script runs in one, so it doesn't disturb whatever another session is doing in your main folder.</p>
-      <span class="src">log of 4 Nov</span>
-    </article>
-  </section>
-
-  <!-- 5 -->
-  <section id="tests" aria-labelledby="h-tests">
-    <h2 id="h-tests"><span class="n">5</span>Tests, and failures that hide</h2>
-
-    <article>
-      <h3>Tests swap out the real world</h3>
-      <p class="gist">Put a fake function in the variable, run the check, put the real one back.</p>
-<pre><code>Func&lt;string, string, string&gt; callWas = Call;
-Call = fake;   // writes down what was sent
-// ... run the checks ...
-Call = callWas;</code></pre>
-      <p>This tests Talia's side without the YouTube Music app, the internet or a real song. Python people know this as mocking.</p>
-      <span class="src">app/YouTubeMusic.cs · log of 31 Oct</span>
-    </article>
-
-    <article>
-      <h3>Fail early, and say why</h3>
-      <p class="gist">"idle.png is 900×384 px, but Capri's is 960×384" beats a character who just looks wrong.</p>
-      <p>The build checks each drawing's size as it comes in, because a wrong-sized sheet wouldn't crash. She'd just be cut into the wrong frames.</p>
-      <span class="src">log of 1 Nov</span>
-    </article>
-
-    <article>
-      <h3>Some failures make no sound at all</h3>
-      <p class="gist">Windows draws nothing from a picture wider than 32,767 px, and gives no error.</p>
-      <p>Test sheets that wide made her vanish. Talia's widest is 11,904 px, so she's fine. Lucy's 60-frame lying sheets at double size would be 44,640 px, so the build now refuses those with a message.</p>
-      <span class="src">log of 5 Nov</span>
-    </article>
-
-    <article>
-      <h3>Test what you actually built</h3>
-      <p class="gist">Her build is made from a changed copy, so checks must read that copy.</p>
-      <p>A check searched Lachy's <code>Mainframe.cs</code> for "Quit Talia" and failed, because his file rightly says "Quit Capri". The app was fine. The test was looking at the wrong file.</p>
-      <span class="src">log of 4 Nov</span>
-    </article>
-
-    <article>
-      <h3>A fingerprint of a text</h3>
-      <p class="gist">SHA-256 turns any text into a short code. Change one letter and the code changes completely.</p>
-      <p>The self-test keeps the code for her personality, so any change is noticed. The same idea checks downloaded installers: the updater only runs one whose code matches <code>SHA256SUMS.txt</code>. It's what Python's <code>hashlib.sha256</code> does.</p>
-      <span class="src">log of 1 Nov</span>
-    </article>
-
-    <article>
-      <h3>GET asks, POST does</h3>
-      <p class="gist">An API is a door an app leaves open for other programs.</p>
-      <p>YouTube Music runs a small web server at <code>127.0.0.1</code> ("this PC", nothing goes online). <code>GET /track/state</code> asks if a song is liked. <code>POST /track/like</code> likes it. Same idea as <code>requests.get</code> and <code>requests.post</code> in Python.</p>
-      <span class="src">log of 31 Oct</span>
-    </article>
-  </section>
-
-  <footer>Made from <code>characters/lucy/LEARNING.md</code> up to 6 Nov 2026. The source file for this page is <code>characters/lucy/learning-on-the-go.html</code>.</footer>
+<div class="wrap" id="app">
+  <div class="hero">
+    <span class="eyebrow">Edgerunners Desktop · course</span>
+    <h1>Learn the project, one ride at a time</h1>
+    <p class="muted">22 short lessons. Loading your progress…</p>
+  </div>
 </div>
+
+<script>
+(function () {
+"use strict";
+
+/* ---------- course content ---------- */
+var UNITS = [
+  { t: "The big picture", b: "What this repo is, how a build happens, and what's in Talia's folder." },
+  { t: "C# through Capri's code", b: "The language, taught with real lines from app/. Compared with Python and C++." },
+  { t: "How she works", b: "From you typing \"hi\" to her moving on screen." },
+  { t: "Making her Talia", b: "How a Capri build turns into a Talia build without touching Lachy's files." },
+  { t: "Living with Lachy's updates", b: "Hooks, merges and mods: how the fork keeps up." },
+  { t: "Testing and shipping", b: "The self-test, GitHub's runs, and releases." }
+];
+
+function cmp(rows) {
+  return '<div class="cmp">' + rows.map(function (r) {
+    return '<span class="tag ' + r[0] + '">' + (r[0] === "cpp" ? "c++" : r[0] === "cs" ? "c#" : "py") + '</span><div><code>' + r[1] + '</code></div>';
+  }).join("") + '</div>';
+}
+
+var L = [
+/* Unit 1 */
+{ u: 0, t: "What this repo is", m: 4,
+  s: [
+  { h: "Three names to keep apart", g: "Capri is Lachy's app. This repo is our copy of it, with other characters.",
+    b: "<p><b>Capri desktop</b> is an animated companion by Lachy. She lives on your desktop, talks through an AI model, and can do jobs on your PC.</p><p><b>This repo</b> is a <i>fork</i>: a copy that keeps pulling in Lachy's updates and adds other characters. <b>Talia</b> is the focus. <b>Lucy</b> is on hold.</p>" },
+  { h: "The folder map", g: "Six folders cover nearly everything.",
+    b: '<div class="map"><code>app/</code><span>The Windows app, in C# 5</span><code>cross/</code><span>The Mac and Linux app. It reuses Brain.cs, Hands.cs, Voice.cs and Engine.cs from app/</span><code>assets/</code><span>Capri\'s art and sounds</span><code>characters/</code><span>Everything that\'s ours: Talia, Lucy, the build\'s swap rules</span><code>ci/</code><span>Build and helper scripts</span><code>.github/</code><span>The jobs GitHub runs for us</span></div>' },
+  { h: "The rule behind most choices", g: "Lachy keeps changing app/, so we change it as little as we can.",
+    b: "<p>Every update from Lachy is merged into our copy. If we've edited the same lines he did, Git stops and asks. That's a merge conflict.</p><p>So almost all our work lives in <code>characters/</code> and <code>ci/</code>, and <code>app/</code> gets as few changes as possible. Most of the rest of this course comes back to that one rule.</p>" },
+  { h: "Don't read it, search it", g: "app/Capri.cs alone is about 46,000 lines.",
+    b: "<p>All of <code>app/</code> is around 115,000 lines. Nobody reads that front to back. You search for a name, like <code>PopLines</code> or <code>Hear</code>, and read the twenty lines around it.</p><p>In VS Code, Ctrl+Shift+F searches every file.</p>" }
+  ],
+  q: [
+  { q: "Where do Talia-only files go?", o: ["characters/talia/", "app/", "assets/sprites/"], a: 0, w: "Everything of hers sits in her own folder, so Lachy's updates never touch it." },
+  { q: "Why does app/ get so few changes from us?", o: ["So Lachy's updates keep merging cleanly", "Because C# 5 can't be edited", "Because it only runs on Mac"], a: 0, w: "Every line we change in his files is a line that can conflict with his next update." },
+  { q: "Which folder holds the Mac and Linux app?", o: ["cross/", "ci/", "quest/"], a: 0, w: "cross/ is the cross-platform version. It shares a few files with app/." }
+  ],
+  pc: "Open the repo in VS Code and search all files for PopLines. Count how many places use it." },
+
+{ u: 0, t: "How a build happens", m: 5,
+  s: [
+  { h: "A script collects, a compiler builds", g: "ci/build-windows.ps1 hands every file to csc.exe, the C# compiler that comes with Windows.",
+    b: "<p>Python just runs your file. Here, a PowerShell script gathers the code, the art and the settings, then calls the compiler. Out comes <code>Capri.exe</code>.</p><p>There's no project file like in Visual Studio. The script <i>is</i> the project.</p>" },
+  { h: "The guest list", g: "$sources names every .cs file. Anything not on it isn't compiled.",
+    b: "<pre><code>$sources = @('Capri', 'Asides', 'Brain', 'Talk',\n  ... 'Character', 'YouTubeMusic', ...)</code></pre><p>A new file does nothing until it's added here. Forget it, and you get errors like \"the name doesn't exist\" from the files that use it.</p>" },
+  { h: "Her art lives inside the .exe", g: "Each picture is packed into the program as a resource.",
+    b: "<pre><code>/resource:assets\\sprites\\idle.png,Capri.Sprite.idle.png</code></pre><p>The app reads <code>Capri.Sprite.idle.png</code> from inside itself, not from a folder. That's why swapping her art happens at build time.</p><p>A second compile then makes <code>Capri-Setup.exe</code>, with <code>Capri.exe</code> packed inside it.</p>" },
+  { h: "The one line that brings in Talia", g: "With -Character talia, the build runs our script inside its own.",
+    b: "<pre><code>if ($Character) { . (Join-Path $root 'characters\\Use-Character.ps1') -Character $Character }</code></pre><p>The dot at the front is <i>dot-sourcing</i>: the script runs as if pasted in here, so it can change the build's own variables like <code>$sources</code> and <code>$resources</code>. Think of a C++ <code>#include</code> pasting code in, rather than calling a function with its own scope.</p>" }
+  ],
+  q: [
+  { q: "You add a new file, app/Sparkle.cs, and nothing else. What happens?", o: ["It's ignored by the build", "It's compiled automatically", "The build refuses to start"], a: 0, w: "Only files named in $sources get compiled." },
+  { q: "Where does the running app load idle.png from?", o: ["From inside Capri.exe", "From assets/sprites on disk", "From Lachy's website"], a: 0, w: "The build packs each sheet into the .exe as a resource." },
+  { q: "Why is Use-Character.ps1 run with a dot in front?", o: ["So it can change the build script's own variables", "So it runs faster", "So it runs on Mac"], a: 0, w: "Dot-sourcing shares the caller's variables, so it can swap $sources and $resources." }
+  ],
+  pc: "Compile Talia once: ./ci/build-windows.ps1 -Character talia -OutputDirectory \"$env:TEMP\\edgerunners-build\". Read the line that starts with \"Building as talia\"." },
+
+{ u: 0, t: "What's in Talia's folder", m: 4,
+  s: [
+  { h: "Character.cs: her lines in the code", g: "It replaces app/Character.cs in her build.",
+    b: "<pre><code>internal const string Speaker = \"TALIA: \";\ninternal const string Declined = \"Nah. Not that one, Choomie...\";\ninternal static readonly string[] PopLines = { \"Bored. Show me something.\", ... };</code></pre><p>Her chat-log name, her \"no\", the lines she says when she pops in, her Halloween lines. Plain text, so it's the easiest file to change.</p>" },
+  { h: "names.txt and checks.txt: swap rules", g: "Each line says \"Capri's words\" => \"hers\".",
+    b: "<pre><code>\"Quit Capri\" => \"Quit Talia\"\n\"Talk to Capri\" => \"Talk to Talia\"</code></pre><p>Only whole phrases, never <code>Capri</code> on its own. The code also uses that word for things you never see, like the updater, and swapping those would break them.</p><p><code>checks.txt</code> uses the same format to change what the self-test expects her personality to say.</p>" },
+  { h: "personality.md: who she is", g: "The text the AI is given as her character.",
+    b: "<p>Because <code>builtin-personality.txt</code> is also in her folder, the build makes <code>personality.md</code> her default personality. Lesson 16 shows how.</p>" },
+  { h: "Art: one sheet at a time", g: "A file in sprites/ with Capri's file name replaces that one sheet.",
+    b: "<p><code>templates/</code> and <code>krita/</code> are for drawing. <code>sprites/</code>, <code>voice/</code> and the icon come later. Until a sheet of hers is there, her build uses Capri's, so finished art can go in piece by piece.</p>" }
+  ],
+  q: [
+  { q: "Why does names.txt never swap \"Capri\" on its own?", o: ["The code uses it for hidden things like the updater", "C# can't change single words", "It would be too slow"], a: 0, w: "Only whole phrases you can see are safe to swap." },
+  { q: "Her sprites/ folder is empty. What art does her build show?", o: ["All of Capri's", "None, she's invisible", "The build stops with an error"], a: 0, w: "Each missing sheet falls back to Capri's, so art can go in one sheet at a time." }
+  ] },
+
+/* Unit 2 */
+{ u: 1, t: "Compiled, typed, and C# 5", m: 5,
+  s: [
+  { h: "Compiled, like C++", g: "Nothing runs until every file compiles.",
+    b: "<p>Python only complains when it reaches a bad line. C# checks every file first, so one typo anywhere stops the whole build. No header files, though: every file can see every other file it's compiled with.</p>" },
+  { h: "Memory cleans itself, like Python", g: "You write new, but never delete.",
+    b: "<p>A garbage collector frees objects nobody uses any more. So you can't get the classic C++ crash from using freed memory.</p>" },
+  { h: "Every variable has a type", g: "Like C++. var lets the compiler work it out, like auto.",
+    b: cmp([["py", "name = \"Talia\""], ["cpp", "std::string name = \"Talia\";"], ["cs", "string name = \"Talia\";"]]) + "<p>Lists: <code>List&lt;string&gt;</code> grows like a Python list or <code>std::vector</code>. <code>string[]</code> has a fixed size.</p>" },
+  { h: "This project is stuck on C# 5", g: "Many tutorials use newer C#. Some of it won't compile here.",
+    b: "<p>The compiler that comes with Windows only knows C# 5, from 2012. If copied code fails, check for these:</p><ul class=\"tight\"><li><code>$\"Hi {name}\"</code> (an f-string): write <code>\"Hi \" + name</code></li><li><code>thing?.Name</code>: check for <code>null</code> first</li><li><code>int Twice(int x) =&gt; x * 2;</code>: use <code>{ return x * 2; }</code></li><li><code>(a, b)</code> tuples: not available</li></ul>" }
+  ],
+  q: [
+  { q: "Which of these won't compile in app/?", o: ["$\"Hi {name}\"", "\"Hi \" + name", "string.Format(\"Hi {0}\", name)"], a: 0, w: "String interpolation with $ arrived in C# 6. This project is on C# 5." },
+  { q: "In C#, how do you free an object you made with new?", o: ["You don't, the garbage collector does", "delete obj;", "obj.free()"], a: 0, w: "Like Python, memory is cleaned up for you." }
+  ] },
+
+{ u: 1, t: "Classes, and who can see what", m: 5,
+  s: [
+  { h: "Everything lives in a class", g: "C# has no loose functions. A static class is how it does a module.",
+    b: "<p>Python lets you write <code>def</code> at the top of a file. C# doesn't. For a bag of functions and values, it uses a <code>static class</code>. You can't make objects from it, you just call <code>Character.Declined</code>, the way you'd use <code>character.declined</code> after an import.</p>" },
+  { h: "internal and private", g: "internal: anyone in this program. private: only this class.",
+    b: "<p>Like C++'s <code>public</code>/<code>private</code>, but with a middle step. <code>internal</code> stops at the edge of <code>Capri.exe</code>. Python has no real version of this: <code>_name</code> is only a polite hint.</p>" },
+  { h: "Companion is a window", g: "class Companion : Form means she inherits everything a Windows window can do.",
+    b: "<pre><code>internal sealed partial class Companion : Form</code></pre>" + cmp([["py", "class Companion(Form):"], ["cpp", "class Companion : public Form"]]) + "<p><code>sealed</code> means nobody can inherit from her in turn.</p>" },
+  { h: "partial: one class, many files", g: "Companion is spread across many files, and the compiler glues them together.",
+    b: "<p>Search for <code>partial class Companion</code> and it turns up in <code>Capri.cs</code>, <code>Clones.cs</code>, <code>CallMode.cs</code> and more. Each file adds methods to the same class. Lachy uses this to split up a class that would otherwise be even bigger than 46,000 lines.</p>" }
+  ],
+  q: [
+  { q: "What does : Form mean in class Companion : Form?", o: ["Companion inherits from Form", "Companion is a form field", "Companion is static"], a: 0, w: "Same as class Companion(Form) in Python." },
+  { q: "Two files both say partial class Companion. What does the compiler build?", o: ["One Companion class with both files' parts", "Two separate classes", "An error"], a: 0, w: "partial lets one class be written across several files." },
+  { q: "Which keyword means \"only code inside this class\"?", o: ["private", "internal", "static"], a: 0, w: "internal is wider: anywhere in the same program." }
+  ] },
+
+{ u: 1, t: "Constants and properties", m: 5,
+  s: [
+  { h: "const: baked in at build time", g: "Only for simple things like text and numbers.",
+    b: "<pre><code>internal const string Declined = \"Nah. Not that one, Choomie.\";</code></pre><p>Like <code>constexpr</code> in C++. The value is copied into every place that uses it when the app is built.</p>" },
+  { h: "static readonly: set once at start", g: "For anything, like a list of lines.",
+    b: "<pre><code>internal static readonly string[] PopLines = { \"Bored.\", ... };</code></pre><p>A list isn't simple enough for <code>const</code>, so it's set once when the app starts and can't be replaced after. Lachy's <code>Brain.Declined</code> is a <code>const</code>, so Talia's has to be one too, or his line that points at it won't compile.</p>" },
+  { h: "Properties look like fields but run code", g: "{ get { ... } } is Python's @property.",
+    b: "<pre><code>internal static string Persona\n{\n    get\n    {\n        string yours = Personality;\n        return ...;\n    }\n}</code></pre><p>Code says <code>Brain.Persona</code> with no brackets, but each time, the <code>get</code> block runs and builds the text fresh.</p>" + cmp([["py", "@property def persona(self): ..."]]) }
+  ],
+  q: [
+  { q: "Which can hold a list of lines?", o: ["static readonly", "const", "Both"], a: 0, w: "const only works for simple values like text and numbers." },
+  { q: "Brain.Persona has a get block. What happens each time code reads it?", o: ["The get block runs", "A stored value is returned unchanged", "The app recompiles"], a: 0, w: "A property is a method that looks like a field, like @property." }
+  ] },
+
+{ u: 1, t: "Methods: overloads, defaults and out", m: 5,
+  s: [
+  { h: "Two methods, one name", g: "C# picks the right one from the arguments. That's overloading, like C++.",
+    b: "<pre><code>internal string Ask(string text) { ... }\ninternal string Ask(string text, bool followUps,\n                   out string followLine, ...)</code></pre><p>Python can't do this: a second <code>def ask</code> would replace the first.</p>" },
+  { h: "Default arguments", g: "Same as Python.",
+    b: "<pre><code>string callContext = null</code></pre>" + cmp([["py", "def ask(text, call_context=None):"]]) + "<p>Leave it out, and it's <code>null</code>.</p>" },
+  { h: "out: a second answer", g: "The method fills in a variable you hand it, like a C++ reference.",
+    b: "<pre><code>string after;\nstring reply = Ask(text, false, out after);</code></pre><p>Python would return a tuple: <code>reply, after = ask(...)</code>. C# 5 has no tuples like that, so <code>out</code> is how one method gives back two things.</p>" }
+  ],
+  q: [
+  { q: "Python version of a method with an out parameter?", o: ["Returning a tuple", "A default argument", "A global variable"], a: 0, w: "reply, after = ask(...) is the Python way to get two answers back." },
+  { q: "There are two Ask methods in Brain.cs. How does C# know which one you mean?", o: ["From the arguments you pass", "It always uses the first", "From the file order"], a: 0, w: "Overloads are told apart by their parameters." }
+  ] },
+
+{ u: 1, t: "Functions as values, and events", m: 5,
+  s: [
+  { h: "Func: a function in a variable", g: "The last type is what it returns.",
+    b: "<pre><code>static Func&lt;string, string, string&gt; Call = Ask;</code></pre><p>Read it as: <code>Call</code> takes two strings, returns a string, and right now it is <code>Ask</code>. <code>Action&lt;string&gt;</code> is the same idea for a function that returns nothing.</p>" + cmp([["py", "call = ask"], ["cpp", "std::function&lt;string(string,string)&gt;"]]) },
+  { h: "Events: a bell other code can listen to", g: "+= adds a listener. Calling the event rings the bell.",
+    b: "<pre><code>// Talk.cs, in the typing box\ninternal event Action&lt;string&gt; Submitted;\nif (Submitted != null) Submitted(text);\n\n// Capri.cs, when she starts\ntyper.Submitted += Hear;</code></pre><p>The typing box doesn't know who's listening. It rings, and <code>Hear</code> runs. Think of a Python list of callbacks that all get called.</p>" },
+  { h: "Why the null check?", g: "No listeners means the event is null.",
+    b: "<p>If nobody added a listener, ringing it would crash. C# 6 shortened this to <code>Submitted?.Invoke(text)</code>, but that's not available here.</p>" }
+  ],
+  q: [
+  { q: "What does Func<string, bool> return?", o: ["bool", "string", "nothing"], a: 0, w: "The last type in Func is always the return type." },
+  { q: "typer.Submitted += Hear; does what?", o: ["Makes Hear run whenever you press Enter in the box", "Calls Hear once now", "Replaces the typing box"], a: 0, w: "+= adds a listener to the event." }
+  ] },
+
+{ u: 1, t: "Strings, null, and reading errors", m: 5,
+  s: [
+  { h: "@\"...\" is Python's r\"...\"", g: "Backslashes stay as backslashes.",
+    b: cmp([["py", "r\"\\d+\\s\""], ["cs", "@\"\\d+\\s\""]]) + "<p>Regex patterns use it. Forget the <code>@</code> and you get \"unrecognized escape sequence\". Inside one, a quote mark is written twice: <code>\"\"</code>.</p>" },
+  { h: "null and ??", g: "null is None. a ?? b means a, or b if a is null.",
+    b: cmp([["py", "x if x is not None else \"\""], ["cs", "x ?? \"\""]]) + "<p>Using something that's <code>null</code> crashes with <code>NullReferenceException</code>.</p>" },
+  { h: "Reading a compiler error", g: "Go straight to the line and column it names.",
+    b: "<pre><code>Talk.cs(120,34): error CS1009:\n  Unrecognized escape sequence</code></pre><p>File, line 120, character 34. The mistake is usually there or just before it. On your PC it says <code>Fehler</code> instead of error.</p><p class=\"note\">If the path has <code>character-talia</code> in it, that's the build's copy. Fix it in <code>app\\</code> or in a rules file, never in the copy.</p>" }
+  ],
+  q: [
+  { q: "name ?? \"friend\" when name is null gives…", o: ["\"friend\"", "null", "a crash"], a: 0, w: "?? falls back to the right side only when the left is null." },
+  { q: "An error points at out\\...\\character-talia\\app\\Talk.cs. Where do you fix it?", o: ["In app\\Talk.cs or a rules file", "In the character-talia copy", "In Krita"], a: 0, w: "The copy is rebuilt from scratch on every build, so changes there vanish." }
+  ] },
+
+/* Unit 3 */
+{ u: 2, t: "You type \"hi\", she answers", m: 5,
+  s: [
+  { h: "1. The box rings its bell", g: "TypeBox.Submit fires the Submitted event (Talk.cs).",
+    b: "<p>You press Enter. The box empties and calls <code>Submitted(text)</code>. This is the event from lesson 8.</p>" },
+  { h: "2. Companion.Hear picks it up", g: "Hear (Capri.cs) decides what to do with your words.",
+    b: "<p>No AI set up? She answers with <code>Brain.Offline</code>. Otherwise she starts <code>brain.Ask</code> <b>in the background</b>.</p><p>Background matters: if the window waited for the AI, she'd freeze mid-animation. It's the same reason a game doesn't load files inside its draw loop.</p>" },
+  { h: "3. Brain.Ask builds the message", g: "Her personality, memory and time, then your chat, then your words.",
+    b: "<ul class=\"tight\"><li><b>System message:</b> who she is (lesson 11), her memory, the time</li><li><b>History:</b> your recent chat</li><li><b>Your message</b></li></ul><p>It also checks if you asked for a job, like \"open Spotify\" (<code>Hands.cs</code>).</p>" },
+  { h: "4. Companion.Answer shows it", g: "Voice and bubble come out together.",
+    b: "<p>She makes the audio in the background, then shows the speech bubble and plays the sound at the same moment.</p>" }
+  ],
+  q: [
+  { q: "Why does brain.Ask run in the background?", o: ["So she keeps animating while the AI thinks", "So the AI is cheaper", "So the self-test can't see it"], a: 0, w: "Waiting on the main thread would freeze her window." },
+  { q: "Which file has the typing box?", o: ["Talk.cs", "Brain.cs", "Hands.cs"], a: 0, w: "Talk.cs holds what you see besides her: bubble, typing box, effects." },
+  { q: "What connects the typing box to Hear?", o: ["An event, with +=", "A file on disk", "A web request"], a: 0, w: "typer.Submitted += Hear; is the wire." }
+  ],
+  pc: "Search Capri.cs for \"typer.Submitted += Hear\", then for \"private void Hear(\". Read the first 20 lines of Hear." },
+
+{ u: 2, t: "Her personality is just text", m: 5,
+  s: [
+  { h: "The AI does the \"being her\"", g: "Her personality is text sent with every message.",
+    b: "<p>There's no Talia logic in C#. The model reads a long description of who she is and plays her. That's why changing <code>personality.md</code> changes her so much.</p>" },
+  { h: "How Brain.Persona is put together", g: "Personality, then fixed lines that always come after.",
+    b: "<pre><code>return yours == DefaultPersonality\n  ? DefaultPersonality + \"\\n\" + Safety + \"\\n\" + Machinery\n  : yours + \"\\n\" + Holds + \"\\n\" + Safety + \"\\n\" + Machinery;</code></pre><p><code>? :</code> is C++'s ternary, Python's <code>a if cond else b</code>. If you edited her personality, <code>Holds</code> goes in: \"Whatever your personality above says, these lines always hold\".</p>" },
+  { h: "Why Safety is fixed in code", g: "So no edit to personality.md can remove it.",
+    b: "<p><code>Safety</code> in <code>Brain.cs</code> always comes after whatever the file says. Lachy asks forks to keep those lines as they are, so we never change them.</p>" },
+  { h: "Stamps: knowing if you edited it", g: "A short fingerprint tells an untouched file from an edited one.",
+    b: "<p><code>DefaultStamp</code> is a fingerprint of the default text. Old stamps go into <code>Retired</code>. When the default changes, an untouched old copy updates to the new one, and a copy you edited stays yours.</p>" }
+  ],
+  q: [
+  { q: "Where does the \"being Talia\" actually happen?", o: ["In the AI model, from her text", "In Character.cs logic", "In her sprite sheets"], a: 0, w: "The code just sends the text. The model plays the part." },
+  { q: "Someone deletes everything in their personality.md. What happens to Safety?", o: ["Still sent, it's fixed in code", "Gone", "The app won't start"], a: 0, w: "Safety comes from Brain.cs, after the file, every time." }
+  ] },
+
+{ u: 2, t: "How she moves", m: 5,
+  s: [
+  { h: "A Clip is one animation", g: "One sprite sheet, a frame count and a speed.",
+    b: "<pre><code>new Clip(\"idle\", 16, 8, 1.11f)</code></pre><p>idle.png, 16 frames, 8 frames a second. The <code>f</code> after a number means a <code>float</code>, as in C++. All of them are listed near the top of <code>Companion</code>: search <code>new Clip(</code>.</p>" },
+  { h: "Tick: many times a second", g: "Move her, then draw.",
+    b: "<p>A timer calls <code>Tick</code> again and again. It moves her (riding your cursor, falling, walking, sitting), then draws. That's a game loop.</p>" },
+  { h: "Which frame?", g: "Time since the clip started × frames per second.",
+    b: "<p><code>Advance</code> works out the frame number and switches clips when one ends: a glitch finishes, so back to idle.</p>" },
+  { h: "Cutting the frame out", g: "Frame 5 sits 5 frame-widths along the strip.",
+    b: "<p><code>RenderFrame</code> cuts that piece out of the sheet and lays her talking mouth on top. That's why every sheet must be exactly the right size: one extra pixel, and every frame is cut a bit off.</p>" }
+  ],
+  q: [
+  { q: "new Clip(\"idle\", 16, 8, …). How long is one loop?", o: ["2 seconds", "8 seconds", "16 seconds"], a: 0, w: "16 frames at 8 a second is 2 seconds." },
+  { q: "Why must a sprite sheet be exactly the right width?", o: ["Frames are cut at fixed widths", "Windows rejects odd sizes", "Krita needs it"], a: 0, w: "The code finds a frame by moving a fixed width along the strip." }
+  ],
+  pc: "Search Capri.cs for new Clip(\"perch\" and compare its numbers with Talia's table in her NOTES.md." },
+
+{ u: 2, t: "Her art's rules", m: 5,
+  s: [
+  { h: "16 frames, same 2 seconds", g: "60 at 30 a second and 16 at 8 a second are both a 2-second loop.",
+    b: "<p>Talia's sitting and lying sheets have 16 frames. She moves at the same pace as Capri. Each loop just has fewer drawings in it.</p>" },
+  { h: "The build reads the width", g: "A sheet 16 frames wide gets 16-frame numbers. Others keep Capri's.",
+    b: "<p>Until you draw a sheet, Capri's 60-frame one is still in her build. So <code>Use-Character.ps1</code> measures each sheet of hers and only then rewrites that one <code>new Clip(\"perch\", 60, 30,</code> line in the copy to <code>16, 8</code>.</p>" },
+  { h: "Double size, for now", g: "Bigger sheets only ever shrink, so she stays sharp on Giant.",
+    b: "<p>Her sheets are exported at twice Capri's size. The cost is memory, estimated at about 470 MB if everything loads at once. Neither number has been measured, and this may change.</p>" },
+  { h: "A failure that makes no sound", g: "Windows draws nothing from a picture wider than 32,767 px.",
+    b: "<p>No error, she just vanishes. The build now refuses such a sheet and says why. That's the habit: <b>fail early, with a reason</b>.</p>" }
+  ],
+  q: [
+  { q: "A sheet is 40,000 px wide. What does the build do now?", o: ["Stops with a message", "Shrinks it", "Draws nothing, silently"], a: 0, w: "Silently drawing nothing is what Windows would do. The build stops first." },
+  { q: "You've drawn perch.png only. What do perch_talk frames look like?", o: ["Still Capri's 60 frames", "Your 16 frames", "Blank"], a: 0, w: "Each sheet switches on its own, when hers goes in." }
+  ] },
+
+/* Unit 4 */
+{ u: 3, t: "Change a copy, not the original", m: 5,
+  s: [
+  { h: "The staging copy", g: "Her build compiles a changed copy of app/, not app/ itself.",
+    b: "<p><code>Use-Character.ps1</code> copies every file from <code>app/</code> into <code>…\\character-talia\\app\\</code>, applies the rules, and points <code>$sources</code> at the copy.</p><p>Lachy's files never change, so his updates can't conflict over her name.</p>" },
+  { h: "Rules are exact text", g: "Spaces and capitals count.",
+    b: "<pre><code>\"Quit Capri\" => \"Quit Talia\"</code></pre><p>The left side must match the code exactly. If an update rewords it, the rule finds nothing.</p>" },
+  { h: "It warns when a rule stops matching", g: "\"… isn't in the code any more.\"",
+    b: "<p>After a Lachy update, read the build's warnings. Each one means a rule needs updating to his new wording.</p>" },
+  { h: "But it can't warn about new text", g: "New words that say Capri just show up as Capri.",
+    b: "<p>A find-and-replace only finds what it's told to look for. New text from Lachy, like \"Import a Capri mod\", has no rule yet. Which ones to change is your call, so they wait in <code>CAPRI-LEFTOVERS.md</code>.</p>" }
+  ],
+  q: [
+  { q: "Lachy changes \"Quit Capri\" to \"Quit Capri now\". What does the build do?", o: ["Warns that the rule found nothing", "Changes it to Quit Talia now", "Fails to compile"], a: 0, w: "The rule's text isn't there any more, so it warns." },
+  { q: "Why does this method keep merges easy?", o: ["Lachy's files are never edited", "It makes the code shorter", "Git skips the characters folder"], a: 0, w: "No edits in his files means nothing for his updates to collide with." }
+  ] },
+
+{ u: 3, t: "Her own identity", m: 4,
+  s: [
+  { h: "Windows tells apps apart by hidden things", g: "Settings folder, autostart entry, uninstall entry and a mutex.",
+    b: "<p>A <i>mutex</i> here is a named lock that makes sure only one copy runs. If two apps share these names, they fight over them.</p>" },
+  { h: "app.txt: Edgerunners Desktop", g: "Every character build gets the same app identity.",
+    b: "<pre><code>\"\"Local\\\\Capri.\" => \"\"Local\\\\EdgerunnersDesktop.\"</code></pre><p>So it runs next to a real Capri. Its updater checks <i>this</i> repo's releases, not Lachy's.</p>" },
+  { h: "own-files.txt: her own memories", g: "Each character gets characters\\<name> for her notes, chats and personality.",
+    b: "<p>Settings, keys and voices are yours, so all characters share them. Memories and personality are hers. Otherwise Talia would read Lucy's memories as her own.</p>" }
+  ],
+  q: [
+  { q: "Why rename the mutex as well as the window title?", o: ["So it doesn't clash with a real Capri", "So the font changes", "So the AI knows her name"], a: 0, w: "Two apps with one lock name would stop each other running." },
+  { q: "Which of these is shared by all characters?", o: ["API keys", "Memories", "Chat history"], a: 0, w: "Keys belong to you. Memories and chats belong to her." }
+  ] },
+
+{ u: 3, t: "Her personality goes in at build time", m: 5,
+  s: [
+  { h: "Swapping DefaultPersonality in the copy", g: "Her personality.md replaces Capri's default text in the copy's Brain.cs.",
+    b: "<p>The script finds <code>internal const string DefaultPersonality = …;</code> with a regex and puts her text there, as one long C# string.</p><p>If it can't find it after an update, it stops: \"Can't find her default personality in Brain.cs any more.\"</p>" },
+  { h: "A new stamp", g: "The first 8 bytes of her text's SHA-256 become her DefaultStamp.",
+    b: "<p>SHA-256 turns text into a code that changes completely if one letter does. Capri's old stamp goes into <code>Retired</code>, so that logic from lesson 11 keeps working.</p>" + cmp([["py", "hashlib.sha256(text).hexdigest()[:16]"]]) },
+  { h: "The self-test's checksum", g: "In her build, the test works it out from her own text.",
+    b: "<p>Capri's self-test compares her whole prompt to a fixed checksum. Her build can't know that ahead of time, so the copy computes it. A check that computes its own answer proves less, so the plain Capri build keeps the fixed one, and that's what guards <code>Safety</code>.</p>" }
+  ],
+  q: [
+  { q: "Where does Talia's default personality end up?", o: ["In the copy's Brain.cs", "In app/Brain.cs", "Only in personality.md on your PC"], a: 0, w: "Only the copy is changed. Lachy's Brain.cs stays as he wrote it." },
+  { q: "Why does the plain Capri build keep its fixed checksum?", o: ["It guards the Safety lines", "It's faster", "Her build needs it"], a: 0, w: "A fixed value catches any change. A computed one always agrees with itself." }
+  ] },
+
+/* Unit 5 */
+{ u: 4, t: "Hooks and pointers", m: 4,
+  s: [
+  { h: "Our code in our own files", g: "Lachy's files only get one-line hooks: \"ask our file\".",
+    b: "<p>YouTube Music support lives in <code>YouTubeMusic.cs</code>, even though Spotify's is inside Lachy's <code>Player.cs</code>. Less tidy, but if a hook ever conflicts, it's one obvious line.</p>" },
+  { h: "Point, don't move", g: "Leave his list where it is and make it point at ours.",
+    b: "<pre><code>private static readonly string[] PopLines = Character.PopLines;</code></pre><p>One line in <code>Capri.cs</code> differs from his. Every place that used his list now gets hers, and none of them changed.</p>" },
+  { h: "The full name trick", g: "CapriDesktop.Character means our class, even where Character means something else.",
+    b: "<pre><code>internal const string Declined = CapriDesktop.Character.Declined;</code></pre><p>Inside <code>Brain</code>, <code>Character</code> is already her prompt string. Adding the namespace picks our class, like adding a family name when two people are called Alex.</p>" }
+  ],
+  q: [
+  { q: "Why does YouTube Music get its own file instead of going in Player.cs?", o: ["Player.cs is Lachy's and keeps changing", "C# needs one file per app", "Spotify forbids it"], a: 0, w: "Our code in his file would collide with his changes sooner or later." },
+  { q: "How many lines in Capri.cs does the PopLines trick change?", o: ["One", "One per use", "None"], a: 0, w: "His list points at ours, and everything else stays his." }
+  ] },
+
+{ u: 4, t: "Merging Lachy's updates", m: 5,
+  s: [
+  { h: "A conflict means two changes touched", g: "Git compares lines, not meaning.",
+    b: "<p>Two edits on the same line, or next to each other, make it stop. It isn't always a disagreement: Lachy changed a colour and we changed a name on one line, so the fix was to keep both.</p>" },
+  { h: "A clean merge can still be wrong", g: "No conflict only means no two edits touched.",
+    b: "<p>His change can break ours a file away and Git won't notice. So compiling and testing after a merge still matter.</p>" },
+  { h: "merge-capri.ps1 does the routine part", g: "It fixes the conflicts that come back every time, compiles both builds, and commits. It never pushes.",
+    b: "<p><code>README.md</code>, <code>$sources</code> and the Mac/Linux file list conflict on nearly every update, always with the same answer. Before fixing one, the script replays our change on the older version and checks the result is exactly our file. If not, it leaves that file for a person.</p><p>Sync upstream on GitHub runs it once a day.</p>" },
+  { h: "Branches and worktrees", g: "A branch is just a name on a commit. A worktree is a second folder for the same repo.",
+    b: "<p>Moving <code>main</code> forward copies nothing. A worktree lets a merge run in its own folder without disturbing another session in yours.</p>" }
+  ],
+  q: [
+  { q: "A merge has no conflicts. Is it safe to release?", o: ["Not yet. Compile and test first", "Yes, Git checked it", "Only on Mac"], a: 0, w: "Git only spots touching lines, not broken behaviour." },
+  { q: "What does merge-capri.ps1 never do?", o: ["Push", "Compile", "Commit"], a: 0, w: "It stops at a commit so a person or a check can look first." }
+  ] },
+
+{ u: 4, t: "Mods and their doors", m: 4,
+  s: [
+  { h: "Three kinds of mod", g: "Settings, skin and code.",
+    b: "<ul class=\"tight\"><li><b>Settings (.capri-mod):</b> extra names and colours</li><li><b>Skin (.capri-skin):</b> pictures with Capri's file names</li><li><b>Code (.capri-code):</b> C# the app compiles and runs, Windows only</li></ul>" },
+  { h: "Why Talia isn't a mod", g: "Mods change her looks and names. Who she is stays in Lachy's code.",
+    b: "<p>A mod can't change her personality, her lines, her 16-frame sheets or her own memory folder. As a mod she'd be Capri in a costume, answering to Talia as a nickname.</p>" },
+  { h: "The question to ask", g: "Not \"how powerful is it?\" but \"is what I want behind one of its doors?\"",
+    b: "<p>A mod system only opens the doors its author chose. Lachy opened looks, names and sounds.</p>" }
+  ],
+  q: [
+  { q: "Could a skin mod give Talia her own personality?", o: ["No, skins are only pictures", "Yes", "Only on Linux"], a: 0, w: "Skins only accept pictures with Capri's file names." }
+  ] },
+
+/* Unit 6 */
+{ u: 5, t: "The self-test", m: 5,
+  s: [
+  { h: "The real app, checking itself", g: "Capri.exe --smoke-test runs hundreds of checks inside the real app.",
+    b: "<p>Search <code>checks.Add(\"PASS</code> in <code>Capri.cs</code>: about 860 lines. Results go to <code>smoke-test.txt</code>, and some failures also go to <code>failure.txt</code>.</p><p>After a failed step it starts a fresh copy and carries on, so one run can find several problems.</p>" },
+  { h: "Never on your PC", g: "It takes over sound, mic and windows for minutes.",
+    b: "<p>Your PC is for drawing. Compiling there is fine. The self-test runs on GitHub (next lesson).</p>" },
+  { h: "Tests swap out the real world", g: "Put a fake in the function variable, check, put the real one back.",
+    b: "<pre><code>Func&lt;string, string, string&gt; callWas = Call;\nCall = fake;   // writes down what was sent\n// ... checks ...\nCall = callWas;</code></pre><p>That's mocking, as in Python's <code>unittest.mock</code>. It tests her side without YouTube Music, the internet or a real song.</p>" },
+  { h: "Test what you built", g: "Her build is a changed copy, so checks must read that copy.",
+    b: "<p>A check searched Lachy's <code>Mainframe.cs</code> for \"Quit Talia\" and failed. Her app was fine. The test was reading the wrong file.</p>" }
+  ],
+  q: [
+  { q: "Where do you run the self-test?", o: ["On GitHub, by pushing a branch", "On your PC", "In Krita"], a: 0, w: "It takes over the PC for minutes, so it runs on GitHub's machine." },
+  { q: "How does the YouTube Music check avoid needing the real app?", o: ["It swaps Call for a fake function", "It skips the check", "It uses a video file"], a: 0, w: "Call is a variable holding a function, so a test can put a fake in it." }
+  ] },
+
+{ u: 5, t: "GitHub runs it for you", m: 5,
+  s: [
+  { h: "Push a branch, a machine tests it", g: "ci.yml tests Capri's build. talia-smoke.yml tests Talia's.",
+    b: "<p>Talia's runs on a <code>windows-2025</code> machine GitHub lends us. Commits that only change notes, research or Krita files skip both.</p>" },
+  { h: "Which changes start a run", g: "A paths list, read top to bottom. The last line that matches wins.",
+    b: "<pre><code>- 'characters/**'\n- '!**/*.md'\n- 'characters/talia/personality.md'</code></pre><p><code>!</code> takes files back out. Notes are skipped, but her <code>personality.md</code> comes last, so it starts a run anyway: it goes into her build.</p>" },
+  { h: "Reading the result", g: "./ci/status.ps1 shows each workflow's result and why it failed.",
+    b: "<p>The run's summary page lists the checks that failed. <code>gh</code> isn't installed on your PC, so this script is the way in. Add <code>-Branch main</code> for another branch.</p>" }
+  ],
+  q: [
+  { q: "You only edit NOTES.md and push. What runs?", o: ["Nothing", "Both self-tests", "Only Talia's"], a: 0, w: "!**/*.md takes notes out of the list." },
+  { q: "Why does personality.md start a run even though it's a .md file?", o: ["Its line comes last, and the last match wins", "GitHub always tests .md", "It's in app/"], a: 0, w: "Order matters in a paths list." }
+  ] },
+
+{ u: 5, t: "Releases", m: 4,
+  s: [
+  { h: "Only by hand", g: "Pushing to main never releases anything.",
+    b: "<p>GitHub → Actions → Release → Run workflow, with the characters and a number. It builds each installer and <code>SHA256SUMS.txt</code>.</p>" },
+  { h: "Versions add a fourth number", g: "0.8.3.1, 0.8.3.2, then 0.8.4.1 after a Capri update.",
+    b: "<p>Versions are compared number by number from the left, so ours always count up the way Capri's do.</p>" },
+  { h: "Checksums instead of a signature", g: "The updater only runs a download whose fingerprint matches.",
+    b: "<p>Lachy signs his installers. That costs money, so ours rely on the checksum alone, and Windows warns \"unknown publisher\" the first time.</p>" },
+  { h: "Each character, her own installer", g: "The name comes from her names.txt.",
+    b: "<p>The updater picks an installer by name, so a Lucy install never updates into Talia. Once a character has a release, she needs to be in every later one, or her installs find nothing to update to.</p>" }
+  ],
+  q: [
+  { q: "Which is newer, 0.8.3.2 or 0.8.4.1?", o: ["0.8.4.1", "0.8.3.2", "They're equal"], a: 0, w: "The third number is compared before the fourth." },
+  { q: "You push a commit to main. Does a release go out?", o: ["No, releases are run by hand", "Yes", "Only if tests pass"], a: 0, w: "The Release workflow only starts when someone runs it." }
+  ] }
+];
+L.forEach(function (l, i) { l.id = "l" + (i + 1); l.n = i + 1; });
+var TOTAL_MIN = L.reduce(function (s, l) { return s + l.m; }, 0);
+var GAPS = [1, 3, 7, 14, 30];
+var DAY = 86400000;
+
+/* ---------- state ---------- */
+var KEY = "edgerunners-course-v1";
+function blank() { return { done: {}, q: {}, pos: {}, pcDone: {}, updatedAt: 0 }; }
+function norm(s) { var b = blank(); s = s || {}; b.done = s.done || {}; b.q = s.q || {}; b.pos = s.pos || {}; b.pcDone = s.pcDone || {}; b.updatedAt = s.updatedAt || 0; return b; }
+var state = blank();
+try { var raw = localStorage.getItem(KEY); if (raw) state = norm(JSON.parse(raw)); } catch (e) {}
+var remote = null, writing = false, again = false, syncNote = "Progress is saved on this device.";
+
+function save() {
+  state.updatedAt = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  push();
+}
+function push() {
+  if (!remote) return;
+  if (writing) { again = true; return; }
+  writing = true;
+  remote.set(JSON.parse(JSON.stringify(state))).catch(function () {}).then(function () {
+    writing = false;
+    if (again) { again = false; push(); }
+  });
+}
+function connect() {
+  if (!window.claude || typeof window.claude.use !== "function") return;
+  Promise.all([window.claude.use("db"), window.claude.use("user")]).then(function (r) {
+    var db = r[0], user = r[1];
+    if (!db || !user) return null;
+    return user.id().then(function (id) {
+      if (!id) return null;
+      var ref = db.doc("data/users/" + id + "/course");
+      return ref.get().then(function (snap) {
+        remote = ref;
+        syncNote = "Progress is saved to your account, so it follows you between phone and PC.";
+        var theirs = snap.exists ? norm(snap.data()) : null;
+        if (theirs && theirs.updatedAt > state.updatedAt) {
+          state = theirs;
+          try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+        } else if (state.updatedAt) { push(); }
+        render();
+      });
+    });
+  }).catch(function () {});
+}
+
+/* ---------- helpers ---------- */
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function doneCount() { return L.filter(function (l) { return state.done[l.id]; }).length; }
+function minsLeft() { return L.reduce(function (s, l) { return s + (state.done[l.id] ? 0 : l.m); }, 0); }
+function nextLesson() { for (var i = 0; i < L.length; i++) if (!state.done[L[i].id]) return L[i]; return null; }
+function byId(id) { for (var i = 0; i < L.length; i++) if (L[i].id === id) return L[i]; return null; }
+function dueQuestions() {
+  var now = Date.now(), list = [];
+  L.forEach(function (l) {
+    if (!state.done[l.id]) return;
+    l.q.forEach(function (q, i) {
+      var k = l.id + "-" + i, r = state.q[k];
+      if (r && r.due <= now) list.push({ l: l, i: i, k: k, due: r.due, box: r.box });
+    });
+  });
+  list.sort(function (a, b) { return a.box - b.box || a.due - b.due; });
+  return list.slice(0, 5);
+}
+function grade(k, right) {
+  var r = state.q[k] || { box: 0, due: 0 };
+  r.box = state.q[k] && right ? Math.min(r.box + 1, GAPS.length - 1) : 0;
+  r.due = Date.now() + GAPS[r.box] * DAY - 3 * 3600000;
+  r.last = right;
+  state.q[k] = r;
+}
+function shuffled(n, seed) {
+  var a = []; for (var i = 0; i < n; i++) a.push(i);
+  var x = seed;
+  for (var j = n - 1; j > 0; j--) { x = (x * 9301 + 49297) % 233280; var r = Math.floor(x / 233280 * (j + 1)); var t = a[j]; a[j] = a[r]; a[r] = t; }
+  return a;
+}
+function seedFor(k) { var h = 7; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) % 233280; return h + Math.floor(Date.now() / DAY); }
+
+/* ---------- views ---------- */
+var app = document.getElementById("app");
+var view = { name: "home" };
+var answer = null;
+
+function go(hash) { if (location.hash === "#" + hash) route(); else location.hash = hash; }
+function route() {
+  var h = location.hash.replace("#", "");
+  answer = null;
+  if (/^l\d+$/.test(h) && byId(h)) {
+    var l = byId(h), p = state.pos[h] || 0;
+    if (state.done[h] && p >= l.s.length + l.q.length) p = 0;
+    view = { name: "lesson", l: l, step: Math.min(p, l.s.length + l.q.length) };
+  } else if (h === "review") {
+    view = { name: "review", list: dueQuestions(), at: 0, right: 0 };
+  } else view = { name: "home" };
+  render();
+  window.scrollTo(0, 0);
+}
+
+function render() {
+  if (view.name === "lesson") app.innerHTML = lessonView();
+  else if (view.name === "review") app.innerHTML = reviewView();
+  else app.innerHTML = homeView();
+}
+
+function homeView() {
+  var d = doneCount(), next = nextLesson(), due = dueQuestions(), left = minsLeft();
+  var pct = Math.round(d / L.length * 100);
+  var h = '<div class="hero"><span class="eyebrow">Edgerunners Desktop · course</span><h1>Learn the project, one ride at a time</h1>' +
+    '<p class="muted">22 lessons of about 5 minutes. Each one goes card by card and ends with a quick check. One or two per ride is plenty: questions come back a few days later, and that\'s what makes them stick.</p>' +
+    '<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="' + L.length + '" aria-valuenow="' + d + '" aria-label="Lessons done"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="stats"><span><b>' + d + '</b> of ' + L.length + ' lessons</span><span><b>' + (TOTAL_MIN - left) + '</b> min done</span><span><b>' + left + '</b> min to go</span></div>';
+  if (next) {
+    var part = state.pos[next.id] ? " (pick up where you left off)" : "";
+    h += '<button class="btn primary" data-go="' + next.id + '">' + (d === 0 && !state.pos[next.id] ? "Start lesson 1" : "Continue: lesson " + next.n + part) + '</button>';
+  } else h += '<p class="note">You\'ve done every lesson. Keep the reviews going and it stays with you.</p>';
+  h += '</div>';
+  if (due.length) {
+    h += '<div class="card review-card"><span class="eyebrow">Review</span><h3>' + due.length + ' question' + (due.length > 1 ? "s" : "") + ' from earlier lessons</h3><p class="muted">About a minute. Remembering something just before you\'d forget it is the fastest way to learn it.</p><button class="btn primary" data-go="review">Start review</button></div>';
+  }
+  UNITS.forEach(function (u, ui) {
+    var ls = L.filter(function (l) { return l.u === ui; });
+    var dn = ls.filter(function (l) { return state.done[l.id]; }).length;
+    var mins = ls.reduce(function (s, l) { return s + l.m; }, 0);
+    h += '<section class="unit" aria-labelledby="u' + ui + '"><div class="unit-head"><h2 id="u' + ui + '">' + esc(u.t) + '</h2><span>' + dn + '/' + ls.length + ' · ' + mins + ' min</span></div><p class="unit-blurb">' + esc(u.b) + '</p><div class="lessons">';
+    ls.forEach(function (l) {
+      var cls = state.done[l.id] ? "done" : (next && next.id === l.id ? "next" : (state.pos[l.id] ? "part" : ""));
+      var mark = state.done[l.id] ? "✓" : l.n;
+      h += '<button class="lesson-row" data-go="' + l.id + '"><span class="dot ' + cls + '">' + mark + '</span><span class="t">' + esc(l.t) + '</span><span class="m">' + l.m + ' min</span></button>';
+    });
+    h += '</div></section>';
+  });
+  var pcs = L.filter(function (l) { return l.pc && state.done[l.id]; });
+  if (pcs.length) {
+    h += '<div class="card"><span class="eyebrow">Next time you\'re at the PC</span><h3>Things to try</h3><ul class="pc-list">';
+    pcs.forEach(function (l) { h += '<li><span>Lesson ' + l.n + '</span>' + esc(l.pc) + '</li>'; });
+    h += '</ul></div>';
+  }
+  h += '<footer><span>' + esc(syncNote) + '</span><span>Made from characters/lucy/LEARNING.md, the notes and the code, up to 6 Nov 2026. Source: characters/lucy/learning-on-the-go.html</span></footer>';
+  return h;
+}
+
+function segs(total, at, quizFrom) {
+  var s = '<div class="segs" aria-hidden="true">';
+  for (var i = 0; i < total; i++) s += '<i class="' + (i >= quizFrom ? "quiz " : "") + (i < at ? "on" : "") + '"></i>';
+  return s + '</div>';
+}
+
+function questionBlock(q, key) {
+  var order = shuffled(q.o.length, seedFor(key));
+  var h = '<div class="card"><span class="eyebrow">Quick check</span><h3>' + esc(q.q) + '</h3><div class="opts">';
+  order.forEach(function (oi) {
+    var cls = "";
+    if (answer !== null) { if (oi === q.a) cls = " right"; else if (oi === answer) cls = " wrong"; }
+    h += '<button class="opt' + cls + '" data-opt="' + oi + '"' + (answer !== null ? " disabled" : "") + '>' + esc(q.o[oi]) + '</button>';
+  });
+  h += '</div>';
+  if (answer !== null) {
+    var ok = answer === q.a;
+    h += '<div class="verdict ' + (ok ? "right" : "wrong") + '" role="status"><b>' + (ok ? "Right." : "Not quite. It's: " + esc(q.o[q.a])) + '</b>' + esc(q.w) + '</div>';
+  }
+  return h + '</div>';
+}
+
+function lessonView() {
+  var l = view.l, ns = l.s.length, nq = l.q.length, total = ns + nq, st = view.step;
+  var u = UNITS[l.u];
+  var h = '<div class="bar"><div class="bar-top"><button class="back" data-go="home">← Course</button><span class="where">Lesson ' + l.n + ' of ' + L.length + ' · ' + l.m + ' min</span></div>' + segs(total, Math.min(st + (st < total ? 1 : 0), total), ns) + '</div><div class="stage">';
+  if (st === 0) h += '<div class="lesson-title"><span class="eyebrow">' + esc(u.t) + '</span><h2>' + esc(l.t) + '</h2></div>';
+  if (st < ns) {
+    var c = l.s[st];
+    h += '<div class="card"><span class="eyebrow">Card ' + (st + 1) + ' of ' + ns + '</span><h3>' + esc(c.h) + '</h3><p class="gist">' + esc(c.g) + '</p>' + c.b + '</div>';
+    h += '<div class="nav"><button class="btn" data-act="prev"' + (st === 0 ? " disabled" : "") + '>Back</button><button class="btn primary" data-act="next">' + (st === ns - 1 ? "Quick check" : "Next") + '</button></div>';
+  } else if (st < total) {
+    var qi = st - ns;
+    h += questionBlock(l.q[qi], l.id + "-" + qi);
+    h += '<div class="nav"><button class="btn" data-act="prev">Back</button><button class="btn primary" data-act="next"' + (answer === null ? " disabled" : "") + '>' + (qi === nq - 1 ? "Finish lesson" : "Next question") + '</button></div>';
+  } else {
+    var nx = nextLesson();
+    var d = doneCount();
+    h += '<div class="card"><span class="big-check" aria-hidden="true">✓</span><h2>Lesson ' + l.n + ' done</h2><p>' + d + ' of ' + L.length + ' lessons, ' + (TOTAL_MIN - minsLeft()) + ' minutes in. These questions will come back in a day or so.</p>';
+    if (l.pc) h += '<p class="note"><b>At the PC later:</b> ' + esc(l.pc) + '</p>';
+    var unitLeft = L.filter(function (x) { return x.u === l.u && !state.done[x.id]; }).length;
+    h += '<p class="muted">' + (unitLeft === 0 ? "That finishes \"" + esc(u.t) + "\". A good place to stop for today." : "A good place to stop, or keep going if the ride's long.") + '</p></div>';
+    h += '<div class="row">' + (nx ? '<button class="btn primary" data-go="' + nx.id + '">Lesson ' + nx.n + ': ' + esc(nx.t) + '</button>' : '') + '<button class="btn" data-go="home">Back to the course</button></div>';
+  }
+  return h + '</div>';
+}
+
+function reviewView() {
+  var list = view.list, at = view.at;
+  var h = '<div class="bar"><div class="bar-top"><button class="back" data-go="home">← Course</button><span class="where">Review' + (list.length ? " · " + Math.min(at + 1, list.length) + " of " + list.length : "") + '</span></div>' + segs(list.length, Math.min(at + (at < list.length ? 1 : 0), list.length), 0) + '</div><div class="stage">';
+  if (!list.length) {
+    h += '<div class="card"><h3>Nothing due right now</h3><p class="muted">Questions come back a day after a lesson, then after 3, 7, 14 and 30 days if you keep getting them right.</p></div><button class="btn primary" data-go="home">Back to the course</button>';
+  } else if (at < list.length) {
+    var it = list[at];
+    h += '<p class="muted">From lesson ' + it.l.n + ': ' + esc(it.l.t) + '</p>' + questionBlock(it.l.q[it.i], it.k);
+    h += '<div class="nav"><button class="btn primary" data-act="rnext"' + (answer === null ? " disabled" : "") + '>' + (at === list.length - 1 ? "Finish review" : "Next question") + '</button></div>';
+  } else {
+    h += '<div class="card"><span class="big-check" aria-hidden="true">✓</span><h2>Review done</h2><p>' + view.right + ' of ' + list.length + ' right. The ones you missed come back tomorrow, and the rest wait longer.</p></div>';
+    var nx = nextLesson();
+    h += '<div class="row">' + (nx ? '<button class="btn primary" data-go="' + nx.id + '">Lesson ' + nx.n + ': ' + esc(nx.t) + '</button>' : '') + '<button class="btn" data-go="home">Back to the course</button></div>';
+  }
+  return h + '</div>';
+}
+
+/* ---------- actions ---------- */
+app.addEventListener("click", function (e) {
+  var t = e.target.closest("button");
+  if (!t || t.disabled) return;
+  if (t.hasAttribute("data-go")) {
+    var g = t.getAttribute("data-go");
+    if (g === "home") { try { history.replaceState(null, "", location.pathname + location.search); } catch (err) {} route(); }
+    else go(g);
+    return;
+  }
+  if (t.hasAttribute("data-opt")) {
+    if (answer !== null) return;
+    answer = +t.getAttribute("data-opt");
+    if (view.name === "lesson") {
+      var qi = view.step - view.l.s.length, q = view.l.q[qi];
+      grade(view.l.id + "-" + qi, answer === q.a);
+    } else if (view.name === "review") {
+      var it = view.list[view.at], rq = it.l.q[it.i];
+      if (answer === rq.a) view.right++;
+      grade(it.k, answer === rq.a);
+    }
+    save(); render(); return;
+  }
+  var act = t.getAttribute("data-act");
+  if (view.name === "lesson") {
+    var l = view.l, total = l.s.length + l.q.length;
+    if (act === "next") {
+      view.step++; answer = null;
+      if (view.step >= total) { if (!state.done[l.id]) state.done[l.id] = Date.now(); delete state.pos[l.id]; }
+      else state.pos[l.id] = view.step;
+      save(); render(); window.scrollTo(0, 0);
+    } else if (act === "prev" && view.step > 0) {
+      view.step--; answer = null;
+      state.pos[l.id] = view.step; save(); render(); window.scrollTo(0, 0);
+    }
+  } else if (view.name === "review" && act === "rnext") {
+    view.at++; answer = null; render(); window.scrollTo(0, 0);
+  }
+});
+window.addEventListener("hashchange", route);
+route();
+connect();
+})();
+</script>

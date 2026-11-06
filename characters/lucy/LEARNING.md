@@ -7,7 +7,11 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ## 6 Nov: A pocket version of this log
 
-**What changed:** nothing in the app. `characters/lucy/learning-on-the-go.html` takes the ideas from this log and turns them into short cards for reading on a phone, with C# compared to Python and C++. It's published as a page pinned in your claude.ai sidebar. This log stays the full record. The pocket page is a summary of it and only changes when someone updates it.
+**What changed:** nothing in the app. `characters/lucy/learning-on-the-go.html` is a course of 22 short lessons in six units, about 100 minutes in all. It covers the project as well as C#: how a build happens, how she answers and moves, how a Capri build becomes Talia, merging Lachy's updates, the self-test and releases. C# is explained against Python and C++. It's published as a page pinned in your claude.ai sidebar. This log stays the full record. The course is made from it, the notes and the code, and only changes when someone updates it.
+
+**How it's built for learning:** one card at a time, a quick check at the end of each lesson, and a bar that shows where you are. Questions come back for review after 1, 3, 7, 14 and 30 days, and sooner if you got them wrong. Your progress is saved to your claude.ai account, so it follows you from phone to PC.
+
+**One idea worth knowing:** reading something feels like learning, but trying to remember it is what makes it stick. Remembering it again just before you'd forget it works best. That's why the course asks questions instead of only showing cards.
 
 ---
 
