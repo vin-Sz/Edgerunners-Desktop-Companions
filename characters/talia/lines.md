@@ -2,7 +2,7 @@
 
 Capri's lines that are written straight into the code and skip the AI, so Talia's personality never touches them. These are the ones "Fixed lines that still sound like Capri" in `CAPRI-LEFTOVERS.md` lists, with a Talia draft for each.
 
-The app doesn't read this file. **None of these are in the app yet.** Change anything, tick the box, and that group goes into her build. Locations are from 6 Nov and may move after one of Lachy's updates.
+The app doesn't read this file. **None of these drafts are in the app yet.** Change anything, tick the box, and that group goes into her build. Locations are from 6 Nov and may move after one of Lachy's updates.
 
 ## How she talks, from all of season 2
 
@@ -135,9 +135,49 @@ These are never said out loud. The AI is shown them as examples of her style, so
 | Streaks | you're on FIRE, someone stop them, carry me, choom, they can't touch you, the lobby's scared of you, streak streak STREAK | okay, you're on fire, someone stop 'em, carry me, choomie, they can't touch ya, lobby's scared of ya, don't get cocky, huh? |
 | Deaths | nooo, who did that??, rest in pieces, that was rigged, you got robbed, not like this, noo choom, run it back, respawn and cook them | ugh., seriously?, who did that?, flatlined. rude, that was rigged, gonk move, honestly, run it back, go get even |
 
-## Not here on purpose
+## Her own lines already in the app (`characters/talia/Character.cs`)
 
-- **Her pop-ins, Halloween lines and "no"** are already in the app (`characters/talia/Character.cs`). They were written before this read of the season, so they may sound too polished too. Say if you want them redone the same way.
+- [ ] Use these
+
+These went in on 4 Nov, before the whole season was read, so they had the same polished sound. **Unlike everything above, her current versions are what the app says now.** Ticking swaps them for these drafts. "Choomie" keeps its capital, the way her personality writes it.
+
+**Pop-ins** (`PopLines`), when she drops in to check on you:
+
+| Now | Talia (draft) |
+| --- | --- |
+| Bored. Show me something. | Hey! Whatcha doin'? |
+| Don't mind me. | Don't mind me. Just lookin'. |
+| Found you. Weirdo. | Ta-da! Found ya. |
+| What's this one do? | Ooh. What's this one do? |
+| Hey, Choomie. Still at it? | Hey, Choomie. Still at it, huh? |
+| Still breathing. Don't make it weird. | Still breathin'. Don't make it weird. |
+| Seen any good movies? | Seen any good movies lately? Be honest. |
+| | Byeee! ...Kidding. I'm stayin'. *(new)* |
+| | Uh... was I not supposed to be in here? *(new)* |
+
+"Still breathin'" is the only line in this file that comes near her illness. You already had it, so it stays. Take it out if you'd rather these never touch it.
+
+**Halloween** (`HalloweenLines`):
+
+| Now | Talia (draft) |
+| --- | --- |
+| Happy Halloween, Choomie. | Happy Halloween, Choomie! |
+| Trick or treat. Pick fast. | Trick or treat. Pick fast, huh? |
+| Happy Halloween. Love the costume. Oh wait. | Love the costume. Oh wait. Kidding! |
+
+**Her "no"** (`Declined`), when the AI turns a request down:
+
+| Now | Talia (draft) |
+| --- | --- |
+| Nah. Not that one, Choomie. Ask me something else? | Nah. Not doin' that one. Ask me somethin' else, huh? |
+
+**Her error line** (`Sparked`), when something breaks:
+
+| Now | Talia (draft) |
+| --- | --- |
+| Chrome just kicked. Still here, though. Try me again? | Ugh, chrome just kicked. I'm fine. Try me again? |
+
+## Not here on purpose
 - **Things she says about the app** (`app/SelfKnow.cs`, "Right-click Capri" and so on). That's the app's help text, not her voice. It needs the name fix in number 2 of `CAPRI-LEFTOVERS.md`, not new wording.
 - **Head pats** (`app/Capri.cs:1443`). That waits on your choice in number 11.
 - **The fake blue screen** (`app/ChaosScreen.cs`). That's number 13, and can go here once you say you want it.
