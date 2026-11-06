@@ -2,7 +2,7 @@
 
 Capri's lines that are written straight into the code and skip the AI, so Talia's personality never touches them. These are the ones "Fixed lines that still sound like Capri" in `CAPRI-LEFTOVERS.md` lists, with a Talia draft for each.
 
-The app doesn't read this file. **None of these drafts are in the app yet.** Change anything, tick the box, and that group goes into her build. Locations are from 6 Nov and may move after one of Lachy's updates.
+The app doesn't read this file. **All of these went into her Windows build on 6 Nov**: her own lines in `Character.cs`, and the rest through `lines.txt`, which swaps them in the build's copy of Lachy's code. To change a line, change it in those files too. Mac and Linux still have Capri's in `cross/Pet.cs`. Locations are from 6 Nov and may move after one of Lachy's updates.
 
 ## How she talks, from all of season 2
 
@@ -28,7 +28,7 @@ The first draft was too polished. It sounded like a writer being witty, and she 
 
 ## Asking for attention (`app/Capri.cs` `NudgeLines`, about line 1689)
 
-- [ ] Use these
+- [x] In her build (6 Nov)
 
 | Capri | Talia (draft) |
 | --- | --- |
@@ -51,7 +51,7 @@ The first draft was too polished. It sounded like a writer being witty, and she 
 
 ## Check-ins (`app/Care.cs` `CareLines.Defaults`, about line 149)
 
-- [ ] Use these
+- [x] In her build (6 Nov)
 
 These are the default contents of the `check-ins.md` file people can edit, so anyone who already has Capri's file keeps it. Capri's are warm. Hers still look after you, but bossily, the way she shows she cares.
 
@@ -82,7 +82,7 @@ The stretch line about legs points at her, since she's only recently walking aga
 
 ## Spotting Cyberpunk, and hearing its music (`app/Capri.cs` `HomeGameLines` and `HomeSongLines`, lines 1694–1695, and `cross/Pet.cs`)
 
-- [ ] Use these
+- [x] In her build (6 Nov)
 
 | Capri | Talia (draft) |
 | --- | --- |
@@ -97,7 +97,7 @@ The stretch line about legs points at her, since she's only recently walking aga
 
 ## PC lagging (`app/Capri.cs` `LagLines`, line 1700, and `cross/Pet.cs`)
 
-- [ ] Use these
+- [x] In her build (6 Nov)
 
 The cyberpsycho joke suits her better than it ever suited Capri, since she jokes about being one in E05, so it stays.
 
@@ -109,7 +109,7 @@ The cyberpsycho joke suits her better than it ever suited Capri, since she jokes
 
 ## Being thrown (`app/Capri.cs` `ThrowLines`, line 1849)
 
-- [ ] Use these
+- [x] In her build (6 Nov)
 
 In E02 she yelps and laughs when she's thrown around, so some of these enjoy it a little.
 
@@ -125,7 +125,7 @@ The lines after a throw (`WarnLines`, `DizzyLines`, `SulkLines` and the rest) al
 
 ## Examples for game reactions (`app/Reactions.cs`, about line 45)
 
-- [ ] Use these
+- [x] In her build (6 Nov)
 
 These are never said out loud. The AI is shown them as examples of her style, so Capri's capitals and double question marks pull her towards Capri's energy. Hers show off more and shout less. Only the three lists that sounded most like Capri are redone. The others (comebacks, losing again, a streak ending, getting hit, flashes) fit well enough.
 
@@ -137,7 +137,7 @@ These are never said out loud. The AI is shown them as examples of her style, so
 
 ## Her own lines already in the app (`characters/talia/Character.cs`)
 
-- [ ] Use these
+- [x] In her build (6 Nov)
 
 These went in on 4 Nov, before the whole season was read, so they had the same polished sound. **Unlike everything above, her current versions are what the app says now.** Ticking swaps them for these drafts. "Choomie" keeps its capital, the way her personality writes it.
 

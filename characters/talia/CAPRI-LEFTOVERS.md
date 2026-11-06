@@ -79,7 +79,7 @@ For the three blink sheets, I'd copy her normal blink in whichever you choose. T
 
 ## Fixed lines that still sound like Capri
 
-These skip the AI, so her personality doesn't touch them. **Drafts are in `lines.md` (6 Nov)**, waiting for you to tick.
+These skip the AI, so her personality doesn't touch them. **Done (6 Nov) for Windows:** her versions are in `lines.md` and in her build. Mac and Linux still have Capri's. "Things she says about herself" isn't done, because it needs the name fix in number 2.
 
 | Lines | Where | The problem |
 | --- | --- | --- |

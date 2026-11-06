@@ -8,7 +8,8 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 | --- | --- |
 | `personality.md` | Her personality. A `-Character talia` build on Windows makes it her default, because `builtin-personality.txt` is here. Mac and Linux builds don't have this yet |
 | `Character.cs` | Her lines from the code (pop-ups, Halloween, her "no", her error line). Used in place of `app/Character.cs` |
-| `lines.md` | Drafts for Capri's fixed lines that skip the AI, waiting for you to tick. The app doesn't read it |
+| `lines.md` | Her versions of Capri's fixed lines that skip the AI, and how she talks across season 2. The app doesn't read it |
+| `lines.txt` | Those lines, swapped into a copy of Lachy's code when her build is made. Same format as `names.txt`. Windows only |
 | `names.txt` | Her name where you see it, and her installer's name |
 | `checks.txt` | The self-test's checks of Capri's personality, changed in a copy of the code to fit Talia's text |
 | `CAPRI-LEFTOVERS.md` | What she inherited from Capri that may not suit her, with decisions waiting. Read it before drawing |

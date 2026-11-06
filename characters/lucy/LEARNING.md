@@ -5,6 +5,18 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 6 Nov: Talia's lines are in her build
+
+**What changed:** you liked all the drafts, so they're in. Her pop-ins, Halloween lines, "no" and error line are in her own `characters/talia/Character.cs`. The rest live in Lachy's files (`Capri.cs`, `Care.cs`, `Reactions.cs`), so a new `characters/talia/lines.txt` swaps them, in the same `"Capri's" => "hers"` format as `names.txt`.
+
+**Why not just edit Lachy's files?** His updates would then clash with ours every time he touches those lines, and Capri's own build would lose her lines. The build already copies his code to a temporary folder to put Talia's name in. `lines.txt` is a few more swaps in that same copy, so his files stay exactly as he wrote them. If he rewords one of these lines, the build prints a warning naming the line instead of failing quietly.
+
+**One catch:** the title "# Capri's check-ins" isn't only text. The app also searches for it, to tell whether your check-ins file was already written. So every copy of the title changes together. Changing only the one you see would have made the app add her defaults to the file a second time.
+
+**Checked:** her build compiles, and every swap was found in the code. The self-test ran on GitHub on a short `talia-lines` branch (result below). Mac and Linux still have Capri's lines: their copies are in `cross/Pet.cs`, and her build there doesn't use `lines.txt` yet.
+
+---
+
 ## 6 Nov: Talia's lines, second draft from the whole season
 
 **What changed:** the drafts in `characters/talia/lines.md` were rewritten after reading every season 2 transcript, not just E02 and E07. A short guide to how she talks is now at the top of that file. The app still hasn't changed.
