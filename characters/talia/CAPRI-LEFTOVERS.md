@@ -79,7 +79,7 @@ For the three blink sheets, I'd copy her normal blink in whichever you choose. T
 
 ## Fixed lines that still sound like Capri
 
-These skip the AI, so her personality doesn't touch them. I can draft replacements for you to pick from.
+These skip the AI, so her personality doesn't touch them. **Drafts are in `lines.md` (6 Nov)**, waiting for you to tick.
 
 | Lines | Where | The problem |
 | --- | --- | --- |

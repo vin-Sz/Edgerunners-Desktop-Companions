@@ -5,6 +5,18 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 6 Nov: Drafts for Talia's fixed lines
+
+**What changed:** `characters/talia/lines.md` has a Talia version of each line that `CAPRI-LEFTOVERS.md` listed as still sounding like Capri: asking for attention, check-ins, spotting Cyberpunk, lag, being thrown, and the examples for game reactions. Nothing in the app changed. You tick a group, and then it goes in.
+
+**Why these lines need writing by hand:** most of what she says comes from the AI, which reads her personality. These lines are different. They're stored in the code and shown as they are, for example when you throw her or your PC lags, so the personality never gets a say. Until they're replaced, Capri's "WHEEEE!" comes out of Talia.
+
+**Where the voice came from:** the transcripts of E02 and E07 you sent (Scraps from the Loft), on top of the E05 work in `reports/`. They added two things the research didn't have: she laughs as well as yelps when she's thrown around, and she shrugs off worry before she softens. No line is copied from the show.
+
+**Idea: a random line can't read the room.** Her personality only lets her joke about her own death when you sound fine. The AI can check that, but a line picked at random can't, so these drafts joke about her chrome and her boredom instead. Where a rule depends on the moment, it belongs where something can see the moment.
+
+---
+
 ## 5 Nov: Her art stays at double size (for now)
 
 **What changed:** the build now takes a sheet at double Capri's size and keeps it that way. Before, it refused anything but Capri's size, even though `ART.md` told you to export at double. `characters/double-size.txt` holds the small code changes this needs. Capri's own build is unchanged.
