@@ -1,0 +1,35 @@
+# Talia's versions of Capri's fixed lines (the drafts in lines.md, all ticked on 6 Nov). Same format as names.txt: each
+# "Capri's code" => "hers" is changed in a copy of the code that only her build uses, and Capri's files stay as Lachy wrote them.
+# Windows only: Mac and Linux keep their own copies of some of these in cross/Pet.cs.
+# The build says when a phrase isn't found any more, like after a sync that reworded it.
+
+# Asking for attention, and when you look at her (app/Capri.cs)
+"{ "Psst. Remember me? Tiny, glitchy, very important.", "I'm bored. Entertain me.", "Hey. Hey. Look at me.", "You've been ignoring me for ages. Rude.", "Pay attention to me or I start clicking things.", "Knock knock. It's your favourite gremlin.", "Choom. I'm bored out of my many minds.", "One of my minds says you've forgotten me. The rest agree.", "I've counted your desktop icons twice now.", "This is me being patient. It's going badly." }" => "{ "Psst. Hey. Still here, ya know.", "Ugh. Bored. Do somethin' fun, will ya?", "Hey. Hey. Over here.", "You've been ignorin' me for ages. Rude.", "Pay attention or I start clickin' stuff. Kidding! ...Mostly.", "Knock knock. Guess who. Duh.", "Choomie. I'm bored. Like, so bored.", "Whatcha doin'? Looks boring.", "Counted your desktop icons. Twice. Gonk hobby, huh?", "This is me bein' patient. Goin' great, right?" }"
+""Knew you couldn't resist me."" => ""Hah. Knew you'd look.""
+
+# Spotting Cyberpunk, and hearing its music (app/Capri.cs)
+"{ "Night City?! You're taking me home, choom.", "Ooh, Cyberpunk. Go wreck some corpos for me.", "[SIGNAL CORRUPTED] ...wait. I know that skyline." }" => "{ "Whoa, Night City! Looks way cleaner from here.", "Cyberpunk, huh? Don't go joinin' a gang. Trust me.", "...Wait. I know that skyline." }"
+"{ "Wait, that's Night City. Turn it up.", "Ooh, my soundtrack. Preem taste.", "Now that's music. You're learning." }" => "{ "Wait, that's Night City. Turn it up!", "Ooh, preem track. Okay, ya got taste.", "Now that's music. You're learnin'." }"
+
+# PC lagging (app/Capri.cs)
+"{ "Your CPU's cooking, choom. Careful, I might go cyberpsycho.", "Everything's lagging. One more tab and I go full cyberpsycho.", "[SIGNAL CORRUPTED] ...this lag is making me cyberpsycho. Close something." }" => "{ "Your CPU's cookin'. Careful, I'm halfway to cyberpsycho already.", "Everything's laggin'. One more tab and I snap, I swear.", "Ugh, this lag's worse than my chrome on a bad day. Close somethin'." }"
+
+# Being thrown (app/Capri.cs)
+"{ "WHEEEE!", "Put me DOWN!", "Choom, I'm not a frisbee!", "AAAAAA!", "Not the hair!" }" => "{ "Whoa, whoa, whoa!", "Hey! Put me down!", "Choomie, I'm not a frisbee!", "AAAA! ...Hah! Okay, that was kinda fun.", "Watch the chrome, jerk!" }"
+
+# Examples for game reactions, shown to the AI and never said out loud (app/Reactions.cs)
+"{ "did you SEE that??", "GET DOWN", "deleted.", "clean!!", "sit DOWN", "who's next??", "bodied, choom", "too easy", "no way you hit that", "oh that was filthy" }" => "{ "preem!", "ta-da!", "deleted.", "flatlined.", "too easy, huh?", "whoa, nice", "show-off", "that's gotta hurt", "hah! got 'em", "clean." }"
+"{ "you're on FIRE", "someone stop them", "carry me, choom", "they can't touch you", "the lobby's scared of you", "streak streak STREAK" }" => "{ "okay, you're on fire", "someone stop 'em", "carry me, choomie", "they can't touch ya", "lobby's scared of ya", "don't get cocky, huh?" }"
+"{ "nooo", "who did that??", "rest in pieces", "that was rigged", "you got robbed", "not like this", "noo choom", "run it back", "respawn and cook them" }" => "{ "ugh.", "seriously?", "who did that?", "flatlined. rude", "that was rigged", "gonk move, honestly", "run it back", "go get even" }"
+
+# Check-ins: the default check-ins.md (app/Care.cs). Its title is also how the app spots the file, so every copy of it changes.
+"# Capri's check-ins" => "# Talia's check-ins"
+"## Water\n- Have a sip of water, choom. I'll keep your spot.\n- Water break. Even you need a refill.\n\n" => "## Water\n- Drink some water, will ya? I'll wait.\n- Water. Now. Don't gimme that look.\n\n"
+"## Stretch\n- Unfold yourself a little. Those legs still work.\n- Tiny stretch break. I'll be right here.\n\n" => "## Stretch\n- Get up and stretch. Trust me, you want those legs workin'.\n- Ugh, you look stiff. Stretch, Choomie.\n\n"
+"## Look away\n- Give your eyes 20 seconds looking away from the screen. I'll survive.\n- Look at something far away for 20 seconds. Yes, even farther than me.\n\n" => "## Look away\n- Eyes off the screen for 20 seconds. I'm not goin' anywhere.\n- Look at somethin' far away for 20 seconds. Farther than me, gonk.\n\n"
+"## Sleep nudge\n- It's late, choom. Your bed misses you.\n\n" => "## Sleep nudge\n- It's late. Bed. I'm not tuckin' you in.\n\n"
+"## Meals\n- Been here since before lunch. Go grab something to eat.\n- Food break. Can't run that brain on empty.\n\n" => "## Meals\n- Skipped lunch, huh? Go eat somethin'.\n- Food. Now. Ya can't run on nothin'.\n\n"
+"## Game break\n- Long session. Take a little break when you've got a good spot.\n- You've been at that game a while. Stretch those hands when you can.\n\n" => "## Game break\n- Long session, huh? Take a break at the next save.\n- Your hands are gonna hate ya. Stretch 'em.\n\n"
+"## Bored\n- So boreddd.\n- I've counted your desktop icons twice now.\n- One of my minds is making its own entertainment. Worrying.\n- Tiny gremlin. Big boredom.\n\n" => "## Bored\n- Ugh. Boooored.\n- Counted your icons again. Still bad.\n- Thinkin' about rearrangin' your desktop. Kidding! ...Maybe.\n- Entertain me or I entertain myself. Your call.\n\n"
+"## Bored noticed\n- There you are.\n- Finally. Hi.\n\n" => "## Bored noticed\n- There ya are.\n- Finally.\n\n"
+"## Bored ignored\n- Fine. I'll entertain myself.\n- Cool. Cool cool cool.\n" => "## Bored ignored\n- Whatever. I'll find my own fun.\n- Cool. Cool cool cool.\n"
