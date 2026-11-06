@@ -13,7 +13,7 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 **One catch:** the title "# Capri's check-ins" isn't only text. The app also searches for it, to tell whether your check-ins file was already written. So every copy of the title changes together. Changing only the one you see would have made the app add her defaults to the file a second time.
 
-**Checked:** her build compiles, and every swap was found in the code. The self-test ran on GitHub on a short `talia-lines` branch (result below). Mac and Linux still have Capri's lines: their copies are in `cross/Pet.cs`, and her build there doesn't use `lines.txt` yet.
+**Checked:** her build compiles, and every swap was found in the code. Talia's self-test passed on GitHub, run from a short `talia-lines` branch. Mac and Linux still have Capri's lines: their copies are in `cross/Pet.cs`, and her build there doesn't use `lines.txt` yet.
 
 ---
 
