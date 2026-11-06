@@ -5,6 +5,18 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 6 Nov: Talia's lines, second draft from the whole season
+
+**What changed:** the drafts in `characters/talia/lines.md` were rewritten after reading every season 2 transcript, not just E02 and E07. A short guide to how she talks is now at the top of that file. The app still hasn't changed.
+
+**Why the first draft missed:** the research in `reports/` looked closely at only one episode, E05, where she learns she's dying. That made her sound dry and bitter all the time, and the first drafts read like a writer being clever. Across the whole season she's looser and more of a brat: short, casual, dropped g's, "ya", tag questions like "huh?", showing off with "Ta-da!" and taking a jab back with "Kidding!". Her worst week isn't a good guide to her normal voice.
+
+**Why not paste her real lines in:** whole lines of dialogue belong to the show's makers, and this app gets shared. What makes a line sound like someone is mostly their small habits: the words they pick, how they start and end a sentence, what they say when they're bored. Those can be used freely, and they're what these drafts are built from.
+
+**Idea: sample the normal days, not only the big scenes.** A character's most quoted moments are usually their most extreme. A companion talks in the in-between moments, so that's where to listen.
+
+---
+
 ## 6 Nov: Drafts for Talia's fixed lines
 
 **What changed:** `characters/talia/lines.md` has a Talia version of each line that `CAPRI-LEFTOVERS.md` listed as still sounding like Capri: asking for attention, check-ins, spotting Cyberpunk, lag, being thrown, and the examples for game reactions. Nothing in the app changed. You tick a group, and then it goes in.
