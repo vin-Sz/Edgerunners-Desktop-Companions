@@ -24,6 +24,7 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 - [x] Second draft of `personality.md` and her lines, from that research and your answers: she talks about her family and illness, and she knows Capri
 - [x] Where she is on the show's timeline: kept vague on purpose. She knows her history but doesn't say how it ended, so she keeps her chrome jokes and doesn't spoil the finale
 - [x] Build the personality in as her default (4 Nov). Not checked against the show on purpose: you chose not to rewatch E02 and E07, so her teasing and her bickering with Capri rest on the research. If something sounds wrong when you do talk to her, say so and it gets fixed
+- [x] Her fixed lines rewritten from the research (6 Nov). The show's transcripts couldn't be read from the cloud session, so they still aren't checked against her real words. What changed and why is in `characters/lucy/LEARNING.md`
 - [x] Self-test on GitHub instead of your PC: the **Talia self-test** Action runs when `characters/` or `ci/` changes
 - [ ] Her art and icon
 - [ ] Her voice: later, on purpose. It's the least important part for now

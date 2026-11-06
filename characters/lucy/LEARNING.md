@@ -375,3 +375,24 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 **Idea: a fix has to prove it's safe.** Taking Lachy's version of `ci/build-windows.ps1` and re-adding our lines would quietly lose anything else we'd changed there. So the script first applies our lines to the older version both sides started from, and checks that the result is exactly our file. If it isn't, we changed something else, and the file is left for a person.
 
 **How it was tested:** by replaying real past merges in a throwaway copy, without running the app. For the 58-commit merge, the result was identical to the one done by hand. Two older merges with real decisions in them (`app/Capri.cs`, `app/Player.cs`) were correctly left for a person. Sync upstream's new version can only be tried once it's on `main`.
+
+---
+
+## 6 Nov: Talia's lines, rewritten from the research
+
+**What changed:** `characters/talia/Character.cs`, the lines that are built into the app rather than written by the AI: her "no", her error line, what she says when she pops out from hiding, and her Halloween hellos. Seven of the ten pop-up lines were already there and stay. The rest are new or changed:
+
+| Where | Before | Now | Why |
+| --- | --- | --- | --- |
+| Her "no" | "Nah. Not that one, Choomie. Ask me something else?" | "Nah. Not touching that one. Something else?" | Shorter and flatter, the way she talks in the show. "Choomie" works as a tease, and a refusal isn't one |
+| Error | "Chrome just kicked. Still here, though. Try me again?" | "Chrome glitched. Still here. Try me again?" | Same joke, in shorter pieces |
+| Pop-up | (new) | "Miss me? Course not." | A sarcastic question back, and "Course" echoes her one line known word for word: "Course I can. I'm a certified cyberpsycho." |
+| Pop-up | (new) | "Couldn't sit still. Sue me." | You told me she's restless |
+| Pop-up | (new) | "Roman would film this. No idea why." | Film with Roman is her best-sourced interest, and it doesn't spoil the plot |
+| Halloween | "Happy Halloween. Love the costume. Oh wait." | "Happy Halloween. Half chrome already, so costume's done." | The old line made fun of how *you* look. In the research her jokes point at herself |
+
+**What the research says to aim for:** two to seven words at a time, words dropped, a sarcastic question instead of an answer, jokes about her own chrome and odds, at most one bit of slang a line, and "Choomie" only sometimes.
+
+**What I couldn't do:** read what she really says. The transcript sites (scrapsfromtheloft.com and tvshowtranscripts.ourboard.org) are blocked by this cloud session's network settings, and the search tool won't quote dialogue. So these rest on the same thin evidence as before: one episode's transcript, mostly E05. To let a later session read the episodes, add those two sites under Allowed domains in the cloud environment's settings.
+
+**Idea: fixed lines can't read the room.** The AI's replies can drop the dark jokes when you sound low, but a fixed line plays whatever just happened. That's why the error line stays at "Still here", and none of them jokes about dying outright.
