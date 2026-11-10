@@ -6,3 +6,5 @@
 "if (seated.FlippedNow == null || seated.FlippedNow.Size != seated.Strip.Size)" => "if (perch.HasFlipped && (seated.FlippedNow == null || seated.FlippedNow.Size != seated.Strip.Size))"
 "if (sameOutline < outline * 98 / 100 || recoloured < outline * 3 / 100)" => "if (sameOutline < outline * 98 / 100 || (perch.HasFlipped && recoloured < outline * 3 / 100))"
 "checks.Add("PASS perch facing left: all 8" => "checks.Add(!perch.HasFlipped ? "PASS perch facing left: no flipped art of her own, so she's drawn as her mirror image (" + sameOutline * 100 / outline + "% matching)" : "PASS perch facing left: all 8"
+# Resting lets go of her facing-left sitting art. With none of her own, facing left is her normal perch, which stays.
+"perchTalk.Ready(true) || perch.Ready(true) || !perch.Ready(false) || artRested >= artBefore)" => "perchTalk.Ready(true) || (perch.HasFlipped && perch.Ready(true)) || !perch.Ready(false) || artRested >= artBefore)"
