@@ -28,6 +28,13 @@ permissions:
 
 jobs:
   windows:
+    # Her build as it ships, and again with characters/talia/placeholders filling every sheet she hasn't drawn yet, so
+    # nothing of Capri's art is left and the self-test shows what her own art will run into. A release never has those.
+    strategy:
+      fail-fast: false
+      matrix:
+        art: [as-drawn, placeholders]
+    name: windows (${{ matrix.art }})
     runs-on: windows-2025
     timeout-minutes: 35
     steps:
@@ -38,6 +45,8 @@ jobs:
       # Same short temp folder as ci.yml, for the same 260-letter path limit.
       - name: Build as Talia and self-test
         shell: pwsh
+        env:
+          CHARACTER_PLACEHOLDERS: ${{ matrix.art == 'placeholders' && '1' || '' }}
         run: |
           # Keeps why the script stopped, so the next step can show it without a GitHub login.
           try { ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -Character talia -SmokeTest -SmokeSeconds 900 }
@@ -60,7 +69,7 @@ jobs:
             if (-not (Test-Path -LiteralPath $reasons[$part])) { continue }
             $text = (Get-Content -LiteralPath $reasons[$part] -Raw) -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
             if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
-            Write-Output "::error title=Talia self-test - $part::$text"
+            Write-Output "::error title=Talia self-test (${{ matrix.art }}) - $part::$text"
           }
           # A check can fail without writing failure.txt, and then its reason is only in the results.
           $results = Join-Path $env:RUNNER_TEMP 'w\smoke\runtime\smoke-test.txt'
@@ -68,10 +77,10 @@ jobs:
             $lines = @(Get-Content -LiteralPath $results | Where-Object { $_ -match '^(FAIL |TOTAL )' })
             $text = ($lines -join "`n") -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
             if ($text.Length -gt 3000) { $text = $text.Substring(0, 3000) }
-            if ($text) { Write-Output "::error title=Talia self-test - failed checks::$text" }
+            if ($text) { Write-Output "::error title=Talia self-test (${{ matrix.art }}) - failed checks::$text" }
           }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: smoke-talia
+          name: smoke-talia-${{ matrix.art }}
           path: ${{ runner.temp }}/w/smoke
