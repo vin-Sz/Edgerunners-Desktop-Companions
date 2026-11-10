@@ -22,3 +22,9 @@
 "menu.Items[0].Text.StartsWith("CAPRI", StringComparison.Ordinal)" => "menu.Items[0].Text.StartsWith("TALIA", StringComparison.Ordinal)"
 # Says how much of her art was in memory too, not only how much resting let go, so the size of her double-size art is measured.
 "" MB here) and loads again off her thread in "" => "" MB here, of " + artBefore / (1 << 20) + " MB loaded) and loads again off her thread in ""
+# The fake crash's check finds her lying on it by Capri's pink hair. Talia's isn't pink, so her spot is checked for anything
+# that isn't the crash screen's own blue or white. The :( and :) face checks still look for the screen's own pink.
+"RectangleF chaosFace = new RectangleF(170, 180, 180, 200);" => "RectangleF chaosFace = new RectangleF(170, 180, 180, 200); Func<Bitmap, RectangleF, double> chaosHer = delegate(Bitmap shot, RectangleF spot) { float scale = Math.Min(shot.Width / 1920f, shot.Height / 1080f), left = (shot.Width - 1920 * scale) / 2, top = (shot.Height - 1080 * scale) / 2; Rectangle area = Rectangle.Intersect(Rectangle.Round(new RectangleF(left + spot.X * scale, top + spot.Y * scale, spot.Width * scale, spot.Height * scale)), new Rectangle(Point.Empty, shot.Size)); int hers = 0, seen = 0; for (int y = area.Top; y < area.Bottom; y += 2) for (int x = area.Left; x < area.Right; x += 2, seen++) { Color pixel = shot.GetPixel(x, y); bool blue = Math.Abs(pixel.R - 0) < 40 && Math.Abs(pixel.G - 120) < 40 && Math.Abs(pixel.B - 215) < 40, white = pixel.R > 200 && pixel.G > 200 && pixel.B > 200; if (!blue && !white) hers++; } return hers / (double)Math.Max(1, seen); };"
+"double chaosAsleep = chaosPink(chaosShown.Canvas, chaosLying)" => "double chaosAsleep = chaosHer(chaosShown.Canvas, chaosLying)"
+"double chaosOwned = chaosPink(chaosShown.Canvas, chaosLying)" => "double chaosOwned = chaosHer(chaosShown.Canvas, chaosLying)"
+"if (chaosPink(chaosStill.Canvas, chaosLying) < 0.05)" => "if (chaosHer(chaosStill.Canvas, chaosLying) < 0.05)"
