@@ -11,6 +11,19 @@ param([Parameter(Mandatory = $true)][string]$Character)
 $characterRoot = Join-Path $root ('characters\' + $Character)
 if (-not (Test-Path -LiteralPath $characterRoot)) { throw "No character called $Character in characters/." }
 
+# CHARACTER_PLACEHOLDERS=1 fills every sheet she doesn't have yet from characters/<name>/placeholders (plain stand-ins, see
+# characters/talia/NOTES.md), so her build can be tested with none of Capri's art in it. Never in a release.
+$placeholders = $env:CHARACTER_PLACEHOLDERS -eq '1'
+if ($placeholders -and $env:CHARACTER_VERSION) { throw 'CHARACTER_PLACEHOLDERS is for testing only, and a release (CHARACTER_VERSION) can never have it.' }
+# Her own sheet if she has it, or a stand-in when placeholders are on, or nothing.
+function Find-OwnSprite([string]$file) {
+    $drawn = Join-Path $characterRoot ('sprites\' + $file)
+    if (Test-Path -LiteralPath $drawn) { return $drawn }
+    $standIn = Join-Path $characterRoot ('placeholders\' + $file)
+    if ($placeholders -and (Test-Path -LiteralPath $standIn)) { return $standIn }
+    return $null
+}
+
 # A PNG's width and height, from its header.
 function Get-PngSize([string]$path) {
     $stream = [IO.File]::OpenRead($path)
@@ -39,6 +52,7 @@ $swap = {
     if (-not $resource.Success) { return $argument }
     $folder = if ($resource.Groups[2].Value -eq 'Sprite') { 'sprites' } else { 'voice' }
     $own = Join-Path $characterRoot ($folder + '\' + $resource.Groups[3].Value)
+    if ($folder -eq 'sprites') { $ownSheet = Find-OwnSprite $resource.Groups[3].Value; if ($ownSheet) { $own = $ownSheet } }
     $hasOwn = Test-Path -LiteralPath $own
     if ($folder -eq 'sprites') {
         # Her frame counts and sizes are set in the code, so a sheet of another size would cut her frames wrong.
@@ -69,7 +83,7 @@ $resources = @($resources | ForEach-Object { & $swap $_ })
 # A facing-left sheet has to be cut like the facing-right one, since the app uses one frame count for both.
 foreach ($sheet in @($sheetWidths.Keys | Where-Object { $_ -like '*_flipped.png' })) {
     $right = $sheet.Replace('_flipped.png', '.png')
-    $hasOwnLeft = Test-Path -LiteralPath (Join-Path $characterRoot ('sprites\' + $sheet))
+    $hasOwnLeft = [bool](Find-OwnSprite $sheet)
     if ($hasOwnLeft -and $sheetWidths[$right] -ne $sheetWidths[$sheet]) { throw "characters/$Character/sprites/$sheet is $($sheetWidths[$sheet]) px wide, but $right is $($sheetWidths[$right]). They need the same number of frames." }
 }
 # Capri's facing-left sheets are drawn separately, not mirrored. Once a character has her own sheet, Capri's facing-left one
@@ -77,8 +91,7 @@ foreach ($sheet in @($sheetWidths.Keys | Where-Object { $_ -like '*_flipped.png'
 $resources = @($resources | Where-Object {
     $left = [regex]::Match($_, ',Capri\.Sprite\.(.+)_flipped\.png$')
     if (-not $left.Success) { return $true }
-    $sprites = Join-Path $characterRoot 'sprites'
-    (Test-Path -LiteralPath (Join-Path $sprites ($left.Groups[1].Value + '_flipped.png'))) -or -not (Test-Path -LiteralPath (Join-Path $sprites ($left.Groups[1].Value + '.png')))
+    [bool](Find-OwnSprite ($left.Groups[1].Value + '_flipped.png')) -or -not (Find-OwnSprite ($left.Groups[1].Value + '.png'))
 })
 
 $ownIcon = Join-Path $characterRoot 'icon.ico'
