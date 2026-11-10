@@ -10,3 +10,5 @@
 # While sheets go in one at a time, her sitting and talking sheets can have different counts, so the frame is found by how far through the loop she is.
 "if (PerchTalks(TalkingNow)) { shown = perchTalk; cell = loopCell; }" => "if (PerchTalks(TalkingNow)) { shown = perchTalk; cell = loopCell * perchTalk.Count / clip.Count; following = following * perchTalk.Count / clip.Count; }"
 "else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell; }" => "else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell * laydownTalk.Count / clip.Count; following = following * laydownTalk.Count / clip.Count; }"
+# The self-test compares frame 20 of her sitting and sitting-talking sheets, which a 16-frame sheet doesn't have.
+"new Rectangle(20 * talkWide, 0, talkWide, talkHigh)" => "new Rectangle(20 % perch.Count * talkWide, 0, talkWide, talkHigh)"
