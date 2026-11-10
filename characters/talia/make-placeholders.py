@@ -159,7 +159,8 @@ def perch(frame, name, i, n, width):
     eyes(q, 82, 78, 20, shut, name == 'perch_blink_glitch')
     # perch_talk is perch with only the mouth changed, so it moves through the open shapes.
     mouth_shape(q, 84, 98, (1, 3, 2, 4)[i % 4] if name == 'perch_talk' else 0)
-    q.text(40, 140, name.replace('perch_', 'perch\n'), 8)
+    # Talking only changes her mouth (the self-test checks that), so it carries the same label as perch.
+    q.text(40, 140, 'perch' if name == 'perch_talk' else name.replace('perch_', 'perch\n'), 8)
     q.text(40, 172, 'frame %d' % i, 8)
     q.text(40, 230, 'PLACE-\nHOLDER', 7)
 
@@ -186,7 +187,7 @@ def lie(frame, name, i, n, width):
     mouth_shape(p, 86, 124, (1, 3, 2, 4)[i % 4] if name == 'laydown_talk' else 0)
     if name == 'laydown_sleep':
         p.text(110 + (i % 4) * 3, 60 - (i % 4) * 6, 'z', 14, LINE)
-    p.text(120, 112, '%s  frame %d  PLACEHOLDER' % (name, i), 8)
+    p.text(120, 112, '%s  frame %d  PLACEHOLDER' % ('laydown' if name == 'laydown_talk' else name, i), 8)
 
 
 def glitched(frame, i, n, name):
