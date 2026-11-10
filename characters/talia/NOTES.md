@@ -59,7 +59,7 @@ They're there so her build can be tested with none of Capri's art left, before y
 
 Draw and export at the size her Krita files already are: double the numbers above and in `ART.md`, so 480×768 for a standing frame. The build keeps sheets at that size, so she stays sharp even at the Giant setting. At the default Medium she's shrunk to about a third, so set Krita's zoom to 35% to see how she'll really look.
 
-**This may change.** It's a working choice, made so there's one finished state to test with and no Capri left in her. It isn't quite optimal, because it uses more memory: an estimated 470 MB at most, not yet measured. The build can shrink finished sheets later, so changing this won't mean redrawing. The reasoning is in `characters/lucy/LEARNING.md` (5 Nov).
+**This may change.** It's a working choice, made so there's one finished state to test with and no Capri left in her. It isn't quite optimal, because it uses more memory: an estimated 470 MB at most. Measured with the stand-in art (10 Nov): 447 MB of her art in memory where the self-test measures it, and 312 MB once art she isn't using is let go. The build can shrink finished sheets later, so changing this won't mean redrawing. The reasoning is in `characters/lucy/LEARNING.md` (5 Nov).
 
 ## One rule that stays
 
