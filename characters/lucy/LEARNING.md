@@ -427,3 +427,25 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 **Why bother before the art exists?** Until now, every sheet she hadn't drawn fell back to Capri's, so the self-test only ever saw Capri's art in her build. Some checks were written around Capri's drawings and frame counts, and would only break the day your first sitting sheet went in. The stand-ins find those now, while nothing's waiting on them. They also let the memory guess for double-size art (about 470 MB, 5 Nov) be measured instead of estimated.
 
 **Idea: test the shape before the content.** The app only cares about each sheet's size, frame count and where the feet, seat and hip are. Stand-ins with those right test everything except how she looks, which is the part only you can do.
+
+---
+
+## 10 Nov: what the stand-in art found
+
+With the stand-ins in, the self-test ran to the end on the sixth try: 1,036 checks passed, one skipped, and one failed (below). Each fix is a rule in our own files, so Lachy's code stays as it is.
+
+**What it found, all in the test rather than the app:**
+- **Frame 20** is read in three more places, and a 16-frame sheet has none (`characters/fewer-frames.txt`).
+- **The sitting speed slider's checks** assume 60 frames. The slider does nothing to a 16-frame sheet, so those checks now run only on a 60-frame one and say they skipped otherwise (`fewer-frames.txt`).
+- **Facing left** expected a separately drawn copy of every sitting sheet, like Capri's. Without one, the app mirrors her, so the check now makes sure she's mirrored properly, and that resting doesn't expect to let go of art she doesn't have (`characters/mirrored.txt`, new).
+- **The fake crash screen** found her by Capri's pink hair. It now looks for any colour that isn't the screen's own (`characters/talia/checks.txt`).
+- **The second-launch check** sometimes looked before the app's own timer had shown her. Bigger art made that more likely. The check now handles the waiting signal first, with the same line the timer runs (`characters/double-size.txt`).
+- One mistake of mine: the talking stand-in had a different label from the sitting one, so it changed more than the mouth.
+
+**Memory, measured:** 447 MB of her art at the point the self-test measures it, and 312 MB once what she isn't using is let go. The estimate was 470 MB.
+
+**Still failing, and yours to decide:** colour mods recolour her hair by finding Capri's pink. Talia's hair isn't that colour, so the check finds nothing to change. Either colour mods learn her hair colour once she's drawn, or her build switches them off.
+
+**Not ours:** two checks fail now and then on GitHub's machines whatever the art is: the mouse pointer's ripple, and a time-limited chess search. A rerun passes.
+
+**Idea: a check can say why.** The second-launch failure first said only "did not show Capri grinning". Adding what she was doing at that moment (hidden, for 0.01 s) showed straight away that it was timing, not art.
