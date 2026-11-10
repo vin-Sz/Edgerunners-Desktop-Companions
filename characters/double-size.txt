@@ -18,3 +18,6 @@
 # These lying-down checks work out her scale from pixels, so they read a sheet's height as what it is in 250 px cells.
 "Math.Abs(napDrawing.Height / napDrawing.Strip.Height - LieScale / 384)" => "Math.Abs(napDrawing.Height / 250 - LieScale / 384)"
 "float napPixelScale = preferences.Size * LieScale / 384;" => "float napPixelScale = preferences.Size * LieScale / 384 * 250f / napStrip.Height;"
+# The second-launch check looks right after the signal is sent, before her own timer may have shown her. With bigger art
+# the timer can come a moment late, so the check handles a waiting signal first, with the same line her timer runs.
+"if (!Visible || hidden || clip != grin) throw new Exception("Second-launch" => "if (restore.WaitOne(0)) { RestoreAtCursor(); mainframe.Restore(); if (!quitting) shown.Set(); } if (!Visible || hidden || clip != grin) throw new Exception("Second-launch"
