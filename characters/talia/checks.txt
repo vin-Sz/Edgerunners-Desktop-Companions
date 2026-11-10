@@ -28,3 +28,5 @@
 "double chaosAsleep = chaosPink(chaosShown.Canvas, chaosLying)" => "double chaosAsleep = chaosHer(chaosShown.Canvas, chaosLying)"
 "double chaosOwned = chaosPink(chaosShown.Canvas, chaosLying)" => "double chaosOwned = chaosHer(chaosShown.Canvas, chaosLying)"
 "if (chaosPink(chaosStill.Canvas, chaosLying) < 0.05)" => "if (chaosHer(chaosStill.Canvas, chaosLying) < 0.05)"
+# Says what she was doing when the second-launch check didn't find her grinning, which only her stand-in art has run into.
+"throw new Exception("Second-launch restore signal did not show Capri grinning.");" => "throw new Exception("Second-launch restore signal did not show Capri grinning: visible " + Visible + ", hidden " + hidden + ", clip " + (clip == idle ? "idle" : clip == arrive ? "arrive" : clip == dangle ? "dangle" : clip == perch ? "perch" : clip == glitch ? "glitch" : clip == wake ? "wake" : clip == sleep ? "sleep" : clip == walk ? "walk" : "other") + " for " + (clock.Elapsed.TotalSeconds - clipStart).ToString("0.00") + " s, falling " + falling + ", seat " + (seat != null) + ", instant " + instant + ", motion " + preferences.Motion + ".");"
