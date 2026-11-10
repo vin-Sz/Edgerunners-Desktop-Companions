@@ -411,3 +411,19 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 **Idea: a fix has to prove it's safe.** Taking Lachy's version of `ci/build-windows.ps1` and re-adding our lines would quietly lose anything else we'd changed there. So the script first applies our lines to the older version both sides started from, and checks that the result is exactly our file. If it isn't, we changed something else, and the file is left for a person.
 
 **How it was tested:** by replaying real past merges in a throwaway copy, without running the app. For the 58-commit merge, the result was identical to the one done by hand. Two older merges with real decisions in them (`app/Capri.cs`, `app/Player.cs`) were correctly left for a person. Sync upstream's new version can only be tried once it's on `main`.
+
+---
+
+## 10 Nov: stand-in art, so Talia can be tested before she's drawn
+
+**What changed:**
+- `characters/talia/placeholders/` has a plain stand-in for every one of her sheets, made by `characters/talia/make-placeholders.py`. They're simple shapes labelled with the sheet's name and frame number, drawn to her templates' guides, at double size, with her 16-frame sitting and lying.
+- A build with `CHARACTER_PLACEHOLDERS=1` uses a stand-in for any sheet she doesn't have in `sprites/` yet (`characters/Use-Character.ps1`). A release refuses to build with it.
+- The **Talia self-test** now runs twice on GitHub: as she ships, and with the stand-ins.
+- Two self-test changes, as rules in our own files: it compared frame 20 of her sitting sheets, which a 16-frame sheet doesn't have (`characters/fewer-frames.txt`), and it now says how much art was in memory, not just how much it let go (`characters/talia/checks.txt`).
+
+**Why not GIFs from the show?** The footage isn't ours to put in a public repo or installer, and it doesn't fit anyway. The app needs transparent sheets with fixed frame sizes and set poses, and show clips have backgrounds and the wrong poses.
+
+**Why bother before the art exists?** Until now, every sheet she hadn't drawn fell back to Capri's, so the self-test only ever saw Capri's art in her build. Some checks were written around Capri's drawings and frame counts, and would only break the day your first sitting sheet went in. The stand-ins find those now, while nothing's waiting on them. They also let the memory guess for double-size art (about 470 MB, 5 Nov) be measured instead of estimated.
+
+**Idea: test the shape before the content.** The app only cares about each sheet's size, frame count and where the feet, seat and hip are. Stand-ins with those right test everything except how she looks, which is the part only you can do.

@@ -14,6 +14,7 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 | `checks.txt` | The self-test's checks of Capri's personality, changed in a copy of the code to fit Talia's text |
 | `CAPRI-LEFTOVERS.md` | What she inherited from Capri that may not suit her, with decisions waiting. Read it before drawing |
 | `krita/` | One ready-to-draw `.kra` per animation. Remake with `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\talia\krita -Character Talia` |
+| `placeholders/` | Stand-in sheets: plain shapes with each sheet's name and frame number, at her sizes. Only her test build uses them (see below). Remake with `python characters/talia/make-placeholders.py` |
 | `templates/` | Her shorter sitting and lying sheets (see below). They take the place of the same files in `characters/lucy/templates` |
 | `sprites/` | *(later)* her animations, same file names as `assets/sprites`, and the same sizes apart from her shorter sheets. `characters/lucy/ART.md` and `characters/lucy/templates` apply to her too |
 | `voice/` | *(later)* her spoken greetings |
@@ -43,6 +44,16 @@ You chose 16 frames at 8 a second for sitting and lying (4 Nov), which is what C
 | `laydown_blink`, `laydown_blink_glitch` | 4 at 8 a second | 1488×250 | Frames 0–3 replace `laydown` frames 9–12 |
 
 Her Krita files are already these shapes, at twice the size. A sheet of hers uses the new numbers from the moment it goes in, and any sheet you haven't drawn stays Capri's 60 frames, so sitting and lying can look uneven until a set is finished. The "perch fps" slider does nothing to a 16-frame sheet.
+
+## Stand-in art for testing
+
+`placeholders/` has a stand-in for every sheet, drawn by `make-placeholders.py` to the same guides as her Krita files, at double size, with 16-frame sitting and lying. They're plain shapes on purpose, with nobody's colours, so nobody mistakes them for her.
+
+They're there so her build can be tested with none of Capri's art left, before yours is finished: how much memory her double-size art really takes, her 16-frame timing, and any self-test check that only works with Capri's drawings.
+
+- **Only a test build uses them.** The **Talia self-test** on GitHub runs twice, once as she ships and once with `CHARACTER_PLACEHOLDERS=1`. A release refuses to build with it, and a normal build never looks in this folder.
+- **A sheet you draw always wins.** Once `sprites/idle.png` exists, the test uses yours for idle and stand-ins for the rest.
+- **You don't have to do anything with them.** When all your sheets are in, the folder can be deleted.
 
 ## Her art's size
 
