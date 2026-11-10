@@ -16,3 +16,7 @@
 # doesn't use (the slider does nothing to it, above). So it runs only while her perch has 60 frames, and says it skipped.
 "// Perch fps: the frame at each fps and time, her 2 s loop, 30 as before, in-betweens, her frame timer, and what each fps costs." => "if (perch.Count == 60) { // Perch fps: the frame at each fps and time, her 2 s loop, 30 as before, in-betweens, her frame timer, and what each fps costs."
 "ticks with nothing new skip drawing, and it saves and loads; " + string.Join("; ", costs.ToArray()));" => "ticks with nothing new skip drawing, and it saves and loads; " + string.Join("; ", costs.ToArray())); } else checks.Add("SKIP perch fps: her perch has " + perch.Count + " frames, and the fps slider and its in-betweens only work on 60");"
+# The facing-left check draws frame 20 of her perch too.
+"new Rectangle(20 * perchWide, 0, perchWide, perchHigh)" => "new Rectangle(20 % perch.Count * perchWide, 0, perchWide, perchHigh)"
+"Draw(graphics, perch, 20, -1, normal)" => "Draw(graphics, perch, 20 % perch.Count, -1, normal)"
+"Draw(graphics, perch, 20);" => "Draw(graphics, perch, 20 % perch.Count);"

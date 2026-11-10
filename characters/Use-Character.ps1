@@ -105,7 +105,7 @@ if (Test-Path -LiteralPath $ownIcon) {
 # app and the installer are built from. The installer's line in ci/build-windows.ps1 reads app\ and assets\chip.png from
 # $root, so $root becomes the copy's folder once the rest of the build has what it needs from the real one.
 $rules = New-Object System.Collections.Generic.List[object]
-foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $root 'characters\own-files.txt'), (Join-Path $root 'characters\fewer-frames.txt'), (Join-Path $root 'characters\double-size.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'lines.txt'), (Join-Path $characterRoot 'checks.txt'))) {
+foreach ($list in @((Join-Path $root 'characters\app.txt'), (Join-Path $root 'characters\own-files.txt'), (Join-Path $root 'characters\fewer-frames.txt'), (Join-Path $root 'characters\double-size.txt'), (Join-Path $root 'characters\mirrored.txt'), (Join-Path $characterRoot 'names.txt'), (Join-Path $characterRoot 'lines.txt'), (Join-Path $characterRoot 'checks.txt'))) {
     if (-not (Test-Path -LiteralPath $list)) { continue }
     foreach ($line in Get-Content -LiteralPath $list -Encoding UTF8) {
         $rule = [regex]::Match($line, '^"(.+)"\s*=>\s*"(.*)"\s*$')

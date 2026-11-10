@@ -1,0 +1,8 @@
+# What lets a character have no facing-left sitting art of her own, so the app mirrors hers (see "Facing left" in
+# characters/lucy/ART.md). Same format as names.txt, for every character. Nothing here changes while Capri's flipped art is in.
+
+# The self-test wants every sitting sheet to have a separately drawn facing-left copy, with Capri's red arm and leg on the
+# other side. Without one it still checks that facing left draws her mirror image, just not that she was recoloured.
+"if (seated.FlippedNow == null || seated.FlippedNow.Size != seated.Strip.Size)" => "if (perch.HasFlipped && (seated.FlippedNow == null || seated.FlippedNow.Size != seated.Strip.Size))"
+"if (sameOutline < outline * 98 / 100 || recoloured < outline * 3 / 100)" => "if (sameOutline < outline * 98 / 100 || (perch.HasFlipped && recoloured < outline * 3 / 100))"
+"checks.Add("PASS perch facing left: all 8" => "checks.Add(!perch.HasFlipped ? "PASS perch facing left: no flipped art of her own, so she's drawn as her mirror image (" + sameOutline * 100 / outline + "% matching)" : "PASS perch facing left: all 8"
