@@ -12,3 +12,7 @@
 "else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell; }" => "else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell * laydownTalk.Count / clip.Count; following = following * laydownTalk.Count / clip.Count; }"
 # The self-test compares frame 20 of her sitting and sitting-talking sheets, which a 16-frame sheet doesn't have.
 "new Rectangle(20 * talkWide, 0, talkWide, talkHigh)" => "new Rectangle(20 % perch.Count * talkWide, 0, talkWide, talkHigh)"
+# The self-test's perch fps section checks the slider and the in-betweens it mixes from 60 frames, which a 16-frame sheet
+# doesn't use (the slider does nothing to it, above). So it runs only while her perch has 60 frames, and says it skipped.
+"// Perch fps: the frame at each fps and time, her 2 s loop, 30 as before, in-betweens, her frame timer, and what each fps costs." => "if (perch.Count == 60) { // Perch fps: the frame at each fps and time, her 2 s loop, 30 as before, in-betweens, her frame timer, and what each fps costs."
+"ticks with nothing new skip drawing, and it saves and loads; " + string.Join("; ", costs.ToArray()));" => "ticks with nothing new skip drawing, and it saves and loads; " + string.Join("; ", costs.ToArray())); } else checks.Add("SKIP perch fps: her perch has " + perch.Count + " frames, and the fps slider and its in-betweens only work on 60");"
