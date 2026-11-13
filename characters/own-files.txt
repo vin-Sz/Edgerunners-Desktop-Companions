@@ -8,3 +8,7 @@
 "Brain.MemoriesPath = Path.Combine(data, "memories.md");" => "Brain.MemoriesPath = Path.Combine(ownFolder, "memories.md");"
 "Brain.TranscriptPath = Path.Combine(data, "transcripts");" => "Brain.TranscriptPath = Path.Combine(ownFolder, "transcripts");"
 "brain.Load(Path.Combine(data, "chat.json"));" => "brain.Load(Path.Combine(ownFolder, "chat.json"));"
+
+# Capri's fold-first self-test (0.8) sets the transcripts and memories paths again, inside a throwaway folder of its own.
+# The two lines above match there too, so the test gets an ownFolder that is just its throwaway folder.
+"string data = Path.Combine(output, "fold-first-" + Guid.NewGuid().ToString("N"));" => "string data = Path.Combine(output, "fold-first-" + Guid.NewGuid().ToString("N")); string ownFolder = data;"
