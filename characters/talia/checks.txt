@@ -13,6 +13,8 @@
 ""Project Capricorn", StringComparison" => ""Talia Yang", StringComparison"
 ""You are Capri" }" => ""You are Talia" }"
 "\"You are Capri"" => "\"You are Talia""
+# Capri 0.9's file editor check opens personality.md and looks for the same words.
+"panel.Draft.Contains("You are Capri")" => "panel.Draft.Contains("You are Talia")"
 # The labels she knows about are compared with the copy of the code she was built from, since Lachy's files still say Capri.
 "File.ReadAllText(Path.Combine(selfRoot, "app", selfEntry.File))" => "File.ReadAllText(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "character-talia", "app", selfEntry.File))"
 # Not every Halloween line of hers says "Happy Halloween".
