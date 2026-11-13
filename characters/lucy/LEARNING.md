@@ -411,3 +411,22 @@ You asked: Spotify support is inside `Player.cs`, so why does YouTube Music get 
 **Idea: a fix has to prove it's safe.** Taking Lachy's version of `ci/build-windows.ps1` and re-adding our lines would quietly lose anything else we'd changed there. So the script first applies our lines to the older version both sides started from, and checks that the result is exactly our file. If it isn't, we changed something else, and the file is left for a person.
 
 **How it was tested:** by replaying real past merges in a throwaway copy, without running the app. For the 58-commit merge, the result was identical to the one done by hand. Two older merges with real decisions in them (`app/Capri.cs`, `app/Player.cs`) were correctly left for a person. Sync upstream's new version can only be tried once it's on `main`.
+
+---
+
+## 13 Nov: Capri 0.9.0 merged by hand, on a branch
+
+**What changed:** Lachy's 637 new commits (up to 0.9.0) are merged on the branch `merge/capri-upstream`. Sync upstream had failed every day since 7 Nov because four files conflicted in ways the script has no safe fix for.
+
+**The four conflicts, and what was kept:**
+
+- `app/Hands.cs`: we added YouTube Music where he added Apple Music, on the same lines. Both are kept.
+- `app/Talk.cs`: his new lines, with our `Character.Speaker` in place of `"CAPRI: "`.
+- `.gitignore`: both sides' entries.
+- `.github/workflows/ci.yml`: our short temp folder and 1080p screen, with his longer self-test (2100 s), his new upload of the built files and his new `windows-setup` job.
+
+**One clash git didn't see:** his new code removes every space from a music app's name, so "apple music" becomes `applemusic`. That would have turned our "youtube music" into `youtubemusic`, which nothing recognises, so "play numb on YouTube Music" would have gone to plain YouTube. Our name now keeps its space. Git reported no conflict there because the two changes were on different lines. Compiling didn't catch it either; `YouTubeMusic`'s own check in the self-test would have.
+
+**Rules in `characters/*.txt` that 0.9.0 outdated:** seven no longer matched his code and one matched in a new place it shouldn't. Each is updated to his new wording with the same intent. Two are gone: he made the colour-check loop measure the sheet itself, and his installer message no longer says Capri. Both builds compile with no "isn't in the code any more" warnings.
+
+**What nobody has seen yet:** the self-test hasn't run on this merge, because that needs the branch pushed. And 0.9.0 gives Capri a new standing loop (60 frames in 116 px cells, with its own blink and mouth sheets). A standing sheet only counts as the old 16-frame kind when it is exactly 3840 × 384. Talia's planned 7680 × 768 standing sheet would be read as the new kind, so her standing art needs a decision before it goes in.
