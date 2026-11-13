@@ -140,7 +140,7 @@ namespace CapriDesktop
                     "Maximized notepad on screen 3.",
                     "Restored notepad from maximized to its normal size.",
                     "notepad isn't minimized or maximized, so it's already at its normal size.",
-                    "Couldn't maximize task manager: it's running as admin, and Windows only lets me move admin windows when I run as admin too.",
+                    Arrange.Admin("maximize", "task manager"),
                     "Couldn't snap frozen: it isn't responding right now.",
                     "Moved spotify to the top right corner of screen 3.",
                     "Moved spotify to 1160, 139 on screen 3.",
@@ -270,7 +270,7 @@ namespace CapriDesktop
                 string adminPin = Hands.Do("app_window", new ToolArguments { Name = "task manager", Action = "pin_on_top" }), frozenPin = Hands.Do("app_window", new ToolArguments { Name = "frozen", Action = "pin_on_top" });
                 if (pinned != "Kept discord on top of your other windows. Say unpin discord to let it go." || !kept || pinnedAgain != "discord is already kept on top of your other windows."
                     || unpinned != "discord isn't kept on top any more." || pretend[new IntPtr(31)].Pinned || unpinnedAgain != "discord isn't kept on top, so it's already in among your other windows."
-                    || adminPin != "Couldn't pin task manager: it's running as admin, and Windows only lets me move admin windows when I run as admin too." || frozenPin != "Couldn't pin frozen: it isn't responding right now."
+                    || adminPin != Arrange.Admin("pin", "task manager") || frozenPin != "Couldn't pin frozen: it isn't responding right now."
                     || !Hands.Failed(adminPin) || Hands.Failed(pinned) || Security.Asking("app_window", new ToolArguments { Name = "Discord", Action = "pin_on_top" }) != "keep Discord on top of your other windows")
                     throw new Exception("Her window tool didn't keep a window on top or let it go: " + pinned + " / " + pinnedAgain + " / " + unpinned + " / " + unpinnedAgain + " / " + adminPin + " / " + frozenPin);
                 string[,] pinAsks = { { "keep discord on top", "pin_on_top" }, { "pin chrome", "pin_on_top" }, { "keep spotify on top of everything", "pin_on_top" }, { "unpin discord", "unpin" }, { "stop keeping discord on top", "unpin" } };
@@ -608,7 +608,7 @@ namespace CapriDesktop
                     { "mute", "Spotify", null, "Spotify is already muted in the volume mixer." }, { "down", "spotify", null, "Turned Spotify down to 60% in the volume mixer, but it's muted." },
                     { "unmute", "spotify", null, "Unmuted Spotify: it's at 60% in the volume mixer." }, { "unmute", "spotify", null, "Spotify isn't muted: it's at 60% in the volume mixer." },
                     { "set", "spotify", "0", "Set Spotify to 0% in the volume mixer." }, { "down", "spotify", null, "Spotify is already at 0% in the volume mixer." },
-                    { "set", "discord", "100", "Set Discord to 100% in the volume mixer." }, { "up", "discord", null, "Discord is already at 100% in the volume mixer. Its own volume slider inside the app, or the PC's volume with media, can still go up." },
+                    { "set", "discord", "100", "Set Discord to 100% in the volume mixer." }, { "up", "discord", null, "Discord is already at 100% in the volume mixer. Its own volume slider inside the app, or the PC's volume, can still go up." },
                     { "set", "stuck", "80", "Couldn't set Stuck's volume: it's still at 30%." }, { "set", "spotify", "150", "Couldn't set Spotify's volume: it goes from 0 to 100." },
                     { "now", "steam", null, "steam hasn't made any sound since it opened, so it has no volume of its own in the mixer yet." },
                     { "set", "steam", "50", "Couldn't change steam's volume: it hasn't made any sound since it opened, so it has no volume of its own in the mixer yet." },
@@ -1022,7 +1022,7 @@ namespace CapriDesktop
                 // OpenAI refuses every tool when one's description runs past 1024 characters, so none of hers may.
                 for (int i = 0; i < Hands.Count; i++)
                     if (Hands.Description(i).Length > 1024) throw new Exception("OpenAI would refuse " + Hands.Name(i) + "'s description: " + Hands.Description(i).Length + " characters.");
-                foreach (string name in new[] { "voice", "quiet", "mic", "check_ins", "wander", "dance_to_music", "head_pats", "chaos_when_upset", "sit_on_windows", "always_on_top", "mini_player", "typing_sound", "follow_ups", "hide_in_full_screen", "glitch_in", "clip_my_games", "save_big_moments", "live_reactions", "gaming_mode", "hologram", "watch_my_screen", "game_comments" })
+                foreach (string name in new[] { "voice", "quiet", "mic", "check_ins", "wander", "dance_to_music", "head_pats", "chaos_when_upset", "legacy_stand", "sit_on_windows", "always_on_top", "mini_player", "typing_sound", "follow_ups", "hide_in_full_screen", "glitch_in", "clip_my_games", "save_big_moments", "live_reactions", "gaming_mode", "hologram", "watch_my_screen", "game_comments" })
                     if (!Hands.Valid("capri_settings", new ToolArguments { Action = "on", Name = name })) throw new Exception("Her settings tool's switch " + name + " wasn't taken.");
                 foreach (string name in new[] { "size", "wander", "pop_ins", "sleep", "volume", "voice_speed", "replies", "bubble" })
                     if (!Hands.Valid("capri_settings", new ToolArguments { Action = "set", Name = name, Level = "up" })) throw new Exception("Her settings tool's slider " + name + " wasn't taken.");
@@ -1045,7 +1045,8 @@ namespace CapriDesktop
                 string[,] claims =
                 {
                     { "There, I made myself bigger!", "capri_settings" }, { "Okay, I stopped wandering.", "capri_settings" }, { "Turned off head pats, choom.", "capri_settings" }, { "Set my volume to 50%.", "capri_settings" },
-                    { "I switched Always on top off.", "capri_settings" }, { "Want me to make myself bigger?", "" }, { "You can make me bigger in Settings.", "" }, { "Head pats are on by default.", "" }, { "Should I stop wandering?", "" }
+                    { "I switched Always on top off.", "capri_settings" }, { "Turned on the legacy stand, choom.", "capri_settings" }, { "I switched legacy stand off.", "capri_settings" },
+                    { "Want me to make myself bigger?", "" }, { "You can make me bigger in Settings.", "" }, { "Head pats are on by default.", "" }, { "Legacy stand is off by default.", "" }, { "Should I stop wandering?", "" }
                 };
                 for (int i = 0; i < claims.GetLength(0); i++)
                     if ((Hands.Claimed(claims[i, 0], none) ?? "") != claims[i, 1]) throw new Exception("\"" + claims[i, 0] + "\" read as a claim for " + (Hands.Claimed(claims[i, 0], none) ?? "nothing") + " instead of " + (claims[i, 1].Length == 0 ? "nothing" : claims[i, 1]));
@@ -1059,7 +1060,8 @@ namespace CapriDesktop
                 {
                     calls("capri_settings", "{\"action\":\"set\",\"name\":\"size\",\"level\":\"bigger\"}"), says("There, a bit bigger, choom."),
                     calls("capri_settings", "{\"action\":\"off\",\"name\":\"wander\"}"), says("Okay, I'll stay put."),
-                    says("Done, I made myself bigger."), says("Done, I made myself bigger.")
+                    says("Done, I made myself bigger."), says("Done, I made myself bigger."),
+                    calls("capri_settings", "{\"action\":\"on\",\"name\":\"legacy_stand\"}"), says("Back on my old stand.")
                 }, asked, out fake);
                 Brain.MemoryPath = Brain.MemoriesPath = Brain.TranscriptPath = Brain.LogPath = null;
                 Brain.Keeping = false;
@@ -1076,6 +1078,14 @@ namespace CapriDesktop
                     || !sent[0].Contains("like set size bigger for make yourself bigger") || !sent[0].Contains("\"voice_speed\"") || !sent[1].Contains("Set my size to Medium+.") || !sent[3].Contains("Turned Wander off.")
                     || !sent[5].Contains("You said you did something that needs capri_settings"))
                     throw new Exception("Her planner didn't change her settings with the tool: " + grown + " / " + still + " / " + faked + " / " + string.Join(",", did.ToArray()) + " / " + sent.Length + " calls");
+                // In plain words, the way Chaos when upset gets there: nothing routes it by its wording, so her brain has to see the
+                // switch and what it's for in the tool she's handed, and turning it on goes through the tool like the rest.
+                switches["legacy_stand"] = false;
+                did.Clear();
+                string older = planner.Ask("can you go back to your old stand?");
+                lock (asked) sent = asked.ToArray();
+                if (older != "Back on my old stand." || string.Join(",", did.ToArray()) != "capri_settings:legacy_stand:on" || switches["legacy_stand"] != true || !sent[6].Contains("\"legacy_stand\"") || !sent[6].Contains("your old stand, for mods your new one broke") || !sent[7].Contains("Turned Legacy stand on."))
+                    throw new Exception("A plain request didn't reach Legacy stand as a tool: " + older + " / " + string.Join(",", did.ToArray()));
                 checks.Add("PASS her settings tool moves her sliders: size, wander, pop-ins, sleep, her voice's volume and speed, replies and bubble, by a step's name, a number, or a step up or down, says when one is already as far as it goes, when a step doesn't exist and when a slider didn't move, and flips her everyday switches like head pats, dancing, sitting on windows and always on top; only sliders take set and nothing she mustn't touch is in reach; her steps match her Mainframe's; saying she changed one with no tool is a claim; a planner makes herself bigger and stops wandering with the tool");
             }
             finally
@@ -1098,7 +1108,7 @@ namespace CapriDesktop
         // and each slider moved and read back from the setting itself, with nothing of her own said over her brain's reply.
         private void SmokeOwnSliders(List<string> checks)
         {
-            bool danceWas = preferences.NoDance, patsWas = preferences.NoHeadPats, chaosWas = preferences.UpsetChaos, sitWas = preferences.NoSitting, topWas = preferences.OnTop, playerWas = preferences.NoPlayer;
+            bool danceWas = preferences.NoDance, patsWas = preferences.NoHeadPats, chaosWas = preferences.UpsetChaos, legacyWas = preferences.LegacyStand, sitWas = preferences.NoSitting, topWas = preferences.OnTop, playerWas = preferences.NoPlayer;
             bool followWas = preferences.FollowUps, fullWas = preferences.HideFullScreen, introWas = preferences.NoIntro;
             int typingWas = preferences.Typing, sizeWas = preferences.Size, wanderWas = WanderLevel, popWas = preferences.PopPace, sleepWas = preferences.SleepAfter, volumeWas = Voice.Loudness, speedWas = VoiceFx.Speed, wordsWas = Brain.Wordiness, bubbleWas = preferences.BubbleTime;
             Action<short[]> typeOutWas = Sfx.TypeOut;
@@ -1110,7 +1120,7 @@ namespace CapriDesktop
                 List<string> wrong = new List<string>();
                 string[,] switches =
                 {
-                    { "dance_to_music", "Dance to music" }, { "head_pats", "Head pats" }, { "chaos_when_upset", "Chaos when upset" }, { "sit_on_windows", "Sit on windows" }, { "always_on_top", "Always on top" },
+                    { "dance_to_music", "Dance to music" }, { "head_pats", "Head pats" }, { "chaos_when_upset", "Chaos when upset" }, { "legacy_stand", "Legacy stand" }, { "sit_on_windows", "Sit on windows" }, { "always_on_top", "Always on top" },
                     { "mini_player", "Mini player" }, { "typing_sound", "Typing sound" }, { "follow_ups", "Follow-up messages" }, { "hide_in_full_screen", "Hide in full screen" }, { "glitch_in", "Glitch in at startup" }
                 };
                 Func<string, bool> real = delegate(string name)
@@ -1120,6 +1130,7 @@ namespace CapriDesktop
                         case "dance_to_music": return !preferences.NoDance;
                         case "head_pats": return !preferences.NoHeadPats;
                         case "chaos_when_upset": return preferences.UpsetChaos;
+                        case "legacy_stand": return preferences.LegacyStand;
                         case "sit_on_windows": return !preferences.NoSitting;
                         case "always_on_top": return preferences.OnTop;
                         case "mini_player": return !preferences.NoPlayer;
@@ -1159,7 +1170,7 @@ namespace CapriDesktop
                     || volume != "Set my voice's volume to 50%." || Voice.Loudness != 50 || preferences.Volume != 50 || speed != "Set my voice's speed to 1.3x." || VoiceFx.Speed != 130
                     || replies != "Set Replies to Long." || Brain.Wordiness != 2 || bubble != "Set Bubble to Quick." || preferences.BubbleTime != 0 || asking != askingWas)
                     throw new Exception("Her settings tool didn't move her real sliders: " + listed + " / " + bigger + " / " + giant + " / " + wander + " / " + still + " / " + pops + " / " + sleep + " / " + volume + " / " + speed + " / " + replies + " / " + bubble + " / asking moved " + (asking - askingWas));
-                checks.Add("PASS her settings tool flips Dance to music, Head pats, Chaos when upset, Sit on windows, Always on top, Mini player, Typing sound, Follow-up messages, Hide in full screen and Glitch in at startup the way their own switches do, moves her size, wander, pop-ins, sleep, voice volume and speed, replies and bubble the way her Mainframe's sliders do, reads each one back from the setting itself, and never talks over her brain's reply");
+                checks.Add("PASS her settings tool flips Dance to music, Head pats, Chaos when upset, Legacy stand, Sit on windows, Always on top, Mini player, Typing sound, Follow-up messages, Hide in full screen and Glitch in at startup the way their own switches do, moves her size, wander, pop-ins, sleep, voice volume and speed, replies and bubble the way her Mainframe's sliders do, reads each one back from the setting itself, and never talks over her brain's reply");
             }
             finally
             {
@@ -1167,6 +1178,7 @@ namespace CapriDesktop
                 if (preferences.NoDance != danceWas) ToggleDance();
                 if (preferences.NoHeadPats != patsWas) ToggleHeadPats();
                 if (preferences.UpsetChaos != chaosWas) ToggleUpsetChaos();
+                if (preferences.LegacyStand != legacyWas) ToggleLegacyStand();
                 if (preferences.NoSitting != sitWas) ToggleSitting();
                 if (preferences.OnTop != topWas) ToggleOnTop();
                 if (preferences.NoPlayer != playerWas) TogglePlayer();
@@ -1185,6 +1197,245 @@ namespace CapriDesktop
                 SavePreferences();
                 mainframe.Sync();
             }
+        }
+
+        // "Play Bloons TD 6" is one job that opens the game and keeps playing, by voice or text and with any brain, and a song is still a
+        // song (Lachy, 3 and 7 Nov: "she just did not do it"). Every voice chat reply with no tool behind it gets her own brain's second
+        // look, and a brain's pick is never swapped (Lachy, 8 Nov).
+        private void SmokePlayJobs(List<string> checks)
+        {
+            Func<List<InstalledApp>> catalogWas = Hands.Catalog;
+            Func<string, string, string> workWas = Hands.Work;
+            Action<string> runWas = Hands.Run;
+            Func<string, string, List<KeyValuePair<string, ToolArguments>>> keepWas = keepTest;
+            int keepWaitWas = KeepWait;
+            string modelWas = brain.Model;
+            bool chattingWas = chatting, localWas = local;
+            Agent agentWas = agent, pretend = null;
+            List<string> jobs = new List<string>(), problems = new List<string>(), launches = new List<string>();
+            int looks = 0;
+            Func<List<KeyValuePair<string, ToolArguments>>, string> picked = delegate(List<KeyValuePair<string, ToolArguments>> list)
+            {
+                List<string> names = new List<string>();
+                foreach (KeyValuePair<string, ToolArguments> call in list) names.Add(call.Key + (call.Value != null && call.Value.Task != null ? " " + call.Value.Task : ""));
+                return "[" + string.Join(", ", names.ToArray()) + "]";
+            };
+            Func<string, ToolArguments, KeyValuePair<string, ToolArguments>> pick = delegate(string tool, ToolArguments args) { return new KeyValuePair<string, ToolArguments>(tool, args); };
+            try
+            {
+                Hands.Catalog = delegate { return new List<InstalledApp> { new InstalledApp("Bloons TD 6", "btd"), new InstalledApp("Spotify", "spotify"), new InstalledApp("Discord", "discord") }; };
+                Hands.Forget();
+                Hands.Work = delegate(string job, string asked) { lock (jobs) jobs.Add(job); return "Did it."; };
+                Hands.Run = delegate(string id) { lock (launches) launches.Add(id); };
+                Security.Pick(Security.Trusted);
+                brain.Model = "smoke-test-model";
+                string tool;
+                ToolArguments args;
+
+                // Told to play, in the ways people say it, is the job. Wanting to play, or opening, isn't, and apps for listening only open.
+                if (!Hands.Heard("Hey Capri, play Bloons TD 6", out tool, out args, true) || tool != "use_computer") problems.Add("\"Hey Capri, play Bloons TD 6\" went to " + tool);
+                foreach (string told in new[] { "play bloons td 6", "Three, play \"Balloons Tower Defense 6.\"", "go play bloons", "can you play bloons for me", "you should play bloons", "i want you to play bloons", "let's play bloons", "open discord and play bloons" })
+                    if (!Hands.ToldToPlay(told, "Bloons TD 6")) problems.Add("not told to play: " + told);
+                foreach (string notTold in new[] { "open bloons td 6", "i want to play bloons", "i wanna play bloons", "so i can play bloons", "i'll play bloons later" })
+                    if (Hands.ToldToPlay(notTold, "Bloons TD 6")) problems.Add("told to play: " + notTold);
+                if (Hands.ToldToPlay("play spotify", "Spotify")) problems.Add("Spotify counted as a game to play");
+                if (!Hands.Direct("play spotify", out tool, out args) || tool != "open_app") problems.Add("\"play spotify\" went to " + tool);
+                if (!Hands.Direct("open bloons td 6", out tool, out args) || tool != "open_app") problems.Add("\"open bloons td 6\" went to " + tool);
+
+                // Songs: a bare title is left to a brain when there is one, a brain's song stands, and with no brain a title is music.
+                Hands.Kit kit = Hands.KitFor(false);
+                if (Hands.Heard("play blinding lights", out tool, out args, true) && tool == "play_music") problems.Add("a bare title skipped the brain");
+                List<KeyValuePair<string, ToolArguments>> calls = new List<KeyValuePair<string, ToolArguments>> { pick("play_music", new ToolArguments { Song = "blinding lights" }) };
+                Hands.Rescue("play blinding lights", calls, kit);
+                if (calls.Count != 1 || calls[0].Key != "play_music") problems.Add("a brain's song was overruled: " + picked(calls));
+                calls = new List<KeyValuePair<string, ToolArguments>>();
+                Hands.Rescue("play stay with me", calls, kit);
+                if (calls.Count != 1 || calls[0].Key != "play_music") problems.Add("with no pick, a title stopped being music: " + picked(calls));
+                if (!Hands.Wants("play blinding lights")) problems.Add("\"play blinding lights\" isn't asking for anything");
+                ToolArguments music;
+                if (Hands.MusicJob("play Balloons Tower Defense 6", out music)) problems.Add("a game job became a song");
+                if (!Hands.MusicJob("play some music", out music)) problems.Add("a music job stopped being a song");
+
+                // A brain's pick is never swapped: an open for a game they said to play stays its open, an open stays an open, and a
+                // play job stays a play job.
+                calls = new List<KeyValuePair<string, ToolArguments>> { pick("open_app", new ToolArguments { Name = "Bloons TD 6" }) };
+                Hands.Rescue("Capri, play Bloons TD 6.", calls, kit);
+                if (calls.Count != 1 || calls[0].Key != "open_app") problems.Add("a brain's open for a game was swapped: " + picked(calls));
+                calls = new List<KeyValuePair<string, ToolArguments>> { pick("open_app", new ToolArguments { Name = "Bloons TD 6" }) };
+                Hands.Rescue("open bloons td 6", calls, kit);
+                if (calls.Count != 1 || calls[0].Key != "open_app") problems.Add("an open became " + picked(calls));
+                calls = new List<KeyValuePair<string, ToolArguments>> { pick("use_computer", new ToolArguments { Task = "play bloons td 6" }) };
+                Hands.Rescue("play bloons td 6", calls, kit);
+                if (calls.Count != 1 || calls[0].Key != "use_computer") problems.Add("a brain's play job became " + picked(calls));
+
+                // What every brain reads.
+                string openText = null;
+                for (int i = 0; i < Hands.Count; i++) if (Hands.Name(i) == "open_app") openText = Hands.Description(i);
+                if (openText == null || openText.IndexOf("or play", StringComparison.OrdinalIgnoreCase) >= 0 || openText.IndexOf("call use_computer once instead", StringComparison.Ordinal) < 0) problems.Add("open_app still offers to play a game");
+                if (Agent.Prompt.IndexOf("only a tool can", StringComparison.Ordinal) < 0) problems.Add("voice chat's prompt lost its only-a-tool line");
+                List<string> unfound = Hands.Unfound();
+                if (unfound.Count > 0) problems.Add("lines a weaker brain drops weren't found: " + string.Join(" | ", unfound.ToArray()));
+                if (Computer.Playing.IndexOf("you keep playing until they stop you", StringComparison.Ordinal) < 0 || Computer.Playing.IndexOf("turns out to be a song or a video", StringComparison.Ordinal) < 0) problems.Add("game jobs lost their keep-playing rule");
+                if (Computer.Finishing.IndexOf("they play until they're told to stop", StringComparison.Ordinal) < 0 || Computer.Finishing.IndexOf("a song or video and it's playing", StringComparison.Ordinal) < 0) problems.Add("the done check would end a plain play job");
+
+                // Voice chat: every reply with no tool behind it gets her brain's second look after a short wait, and its pick runs as it is.
+                chatting = true;
+                local = false;
+                pretend = new Agent();
+                agent = pretend;
+                KeepWait = 150;
+                List<KeyValuePair<string, ToolArguments>> keepPick = new List<KeyValuePair<string, ToolArguments>>();
+                bool keepThrows = false;
+                keepTest = delegate(string words, string said)
+                {
+                    Interlocked.Increment(ref looks);
+                    if (keepThrows) throw new InvalidOperationException("The smoke brain is down.");
+                    return new List<KeyValuePair<string, ToolArguments>>(keepPick);
+                };
+                Func<string, string, Action, string> voice = delegate(string heardLine, string saidLine, Action between)
+                {
+                    lock (jobs) jobs.Clear();
+                    Interlocked.Exchange(ref looks, 0);
+                    ChatHeard(heardLine);
+                    ChatReplied(saidLine);
+                    if (between != null) between();
+                    System.Diagnostics.Stopwatch wait = System.Diagnostics.Stopwatch.StartNew();
+                    while (wait.ElapsedMilliseconds < 1500) { lock (jobs) if (jobs.Count > 0) break; Thread.Sleep(20); }
+                    Thread.Sleep(250);
+                    lock (jobs) return Thread.VolatileRead(ref looks) + " looks, jobs [" + string.Join(" | ", jobs.ToArray()) + "]";
+                };
+                keepPick.Add(pick("use_computer", new ToolArguments { Task = "play Bloons TD 6 and pick a map" }));
+                string picks = voice("Hey Capri, play Bloons TD 6 and pick a map.", "On it, opening Bloons TD 6 now.", null);
+                if (picks != "1 looks, jobs [play Bloons TD 6 and pick a map]") problems.Add("her brain's play job didn't run as it picked it: " + picks);
+                keepPick.Clear();
+                keepPick.Add(pick("open_app", new ToolArguments { Name = "Bloons TD 6" }));
+                lock (launches) launches.Clear();
+                string opens = voice("Hey Capri, play Bloons TD 6 and pick a map for me.", "Opening Bloons TD 6.", null);
+                string opened;
+                lock (launches) opened = string.Join(" | ", launches.ToArray());
+                if (opens != "1 looks, jobs []" || opened != "btd") problems.Add("her brain's open_app pick was swapped: " + opens + ", opened [" + opened + "]");
+                keepPick.Clear();
+                keepPick.Add(pick("use_computer", new ToolArguments { Task = "play Bloons TD 6 and pick a map you like" }));
+                // A plain "play" and the game starts the job as she hears it, before any reply.
+                string heardJob = voice("Capri, play Bloons TD 6.", "Starting it up.", null);
+                if (heardJob != "0 looks, jobs [play Bloons TD 6.]") problems.Add("\"Capri, play Bloons TD 6.\" didn't start the job as she heard it: " + heardJob);
+                keepThrows = true;
+                string forced = voice("Capri, play Bloons TD 6 and pick a hard map.", "I'll open Bloons TD 6 and play it.", null);
+                if (!forced.StartsWith("1 looks, jobs [", StringComparison.Ordinal) || forced.IndexOf("play Bloons TD 6 and pick a hard map", StringComparison.Ordinal) < 0 || forced.IndexOf(" | ", StringComparison.Ordinal) >= 0) problems.Add("a promise with her brain down didn't run the one job: " + forced);
+                keepThrows = false;
+                string agentCalled = voice("Capri, play Bloons TD 6 and pick an easy map.", "Sure, starting Bloons TD 6.", delegate { lock (shortcutGate) toolAsked = true; });
+                if (agentCalled != "0 looks, jobs []") problems.Add("the agent's own call still got a second look: " + agentCalled);
+                string talkedOver = voice("Capri, play Bloons TD 6 and pick any map.", "Yeah, let me get Bloons TD 6 going.", delegate { ChatHeard("hmm hold on a sec"); });
+                if (talkedOver != "0 looks, jobs []") problems.Add("a reply they talked over still got a second look: " + talkedOver);
+                string askedBack = voice("Capri, play Bloons TD 6 and pick a map you like.", "Want me to play Bloons TD 6?", null);
+                if (askedBack != "1 looks, jobs [play Bloons TD 6 and pick a map you like]") problems.Add("her asking back didn't get a second look that runs its pick: " + askedBack);
+                keepPick.Clear();
+                string chat = voice("how was your day, Capri?", "Pretty chill, just vibing on your desktop.", null);
+                if (chat != "1 looks, jobs []") problems.Add("plain chat didn't get a second look, or its look ran something: " + chat);
+                string nothing = voice("can you play bloons td 6, Capri?", "Bloons is such a vibe.", null);
+                if (nothing != "1 looks, jobs []") problems.Add("a look that picked nothing still ran something, or never looked: " + nothing);
+
+                // The agent's own open_app runs as it picked it, even for a game they said to play.
+                lock (jobs) jobs.Clear();
+                lock (launches) launches.Clear();
+                string acted = AgentAct(null, "open_app", new ToolArguments { Name = "Bloons TD 6", Asked = "Capri, play Bloons TD 6." });
+                string actedJobs, actedOpens;
+                lock (jobs) actedJobs = string.Join(" | ", jobs.ToArray());
+                lock (launches) actedOpens = string.Join(" | ", launches.ToArray());
+                if (acted == null || !acted.StartsWith("Opened Bloons TD 6", StringComparison.Ordinal) || actedJobs.Length > 0 || actedOpens != "btd") problems.Add("the agent's open_app was swapped: " + acted + " [" + actedJobs + "] opened [" + actedOpens + "]");
+            }
+            finally
+            {
+                keepTest = keepWas;
+                KeepWait = keepWaitWas;
+                agent = agentWas;
+                chatting = chattingWas;
+                local = localWas;
+                lock (shortcutGate) { toolAsked = false; heardLast = null; }
+                if (pretend != null) pretend.Dispose();
+                Hands.Catalog = catalogWas;
+                Hands.Forget();
+                Hands.Work = workWas;
+                Hands.Run = runWas;
+                brain.Model = modelWas;
+                Security.Drop();
+            }
+            if (problems.Count > 0) throw new Exception("Play jobs went wrong: " + string.Join("; ", problems.ToArray()));
+            checks.Add("PASS play jobs: \"play Bloons TD 6\" is one job that opens the game and keeps playing, by voice or text, and it starts as she hears it in voice chat; open, wanting to play and apps for listening still only open; a bare title is left to a brain, and a brain's or the agent's pick is never swapped; every voice reply with no tool behind it gets her brain's second look, plain chat and a question back too, except a reply they talked over and the agent's own call, and a promise still runs when her brain can't look");
+        }
+
+        // Her own brain on their PC holds every tool once it says a message is a job, and answers chat without carrying them (Lachy,
+        // 8 Nov: brains use the tools they have freely). A plain ask goes straight to its tools, set phrases don't run before it, and
+        // a model that turns tools down goes back to her hands' shortcuts.
+        private static void SmokeLocalWorkingOut(List<string> checks)
+        {
+            string ollamaWas = Brain.Ollama, notesWas = Brain.MemoryPath, memoriesWas = Brain.MemoriesPath, transcriptsWas = Brain.TranscriptPath, logWas = Brain.LogPath;
+            bool keepingWas = Brain.Keeping;
+            Func<string> openWas = Computer.GameOpen;
+            Func<List<InstalledApp>> catalogWas = Hands.Catalog;
+            Func<string, string> says = delegate(string text) { return "{\"message\":{\"role\":\"assistant\",\"content\":" + Voice.Quote(text) + "},\"done\":true}"; };
+            Func<string, string, string> calls = delegate(string name, string json) { return "{\"message\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"function\":{\"name\":\"" + name + "\",\"arguments\":" + json + "}}]},\"done\":true}"; };
+            List<string> asked = new List<string>(), did = new List<string>(), problems = new List<string>();
+            TcpListener fake = null;
+            Func<int, bool> tooled = delegate(int index) { lock (asked) return index < asked.Count && asked[index].IndexOf("\"tools\":", StringComparison.Ordinal) >= 0; };
+            try
+            {
+                try
+                {
+                    Brain.Ollama = FakeServer(new[]
+                    {
+                        says("Pretty chill, just vibing on your desktop."),
+                        says("act"), calls("play_music", "{\"song\":\"lofi beats\"}"), says("Put some lofi on, choom."),
+                        calls("open_app", "{\"name\":\"Discord\"}"), says("Discord's up."),
+                        "!400 {\"error\":\"registry.ollama.ai/library/old:latest does not support tools\"}", says("act"), says("open_app{\"name\":\"Discord\"}"), says("Discord's open, choom.")
+                    }, asked, out fake);
+                }
+                catch (SocketException) { checks.Add("LIMIT her local brain's tools: the test server couldn't open"); return; }
+                Brain.MemoryPath = Brain.MemoriesPath = Brain.TranscriptPath = Brain.LogPath = null;
+                Brain.Keeping = false;
+                Computer.GameOpen = delegate { return null; };
+                Hands.Catalog = delegate { return new List<InstalledApp> { new InstalledApp("Discord", "discord") }; };
+                Hands.Forget();
+                Func<string, ToolArguments, string> act = delegate(string name, ToolArguments args) { lock (did) did.Add(name + ":" + (args.Song ?? args.Name)); return name == "play_music" ? "Playing lofi beats." : "Opened " + args.Name + "."; };
+                Brain local = new Brain { Model = "local-test", OwnSteps = true, Act = act };
+                if (!local.WorksOut() || !local.OnThisPc || !local.HoldsTools()) problems.Add("her brain on their PC didn't work jobs out itself");
+
+                // Chat: one call, without the tool list.
+                local.Ask("how's your day going?");
+                int chatCalls;
+                lock (asked) chatCalls = asked.Count;
+                if (chatCalls != 1 || tooled(0) || did.Count > 0) problems.Add("chat took " + chatCalls + " calls, carried the tools or ran one");
+
+                // Her brain says it's a job: it gets every tool and picks, and its own line is her reply.
+                const string bored = "my vibe is so off today";
+                if (Hands.Wants(bored)) problems.Add("the test's hint counted as a plain ask");
+                string played = new Brain { Model = "local-test", OwnSteps = true, Act = act }.Ask(bored);
+                lock (asked) if (asked.Count != 4 || tooled(1) || !tooled(2) || !tooled(3)) problems.Add("a job her brain named didn't go to its tools: " + asked.Count + " calls");
+                if (did.Count != 1 || did[0] != "play_music:lofi beats" || played != "Put some lofi on, choom.") problems.Add("her brain's own pick didn't run as it picked it: [" + string.Join(", ", did.ToArray()) + "] " + played);
+
+                // A plain ask goes straight to her tools, and the open shortcut waits for her brain.
+                string opened = new Brain { Model = "local-test", OwnSteps = true, Act = act }.Ask("open discord");
+                lock (asked) if (asked.Count != 6 || !tooled(4) || !tooled(5)) problems.Add("a plain ask didn't go straight to her tools: " + asked.Count + " calls");
+                if (did.Count != 2 || did[1] != "open_app:Discord" || opened != "Discord's up.") problems.Add("a plain ask ran wrong: [" + string.Join(", ", did.ToArray()) + "] " + opened);
+
+                // A model that turns tools down goes back to her hands' shortcuts, from that message on.
+                Brain old = new Brain { Model = "old", OwnSteps = true, Act = act };
+                string oldOpened = old.Ask("open discord");
+                lock (asked) if (asked.Count != 10 || !tooled(6) || tooled(7) || tooled(8) || tooled(9)) problems.Add("a model without tools didn't fall back to written calls: " + asked.Count + " calls");
+                if (did.Count != 3 || did[2] != "open_app:Discord" || old.WorksOut() || old.HoldsTools() || !local.WorksOut()) problems.Add("the fallback didn't run or wasn't remembered for that model alone: [" + string.Join(", ", did.ToArray()) + "] " + oldOpened);
+            }
+            finally
+            {
+                if (fake != null) fake.Stop();
+                Brain.Ollama = ollamaWas;
+                Brain.MemoryPath = notesWas; Brain.MemoriesPath = memoriesWas; Brain.TranscriptPath = transcriptsWas; Brain.LogPath = logWas;
+                Brain.Keeping = keepingWas;
+                Computer.GameOpen = openWas;
+                Hands.Catalog = catalogWas;
+                Hands.Forget();
+            }
+            if (problems.Count > 0) throw new Exception("Her local brain's tools went wrong: " + string.Join("; ", problems.ToArray()));
+            checks.Add("PASS her brain on their PC holds her tools (Lachy, 8 Nov): chat is one call without the tool list, a job it names or a plain ask goes to every tool and its own pick runs, the open shortcut waits for it, and a model that turns tools down falls back to written calls for that model alone");
         }
     }
 }

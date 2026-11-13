@@ -11,18 +11,33 @@ namespace CapriDesktop
     {
         internal Mods ModList { get; private set; }
         internal static volatile string SkinFolder;
+        internal static volatile string[] SkinAccessories = Array.Empty<string>();
+        internal static volatile bool LegacyArt;
 
         private void StartMods()
         {
+            LegacyArt = Saved.LegacyStand;
             ModList = new Mods(Program.Smoke ?? folder);
+            Chores.Skills = ModList.SkillsFor;
+            Hands.SkillNote = delegate { return ModList.SkillNote; };
+            Hands.ReadSkill = ModList.SkillText;
             ModList.SkinChanged = Reskinned;
             Reskinned();
+            StartCodeMods();
         }
 
         private void Reskinned()
         {
             foreach (Clip shown in Clips) shown.Reload();
-            if (body != null) body.InvalidateVisual();
+            blinkWith = null;
+            herPointer?.ReloadArt();
+            if (body == null) return;
+            // Swaps can invalidate both a60-cell frame and a blink/mouth overlay before the next paint tick.
+            body.Shown = clip;
+            if (body.Shown != null) body.Cell %= body.Shown.Count;
+            body.Mouth = idle.Old ? mouth : idleMouth;
+            body.Talking = clip == idle ? Talk.MouthCell(Now) : -1;
+            body.InvalidateVisual();
         }
 
         internal static bool HasArt(string name)
@@ -39,24 +54,139 @@ namespace CapriDesktop
         internal static Avalonia.Media.Imaging.Bitmap ReadArt(string name)
         {
             string skin = SkinFolder;
+            // A skin's idle_legacy.png for Legacy stand comes first, then its own strip of that name.
+            string stand = Mods.StandArt(name, LegacyArt);
             if (skin != null && name.StartsWith("Capri.Sprite.", StringComparison.Ordinal))
+                foreach (string wanted in stand != name ? new[] { stand, name } : new[] { name })
+                {
+                    string file = Path.Combine(skin, wanted.Substring("Capri.Sprite.".Length));
+                    try
+                    {
+                        if (File.Exists(file)) using (MemoryStream stream = new MemoryStream(File.ReadAllBytes(file))) return Finished(Dressed(stream, name));
+                    }
+                    catch (Exception error)
+                    {
+                        if (!(error is IOException || error is UnauthorizedAccessException || error is ArgumentException || error is InvalidOperationException || error is NotSupportedException)) throw;
+                        Brain.Log("mods", -1, "Skin picture " + wanted + ": " + error.Message);
+                    }
+                }
+            using (Stream stream = typeof(Pet).Assembly.GetManifestResourceStream(Mods.StandArt(name, LegacyArt)))
             {
-                string file = Path.Combine(skin, name.Substring("Capri.Sprite.".Length));
+                if (stream == null) throw new FileNotFoundException("Capri's animation is missing: " + name);
+                return Finished(Dressed(stream, name));
+            }
+        }
+
+        // Each layer above her outfit that has this strip is drawn over it in order, before her colours go on: an accessory as it
+        // is, and a whole skin only where it changes her own art, so its ears or hat go on over the outfit like on Windows.
+        private static Stream Dressed(Stream art, string name)
+        {
+            string[] layers = SkinAccessories;
+            if (layers.Length == 0 || !name.StartsWith("Capri.Sprite.", StringComparison.Ordinal)) return art;
+            List<byte[]> found = new List<byte[]>();
+            foreach (string folder in layers)
+            {
+                bool whole = folder.StartsWith("~", StringComparison.Ordinal);
+                string file = Path.Combine(folder.TrimStart('=', '~'), name.Substring("Capri.Sprite.".Length));
                 try
                 {
-                    if (File.Exists(file)) using (MemoryStream stream = new MemoryStream(File.ReadAllBytes(file))) return Finished(stream);
+                    if (!File.Exists(file)) continue;
+                    byte[] bytes = whole ? Changes(file, name) : File.ReadAllBytes(file);
+                    if (bytes != null) found.Add(bytes);
                 }
                 catch (Exception error)
                 {
-                    if (!(error is IOException || error is UnauthorizedAccessException || error is ArgumentException || error is InvalidOperationException || error is NotSupportedException)) throw;
-                    Brain.Log("mods", -1, "Skin picture " + name + ": " + error.Message);
+                    if (!(error is IOException || error is UnauthorizedAccessException || error is ArgumentException)) throw;
+                    Brain.Log("mods", -1, "Accessory picture " + name + ": " + error.Message);
                 }
             }
-            using (Stream stream = typeof(Pet).Assembly.GetManifestResourceStream(name))
+            if (found.Count == 0) return art;
+            using (SkiaSharp.SKBitmap bottom = SkiaSharp.SKBitmap.Decode(art))
             {
-                if (stream == null) throw new FileNotFoundException("Capri's animation is missing: " + name);
-                return Finished(stream);
+                if (bottom == null) throw new ArgumentException("That picture couldn't be read.");
+                using (SkiaSharp.SKCanvas canvas = new SkiaSharp.SKCanvas(bottom))
+                    foreach (byte[] bytes in found)
+                        using (SkiaSharp.SKBitmap layer = SkiaSharp.SKBitmap.Decode(bytes))
+                        {
+                            if (layer == null || layer.Width != bottom.Width || layer.Height != bottom.Height) continue;
+                            canvas.DrawBitmap(layer, 0, 0);
+                        }
+                using (SkiaSharp.SKImage image = SkiaSharp.SKImage.FromBitmap(bottom))
+                using (SkiaSharp.SKData png = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100))
+                    return new MemoryStream(png.ToArray());
             }
+        }
+
+        // What a whole skin changes from her own art for one strip, as a PNG, worked out once per strip and kept.
+        private static readonly Dictionary<string, byte[]> changes = new Dictionary<string, byte[]>();
+
+        private static byte[] Changes(string file, string name)
+        {
+            string key = file + "|" + File.GetLastWriteTimeUtc(file).Ticks;
+            byte[] kept;
+            lock (changes) if (changes.TryGetValue(key, out kept)) return kept;
+            int width, height;
+            int[] top = Pixels(File.ReadAllBytes(file), out width, out height);
+            int[] under;
+            int ownWidth, ownHeight;
+            using (Stream stream = typeof(Pet).Assembly.GetManifestResourceStream(Mods.BaseArt(name, width, height)))
+            {
+                if (stream == null) return null;
+                using (MemoryStream bytes = new MemoryStream())
+                {
+                    stream.CopyTo(bytes);
+                    under = Pixels(bytes.ToArray(), out ownWidth, out ownHeight);
+                }
+            }
+            if (ownWidth != width || ownHeight != height) return null;
+            int[] result = SkinLayers.Changed(top, under, width, height);
+            SkiaSharp.SKImageInfo info = new SkiaSharp.SKImageInfo(width, height, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Unpremul);
+            using (SkiaSharp.SKBitmap made = new SkiaSharp.SKBitmap(info))
+            {
+                System.Runtime.InteropServices.Marshal.Copy(result, 0, made.GetPixels(), result.Length);
+                using (SkiaSharp.SKImage image = SkiaSharp.SKImage.FromBitmap(made))
+                using (SkiaSharp.SKData png = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100))
+                    kept = png.ToArray();
+            }
+            lock (changes) changes[key] = kept;
+            return kept;
+        }
+
+        // A picture's pixels as ARGB ints, not premultiplied, like Windows' 32bpp ARGB bitmaps.
+        private static int[] Pixels(byte[] picture, out int width, out int height)
+        {
+            using (SkiaSharp.SKCodec codec = SkiaSharp.SKCodec.Create(new MemoryStream(picture)))
+            {
+                if (codec == null) throw new ArgumentException("That picture couldn't be read.");
+                width = codec.Info.Width;
+                height = codec.Info.Height;
+                SkiaSharp.SKImageInfo info = new SkiaSharp.SKImageInfo(width, height, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Unpremul);
+                using (SkiaSharp.SKBitmap art = new SkiaSharp.SKBitmap(info))
+                {
+                    if (codec.GetPixels(info, art.GetPixels()) != SkiaSharp.SKCodecResult.Success) throw new ArgumentException("That picture couldn't be read.");
+                    int[] pixels = new int[width * height];
+                    System.Runtime.InteropServices.Marshal.Copy(art.GetPixels(), pixels, 0, pixels.Length);
+                    return pixels;
+                }
+            }
+        }
+
+        internal static Avalonia.Media.Imaging.Bitmap ReadLeftArt(string primary, PixelSize expected)
+        {
+            const string lead = "Capri.Sprite.";
+            string left = primary.Replace(".png", "_flipped.png"), skin = SkinFolder;
+            // A skin's own strip must never turn into bundled art when she faces the other way.
+            Avalonia.Media.Imaging.Bitmap made;
+            if (skin != null && File.Exists(Path.Combine(skin, primary.Substring(lead.Length))))
+            {
+                string file = Path.Combine(skin, left.Substring(lead.Length));
+                if (!File.Exists(file)) return null;
+                using (MemoryStream bytes = new MemoryStream(File.ReadAllBytes(file))) made = Finished(bytes);
+            }
+            else made = ReadArt(left);
+            if (made.PixelSize == expected) return made;
+            made.Dispose();
+            return null;
         }
 
         private static Avalonia.Media.Imaging.Bitmap Finished(Stream stream)
@@ -99,9 +229,9 @@ namespace CapriDesktop
         internal string MainframeVoiceProblem { get { return voiceProblem; } }
         internal bool MainframePulling { get { return pulling; } }
         internal string MainframeProgress { get { return pulling ? Pulling : null; } }
-        internal bool MainframeInputSetup { get { return OperatingSystem.IsLinux() && !fingers; } }
-        internal int MainframeVoiceMode { get { return Saved.Silent || Speakers.Known(Saved.VoiceProvider) == Speakers.Off ? 0 : Speakers.Known(Saved.VoiceProvider) == Speakers.Local ? 2 : 3; } }
-        internal string MainframeUpdate { get { return updateChecking ? "Checking for updates..." : UpdateNews ?? (updatePage == null ? "" : "An update is available."); } }
+        internal bool MainframeInputSetup { get { return OperatingSystem.IsLinux() && !ComputerJobs.Supported && !fingers; } }
+        internal int MainframeVoiceMode { get { return Saved.Silent || Speakers.Known(Saved.VoiceProvider) == Speakers.Off ? 0 : Speakers.Known(Saved.VoiceProvider) == Speakers.Local ? 2 : Speakers.Known(Saved.VoiceProvider) == Speakers.Owned ? 1 : 3; } }
+        internal string MainframeUpdate { get { return updateChecking ? "Checking for updates..." : updateNote ?? UpdateNews ?? (updatePage == null ? "" : "An update is available."); } }
         internal string MainframeLocalAddress { get { return localVoice.Url ?? ""; } }
         internal string MainframeLocalModel { get { return localVoice.Model ?? ""; } }
         internal string MainframeLocalVoice { get { return localVoice.Speaker ?? ""; } }
@@ -132,6 +262,17 @@ namespace CapriDesktop
         internal void SetAdvancedSettings(bool on) { Saved.AdvancedSettings = on; Save(); }
         internal void SetMemorySize(int size) { Brain.MemorySize = Array.IndexOf(Brain.MemorySizes, size) >= 0 ? size : 0; Saved.MemorySize = Brain.MemorySize; Save(); }
         internal void SetReplyLength(int index) { Brain.ReplyLength = Math.Clamp(index, 0, Brain.ReplySizes.Length - 1); Saved.ReplyLength = Brain.ReplyLength; Save(); }
+        internal void SetThinking(int level) { if (Brain.SetThinking(level)) { Saved.ThinkingPicks = Brain.Picks; Save(); } }
+        // What's wrong with it, or null once it's saved for the brain she's on.
+        internal string SetThinkingExtra(string typed)
+        {
+            string problem = Brain.SetThinkingExtra(typed);
+            if (problem != null) return problem;
+            Saved.ThinkingPicks = Brain.Picks;
+            Save();
+            NotifySettings();
+            return null;
+        }
         internal void NotifySettings()
         {
             if (Dispatcher.UIThread.CheckAccess()) SettingsChanged?.Invoke();
@@ -152,6 +293,11 @@ namespace CapriDesktop
         private string MainframeTool(string page)
         {
             if (!Dispatcher.UIThread.CheckAccess()) return Dispatcher.UIThread.Invoke(() => MainframeTool(page));
+            if (page == "personality" || page == "files" || page == "notes")
+            {
+                OpenFiles(page == "notes" ? 1 : 0);
+                return "Opened Capri file editor.";
+            }
             OpenMainframe();
             mainframe.OpenPage(page);
             return "Opened Capri Mainframe.";
@@ -174,11 +320,16 @@ namespace CapriDesktop
             if (Brain.Remote != null) { cloudRequests++; cloudListing = false; cloudModels = null; }
             RefreshBrains();
         }
-        internal void MainframeUpdateCheck() { CheckUpdate(); }
-        internal void MainframeSetupInput() { CopyFingersSetup(); }
+        internal void MainframeUpdateCheck() { CheckUpdate(true); }
+        internal void MainframeSetupInput() { if (HyprlandDesktop.Current != null) { Talk.Answer("(input)", ComputerJobs.Available ? "Native compositor input is ready." : "The native compositor input helper is unavailable. Check the Linux package and compositor protocol support; no global input setup was applied."); return; } CopyFingersSetup(); }
         internal void MainframePickModel(string model)
         {
             if (string.IsNullOrWhiteSpace(model)) return;
+            if (Brain.Provider != null)
+            {
+                if (model == Saved.PlanModel || Array.IndexOf(frameModels, model) < 0) return;
+                Saved.PlanModel = model; SelectPlan(); Save(); NotifySettings(); return;
+            }
             if (MainframeTier > 0 && Brain.Remote == null) return;
             if (Brain.Remote != null) PickCloud(model.Trim());
             else if (Brain.Server != null) PickServerModel(model.Trim());
@@ -187,7 +338,7 @@ namespace CapriDesktop
         internal void MainframeVoiceModePick(int mode)
         {
             if (mode == 0) SetSpeak(false);
-            else { SetVoiceProvider(mode == 2 ? Speakers.Local : Speakers.ElevenLabs); SetSpeak(true); }
+            else { SetVoiceProvider(mode == 1 ? Speakers.Owned : mode == 2 ? Speakers.Local : Speakers.ElevenLabs); SetSpeak(true); }
         }
         internal void MainframeForgetVoice() { ForgetVoice(); Save(); }
         internal void MainframeLoadVoices() { if (voices == null && Program.Smoke == null) ListVoices(); }
@@ -237,7 +388,12 @@ namespace CapriDesktop
         internal void SetBrainTier(int tier)
         {
             tier = Math.Clamp(tier, 0, 2);
-            if (MainframeTier == tier) return;
+            CancelAccountConnection();
+            if (MainframeTier == tier && Brain.Provider == null) return;
+            StopNativeListening();
+            Brain.Provider?.Cancel();
+            Brain.Provider = null;
+            Saved.NativePlan = false;
             brainRequests++;
             cloudRequests++;
             frameProblem = null;

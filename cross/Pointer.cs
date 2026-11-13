@@ -224,15 +224,21 @@ namespace CapriDesktop
     // Her own pointer for mouse jobs, like Windows' HerPointer: her artist's cursor with electricity around it glides to
     // each target while their mouse stays where they left it. Clicks go straight through it, and she hides it for her
     // own screenshots so her brain never mistakes it for theirs.
-    internal sealed class HerCursor : Window
+    internal sealed class HerCursor : PassiveWindow
     {
-        private const double Size = 36, Reach = 90, Ripple = 0.45;
+        private const double Size = 36, Reach = 90;
+        private const int UsualTick = 33, ClickTick = 15;
         private static Bitmap art;
         private readonly Face face;
         private readonly DispatcherTimer ticks = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         private readonly System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
         private PixelPoint tip;
-        private double tapped = -1;
+        private readonly ClickPlayback click = new ClickPlayback();
+        internal readonly Clip ClickArt = new Clip("click", ClickPlayback.Frames, ClickPlayback.Fps, 1);
+        internal int ClickFrame { get { return click.Frame(watch.Elapsed.TotalSeconds); } }
+        internal int ClickPictures { get; private set; }
+        internal double TickMilliseconds { get { return ticks.Interval.TotalMilliseconds; } }
+        internal void ReloadArt() { ClickArt.Reload(); face.InvalidateVisual(); }
         private bool passThrough;
         internal readonly CursorBolts Bolts = new CursorBolts();
 
@@ -243,8 +249,19 @@ namespace CapriDesktop
             face = new Face(this);
             Content = face;
             IsHitTestVisible = false;
+            PropertyChanged += (_, change) =>
+            {
+                // Capture and cancellation can hide this window through a Window reference.
+                // Revoke the click at visibility loss so showing it cannot replay an old tap.
+                if (change.Property == IsVisibleProperty && !IsVisible)
+                {
+                    click.Clear();
+                    ticks.Interval = TimeSpan.FromMilliseconds(UsualTick);
+                }
+            };
             ticks.Tick += delegate { Program.Guard(Step); };
             Opened += delegate { PassThrough(); };
+            Closed += delegate { ticks.Stop(); click.Clear(); ClickArt.Reload(); };
         }
 
         internal static Bitmap Art
@@ -263,7 +280,7 @@ namespace CapriDesktop
         {
             tip = at;
             double scale = RenderScaling > 0 ? RenderScaling : 1;
-            Position = new PixelPoint(at.X - (int)Math.Round(Reach * scale), at.Y - (int)Math.Round(Reach * scale));
+            Look.Position(this, new PixelPoint(at.X - (int)Math.Round(Reach * scale), at.Y - (int)Math.Round(Reach * scale)));
             if (!IsVisible)
             {
                 Show();
@@ -276,7 +293,10 @@ namespace CapriDesktop
         internal void Tap()
         {
             if (!IsVisible) return;
-            tapped = watch.Elapsed.TotalSeconds;
+            click.Begin(watch.Elapsed.TotalSeconds);
+            ClickPictures = 0;
+            ticks.Interval = TimeSpan.FromMilliseconds(ClickTick);
+            if (!ticks.IsEnabled) ticks.Start();
             Bolts.Tap();
             face.InvalidateVisual();
         }
@@ -284,17 +304,18 @@ namespace CapriDesktop
         internal void Park()
         {
             ticks.Stop();
-            tapped = -1;
+            click.Clear();
+            ticks.Interval = TimeSpan.FromMilliseconds(UsualTick);
             Bolts.Clear();
-            if (IsVisible) Hide();
+            Hide();
         }
 
         internal bool Shown { get { return IsVisible; } }
 
         private void Step()
         {
-            if (tapped >= 0 && watch.Elapsed.TotalSeconds - tapped > Ripple) tapped = -1;
             double now = watch.Elapsed.TotalSeconds;
+            if (click.Frame(now) < 0) { click.Clear(); ticks.Interval = TimeSpan.FromMilliseconds(UsualTick); }
             Bolts.Step(now, new Point(tip.X, tip.Y), 1);
             face.InvalidateVisual();
         }
@@ -309,13 +330,14 @@ namespace CapriDesktop
             {
                 Point middle = new Point(Reach, Reach);
                 double now = her.watch.Elapsed.TotalSeconds;
-                if (her.tapped >= 0)
+                int cell = her.click.Frame(now);
+                if (cell >= 0)
                 {
-                    double eased = Math.Min(1, (now - her.tapped) / Ripple);
-                    eased = 1 - (1 - eased) * (1 - eased);
-                    double radius = 6 + 22 * eased;
-                    byte alpha = (byte)(220 * (1 - eased));
-                    graphics.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(alpha, Look.Pink.R, Look.Pink.G, Look.Pink.B)), 2.6 - 1.2 * eased), middle, radius, radius);
+                    her.ClickPictures++;
+                    double wide = ClickPlayback.Width;
+                    // Exact released art, centered on the pointer tip: half-size at100%, one-to-one at200%.
+                    graphics.DrawImage(her.ClickArt.Strip, new Rect(cell * ClickPlayback.Cell, 0, ClickPlayback.Cell, ClickPlayback.Cell),
+                        new Rect(middle.X - wide / 2, middle.Y - wide / 2, wide, wide));
                 }
                 her.Bolts.Draw(graphics, middle, new Point(her.tip.X, her.tip.Y), now, 1);
                 Bitmap picture = Art;
@@ -343,24 +365,139 @@ namespace CapriDesktop
         // On X11 and XWayland an empty input shape lets every click fall through to the window under her pointer.
         private void PassThrough()
         {
-            if (passThrough || !OperatingSystem.IsLinux()) return;
+            if (!passThrough) passThrough = ClicksThrough(this);
+        }
+
+        // Her sign uses it too. True once clicks go through the window.
+        internal static bool ClicksThrough(Window window, bool through = true)
+        {
+            if (!OperatingSystem.IsLinux()) return false;
             try
             {
-                IPlatformHandle handle = TryGetPlatformHandle();
-                if (handle == null) return;
+                IPlatformHandle handle = window.TryGetPlatformHandle();
+                if (handle == null) return false;
                 IntPtr display = XOpenDisplay(IntPtr.Zero);
-                if (display == IntPtr.Zero) return;
-                XShapeCombineRectangles(display, handle.Handle, 2, 0, 0, IntPtr.Zero, 0, 0, 0);
+                if (display == IntPtr.Zero) return false;
+                if (through) XShapeCombineRectangles(display, handle.Handle, 2, 0, 0, IntPtr.Zero, 0, 0, 0);
+                else XShapeCombineMask(display, handle.Handle, 2, 0, 0, IntPtr.Zero, 0);
                 XFlush(display);
                 XCloseDisplay(display);
-                passThrough = true;
+                return true;
             }
-            catch (Exception) { }
+            catch (Exception) { return false; }
         }
 
         [DllImport("libX11.so.6")] private static extern IntPtr XOpenDisplay(IntPtr name);
         [DllImport("libX11.so.6")] private static extern int XCloseDisplay(IntPtr display);
         [DllImport("libX11.so.6")] private static extern int XFlush(IntPtr display);
         [DllImport("libXext.so.6")] private static extern void XShapeCombineRectangles(IntPtr display, IntPtr window, int kind, int x, int y, IntPtr rectangles, int count, int op, int ordering);
+        [DllImport("libXext.so.6")] private static extern void XShapeCombineMask(IntPtr display, IntPtr window, int kind, int x, int y, IntPtr mask, int op);
+    }
+
+    // #106 on Linux, like Windows' ControlGlow: while a job has their mouse and keyboard, a thin pink and cyan glow round the
+    // screen she's working on, with her line on a badge just above the bottom of it. Clicks go straight through it and it never
+    // takes the focus. It shows even while she's hidden, and hides for her own screenshots, since Linux can't keep a window
+    // out of them.
+    internal sealed class ControlGlow : PassiveWindow
+    {
+        private readonly Edge edge = new Edge();
+        private PixelRect area, work, shownOn;
+        private double scale = 1;
+        private bool passThrough, unseen;
+
+        internal ControlGlow()
+        {
+            Look.Overlay(this, "Capri in control");
+            Content = edge;
+            IsHitTestVisible = false;
+            Opened += delegate { if (!passThrough) passThrough = HerCursor.ClicksThrough(this); Look.Position(this, area.Position); };
+        }
+
+        // Round this screen, in desktop pixels, with its work area for the badge.
+        internal void Cover(PixelRect screen, PixelRect working, double scaling)
+        {
+            area = screen;
+            work = working;
+            scale = scaling > 0 ? scaling : 1;
+            if (unseen || (IsVisible && shownOn == screen)) return;
+            Width = screen.Width / scale;
+            Height = screen.Height / scale;
+            edge.Work = new Rect((working.X - screen.X) / scale, (working.Y - screen.Y) / scale, working.Width / scale, working.Height / scale);
+            edge.InvalidateVisual();
+            Look.Position(this, screen.Position);
+            if (!IsVisible)
+            {
+                Show();
+                Look.OnTopAgain(this);
+            }
+            shownOn = screen;
+        }
+
+        internal void Off()
+        {
+            unseen = false;
+            shownOn = default(PixelRect);
+            Hide();
+        }
+
+        // Hides it for the moment she takes a screenshot. True when it hid.
+        internal bool Unseen(bool hide)
+        {
+            if (hide)
+            {
+                if (!IsVisible && shownOn == default(PixelRect)) return false;
+                unseen = true;
+                Hide();
+                return true;
+            }
+            if (!unseen) return false;
+            unseen = false;
+            shownOn = default(PixelRect);
+            Cover(area, work, scale);
+            return false;
+        }
+
+        // A soft pink to cyan glow in from the edges, a crisp pink line round the edge with a thin cyan one just inside it, and
+        // the line on a badge like Windows' takeover one, centred above the bottom of the work area.
+        private sealed class Edge : Control
+        {
+            internal Rect Work;
+
+            private static byte Mix(byte from, byte to, double t) { return (byte)Math.Round(from + (to - from) * t); }
+
+            public override void Render(DrawingContext graphics)
+            {
+                Rect all = new Rect(Bounds.Size);
+                const int Reach = 16;
+                for (int i = 0; i < Reach; i++)
+                {
+                    double t = (double)i / Reach;
+                    byte alpha = (byte)Math.Round(120 * (1 - t) * (1 - t));
+                    if (alpha == 0) continue;
+                    Color mixed = Color.FromArgb(alpha, Mix(Look.Pink.R, Look.Cyan.R, t), Mix(Look.Pink.G, Look.Cyan.G, t), Mix(Look.Pink.B, Look.Cyan.B, t));
+                    graphics.DrawRectangle(null, new Pen(new SolidColorBrush(mixed), 1), all.Deflate(i + 0.5));
+                }
+                graphics.DrawRectangle(null, new Pen(new SolidColorBrush(Color.FromArgb(235, Look.Pink.R, Look.Pink.G, Look.Pink.B)), 2), all.Deflate(1));
+                graphics.DrawRectangle(null, new Pen(new SolidColorBrush(Color.FromArgb(220, Look.Cyan.R, Look.Cyan.G, Look.Cyan.B)), 1.5), all.Deflate(4.25));
+                Rect room = Work.Width > 0 && Work.Height > 0 ? Work : all;
+                int cut = InControl.Line.IndexOf(". ", StringComparison.Ordinal) + 2;
+                FormattedText lead = Look.Text(InControl.Line.Substring(0, cut), Look.Bold, 11, Look.Pink), rest = Look.Text(InControl.Line.Substring(cut), Look.Bold, 11, Colors.White);
+                double pad = 7, tall = 26, slant = tall * 0.35, wide = slant + pad + lead.WidthIncludingTrailingWhitespace + rest.Width + pad + slant;
+                double left = room.X + (room.Width - wide) / 2, top = room.Bottom - tall - 14;
+                StreamGeometry slab = new StreamGeometry();
+                using (StreamGeometryContext pen = slab.Open())
+                {
+                    pen.BeginFigure(new Point(left + slant, top), true);
+                    pen.LineTo(new Point(left + wide, top));
+                    pen.LineTo(new Point(left + wide - slant, top + tall));
+                    pen.LineTo(new Point(left, top + tall));
+                    pen.EndFigure(true);
+                }
+                graphics.DrawGeometry(new SolidColorBrush(Color.FromArgb(240, 22, 15, 30)), new Pen(new SolidColorBrush(Look.Red), 1.6), slab);
+                double x = left + slant + pad, y = top + (tall - lead.Height) / 2;
+                graphics.DrawText(lead, new Point(x, y));
+                graphics.DrawText(rest, new Point(x + lead.WidthIncludingTrailingWhitespace, y));
+            }
+        }
     }
 }

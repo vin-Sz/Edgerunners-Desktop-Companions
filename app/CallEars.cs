@@ -1,23 +1,33 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace CapriDesktop
 {
     internal sealed class CallApp
     {
-        internal readonly string Choice, Name;
+        internal readonly string Choice;
+        // Another app's name can arrive after it's first seen: the one you saved, or its exe's description once she reads it.
+        internal volatile string Name;
         internal readonly string[] Names;
+        internal bool Named;
 
         internal CallApp(string choice, string name, params string[] names) { Choice = choice; Name = name; Names = names; }
         internal string Caption { get { return Name.ToUpperInvariant(); } }
         internal string Label { get { return Name == "Discord" ? Name : Caption; } }
-        internal string NotOpen { get { return Name + " isn't open."; } }
-        // Browsers and Steam play videos and games all day, so Auto never takes them for a call: you pick them yourself.
-        internal bool InAuto { get { return Name != "Browser" && Name != "Steam"; } }
+        // How a line names it, like "She hears you and your browser.": "Browser" alone reads oddly there.
+        internal string Said { get { return Name == "Browser" ? "your browser" : Name; } }
+        internal string NotOpen { get { return (Name == "Browser" ? "Your browser" : Name) + " isn't open."; } }
+        // Any other app in Windows' volume mixer, picked by its exe, like RobloxPlayerBeta.exe (Lachy, 5 Nov: "being able to
+        // select an app for audio to come from, like Roblox or something, would be good for call mode").
+        internal bool Other { get { return Choice.EndsWith(".exe", StringComparison.OrdinalIgnoreCase); } }
+        // Browsers, Steam and other apps play videos and games all day, so Auto never takes them for a call: you pick them yourself.
+        internal bool InAuto { get { return !Other && Name != "Browser" && Name != "Steam"; } }
         internal bool Has(string name)
         {
             if (name != null && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name.Substring(0, name.Length - 4);
@@ -41,24 +51,26 @@ namespace CapriDesktop
 
     internal static class CallApps
     {
+        // The call apps people here use (Lachy, 6 Nov: no one in the community calls on Telegram or Signal, and Skype is gone). Any
+        // other app making sound is still in the menu, from Windows' volume mixer.
         internal static readonly CallApp[] Apps = {
             new CallApp("Discord", "Discord", "Discord", "DiscordPTB", "DiscordCanary"),
             new CallApp("Zoom", "Zoom", "Zoom"),
             new CallApp("Microsoft Teams", "Teams", "ms-teams", "Teams"),
             new CallApp("WhatsApp", "WhatsApp", "WhatsApp"),
-            new CallApp("Telegram", "Telegram", "Telegram"),
-            new CallApp("Slack", "Slack", "slack"),
-            new CallApp("Signal", "Signal", "Signal"),
-            new CallApp("Skype", "Skype", "Skype", "SkypeApp"),
             new CallApp("TeamSpeak", "TeamSpeak", "ts3client_win64", "ts3client_win32", "TeamSpeak"),
-            new CallApp("Mumble", "Mumble", "mumble"),
             new CallApp("Steam voice chat", "Steam", "steam", "steamwebhelper"),
             new CallApp("Browser (Google Meet, web calls)", "Browser", "chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "MicrosoftEdge", "MicrosoftEdgeCP")
         };
         internal static readonly string[] Choices = MakeChoices();
         internal static Func<List<CallProcess>> Processes = Scan;
         internal static Func<List<AppSound>> Sounds = Mixer.Sounds;
+        internal static Func<int, string> Everyday = AppName;
+        // The other apps her last look at Windows' volume mixer found, for the Call app menu to show at once.
+        internal static volatile CallApp[] Last = new CallApp[0];
         private static readonly object gate = new object();
+        private static readonly object lookGate = new object();
+        private static readonly Dictionary<string, CallApp> others = new Dictionary<string, CallApp>(StringComparer.OrdinalIgnoreCase);
         private static int setting;
         private static volatile string choice = "Auto";
         private static volatile CallApp current = Apps[0];
@@ -80,16 +92,139 @@ namespace CapriDesktop
 
         internal static CallApp Get(string name)
         {
+            name = Clean(name);
             foreach (CallApp app in Apps)
-                if (string.Equals(name, app.Choice, StringComparison.OrdinalIgnoreCase) || string.Equals(name, app.Name, StringComparison.OrdinalIgnoreCase)) return app;
-            return null;
+                if (name == app.Choice) return app;
+            if (name == "Auto") return null;
+            lock (gate)
+            {
+                CallApp app;
+                if (!others.TryGetValue(name, out app)) others[name] = app = new CallApp(name, CleanName(name, null), name.Substring(0, name.Length - 4));
+                return app;
+            }
         }
 
-        internal static string Clean(string name) { CallApp app = Get(name); return app == null ? "Auto" : app.Choice; }
-
-        internal static void Choose(string name)
+        internal static CallApp[] All
         {
-            lock (gate) { setting++; choice = Clean(name); current = Get(choice) ?? Apps[0]; drift = 0; }
+            get
+            {
+                lock (gate)
+                {
+                    List<CallApp> apps = new List<CallApp>(Apps);
+                    apps.AddRange(others.Values);
+                    return apps.ToArray();
+                }
+            }
+        }
+
+        // The smoke test starts from no other apps and puts back the ones she had.
+        internal static void Restore(CallApp[] apps, CallApp[] looked)
+        {
+            lock (gate)
+            {
+                others.Clear();
+                foreach (CallApp app in apps) if (app.Other) others[app.Choice] = app;
+                Last = looked;
+            }
+        }
+
+        internal static string Clean(string name)
+        {
+            foreach (CallApp app in Apps)
+                if (string.Equals(name, app.Choice, StringComparison.OrdinalIgnoreCase) || string.Equals(name, app.Name, StringComparison.OrdinalIgnoreCase)) return app.Choice;
+            if (string.IsNullOrEmpty(name) || name.Length <= 4 || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return "Auto";
+            foreach (CallApp app in Apps) if (app.Has(name)) return app.Choice;
+            return name;
+        }
+
+        // An other app's name: its description, or its exe without .exe when it has none or it would pass for a call app, Auto,
+        // you or her, which have their own instructions and captions. A long one is cut to what fits the menu button and the pill.
+        internal static string CleanName(string choice, string name)
+        {
+            string exe = Clean(choice);
+            if (!exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return null;
+            string fallback = Regex.Replace(exe.Substring(0, exe.Length - 4), @"\s+", " ").Trim();
+            name = Regex.Replace(name ?? "", @"\s+", " ").Trim();
+            if (name.Length == 0) name = fallback;
+            foreach (CallApp app in Apps) if (string.Equals(name, app.Name, StringComparison.OrdinalIgnoreCase)) { name = fallback; break; }
+            foreach (string taken in new[] { "Auto", "You", "Capri" }) if (string.Equals(name, taken, StringComparison.OrdinalIgnoreCase)) { name = fallback; break; }
+            if (CallPanel.NameFits(name)) return name;
+            int keep = 0, high = name.Length;
+            while (keep < high)
+            {
+                int middle = (keep + high + 1) / 2;
+                if (CallPanel.NameFits(name.Substring(0, middle).TrimEnd() + "...")) keep = middle;
+                else high = middle - 1;
+            }
+            if (keep > 0 && char.IsHighSurrogate(name[keep - 1])) keep--;
+            return name.Substring(0, keep).TrimEnd() + "...";
+        }
+
+        // The processes whose start times she reads: the call apps', and the other app's while it's the one she hears.
+        internal static bool Known(string name)
+        {
+            CallApp selected = current;
+            if (selected.Other && selected.Has(name)) return true;
+            foreach (CallApp app in Apps) if (app.Has(name)) return true;
+            return false;
+        }
+
+        // The name Windows' volume mixer shows: the exe's description, like "Roblox" for RobloxPlayerBeta.exe.
+        private static string AppName(int pid)
+        {
+            string path = GameFinder.PathOf(pid);
+            return path.Length == 0 ? null : FileVersionInfo.GetVersionInfo(path).FileDescription;
+        }
+
+        // Every sound in Windows' volume mixer, playing or not, and the other apps among them, each exe once, never her own.
+        // Reading the mixer and exe files can stall, so it never runs on the UI thread: her call ears do it every second on a
+        // call, and the Call app menu on a worker when it opens.
+        internal static List<AppSound> Look()
+        {
+            lock (lookGate)
+            {
+                List<AppSound> sounds = Sounds();
+                List<CallApp> found = new List<CallApp>();
+                HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                int own;
+                using (Process process = Process.GetCurrentProcess()) own = process.Id;
+                if (sounds != null) foreach (AppSound sound in sounds)
+                {
+                    if (sound.Id <= 0 || sound.Id == own) continue;
+                    string exe = Clean(sound.App);
+                    if (!exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !seen.Add(exe)) continue;
+                    CallApp app = Get(exe);
+                    if (!app.Named)
+                    {
+                        string name = null;
+                        try { name = Everyday(sound.Id); }
+                        catch (Exception) { }
+                        name = CleanName(exe, name);
+                        lock (gate) { app.Name = name; app.Named = true; }
+                    }
+                    found.Add(app);
+                }
+                found.Sort(delegate(CallApp a, CallApp b) { return StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name); });
+                Last = found.ToArray();
+                return sounds;
+            }
+        }
+
+        // Picking Auto mid-call keeps the app she's hearing, so it still holds her while it makes sound instead of handing her to
+        // Discord. Off a call, Auto starts from Discord as before.
+        internal static void Choose(string name) { Choose(name, null); }
+
+        internal static void Choose(string name, string everyday)
+        {
+            lock (gate)
+            {
+                setting++;
+                choice = Clean(name);
+                CallApp app = Get(choice);
+                if (app != null && app.Other && everyday != null) app.Name = CleanName(choice, everyday);
+                current = app ?? (hearing != 0 ? current : Apps[0]);
+                drift = 0;
+            }
         }
 
         internal static int Find()
@@ -104,7 +239,7 @@ namespace CapriDesktop
             bool holding = selected == "Auto" && keep != 0 && current.InAuto && current != Apps[0];
             if (selected == "Auto" ? picked == null || holding : Get(selected) != Apps[0])
             {
-                List<AppSound> sounds = Sounds();
+                List<AppSound> sounds = Look();
                 // In Auto, the app she's hearing keeps her while it still makes sound, even when an app higher on the list does too.
                 CallApp now = current;
                 CallPick still = selected == "Auto" && keep != 0 && now.InAuto ? PickApp(now, processes, sounds, true) : null;
@@ -213,8 +348,7 @@ namespace CapriDesktop
                         do
                         {
                             DateTime started = DateTime.MinValue;
-                            bool known = false;
-                            foreach (CallApp app in Apps) known |= app.Has(entry.File);
+                            bool known = Known(entry.File);
                             CallProcess before;
                             if (known && starts.TryGetValue(entry.Id, out before) && before.Parent == entry.Parent && string.Equals(before.Name, entry.File, StringComparison.OrdinalIgnoreCase)) started = before.Started;
                             else if (known)
@@ -262,11 +396,13 @@ namespace CapriDesktop
         private readonly short[] ring = new short[Ears.Rate * 2];
         private readonly CallEcho echo = new CallEcho();
         private int start, count;
+        private long dropped;
         private double heard, level;
         private int heardCount, levelAt = Environment.TickCount - 100000;
         private volatile bool running;
         private volatile string problem = NotOpen;
         private int generation;
+        private ManualResetEvent stopped;
 
         // The process whose sound is Discord's, 0 when it isn't open. The smoke test stands in for it.
         internal static Func<int> Find = CallApps.Find;
@@ -279,28 +415,51 @@ namespace CapriDesktop
         // Discord's loudness over its last tenth of a second, or 0 when nothing has come in for that long.
         internal double Level { get { lock (gate) return Environment.TickCount - levelAt < 300 ? level : 0; } }
 
+        // How many samples of the call's sound Mix let go to stay beside the mic since this was last asked, for her log.
+        internal long TakeDropped() { return Interlocked.Exchange(ref dropped, 0); }
+
         internal void Start()
         {
-            if (running) return;
-            running = true;
-            problem = CallApps.Current.NotOpen;
-            int mine = Interlocked.Increment(ref generation);
-            new Thread(delegate() { Listen(mine); }) { IsBackground = true, Name = "Capri call ears" }.Start();
+            lock (gate)
+            {
+                if (running) return;
+                ManualResetEvent stop = new ManualResetEvent(false);
+                stopped = stop;
+                running = true;
+                problem = CallApps.Current.NotOpen;
+                int mine = Interlocked.Increment(ref generation);
+                try { new Thread(delegate() { Listen(mine, stop); }) { IsBackground = true, Name = "Capri call ears" }.Start(); }
+                catch { running = false; stopped = null; stop.Dispose(); throw; }
+            }
         }
 
         // Her thread sees this within 10 ms, or once Windows answers a capture it's opening, and closes the capture itself.
         internal void Stop()
         {
-            running = false;
-            Interlocked.Increment(ref generation);
-            lock (gate) { start = count = 0; heard = 0; heardCount = 0; level = 0; echo.Clear(); }
+            lock (gate)
+            {
+                running = false;
+                Interlocked.Increment(ref generation);
+                if (stopped != null) stopped.Set();
+                start = count = 0; heard = 0; heardCount = 0; level = 0; echo.Clear();
+            }
         }
 
         public void Dispose() { Stop(); }
 
         private bool Live(int mine) { return running && Volatile.Read(ref generation) == mine; }
 
-        private void Listen(int mine)
+        private void Listen(int mine, ManualResetEvent stop)
+        {
+            try { ListenLoop(mine, stop); }
+            finally
+            {
+                lock (gate) if (stopped == stop) stopped = null;
+                stop.Dispose();
+            }
+        }
+
+        private void ListenLoop(int mine, ManualResetEvent stop)
         {
             object owner = new object();
             string told = null;
@@ -310,19 +469,19 @@ namespace CapriDesktop
                 try { pid = Find(); }
                 catch (Exception) { }
                 if (!Live(mine)) break;
-                if (pid == 0) { Say(mine, CallApps.Current.NotOpen); Rest(mine, 500); continue; }
+                if (pid == 0) { Say(mine, CallApps.Current.NotOpen); Rest(mine, 500, stop); continue; }
                 CallApp app = CallApps.Current;
                 Tap tap = null;
                 try
                 {
                     string failed;
-                    tap = Tap.Open(pid, app.Name, out failed);
+                    tap = Tap.Open(pid, app.Said, out failed);
                     if (tap == null)
                     {
                         Say(mine, failed);
                         if (failed != told) Brain.Log("call ears", -1, failed);
                         told = failed;
-                        Rest(mine, 15000);
+                        Rest(mine, 15000, stop);
                         continue;
                     }
                     told = null;
@@ -332,7 +491,7 @@ namespace CapriDesktop
                     int lookedAt = Environment.TickCount;
                     while (Live(mine))
                     {
-                        Thread.Sleep(10);
+                        if (!tap.Wait(stop) || !Live(mine)) break;
                         if (!tap.Read(this, mine)) { Brain.Log("call ears", -1, app.Name + "'s sound stopped coming. Opening it again."); break; }
                         if (Environment.TickCount - lookedAt < 1000) continue;
                         lookedAt = Environment.TickCount;
@@ -347,9 +506,9 @@ namespace CapriDesktop
                 }
                 catch (Exception error)
                 {
-                    Say(mine, "Couldn't hear " + app.Name + ": " + Voice.Short(error.Message));
+                    Say(mine, "Couldn't hear " + app.Said + ": " + Voice.Short(error.Message));
                     Brain.Log("call ears", -1, error.Message);
-                    Rest(mine, 5000);
+                    Rest(mine, 5000, stop);
                 }
                 finally { if (tap != null) { tap.Dispose(); CallApps.Left(pid, owner); } }
             }
@@ -357,9 +516,9 @@ namespace CapriDesktop
 
         private void Say(int mine, string why) { if (Live(mine)) problem = why; }
 
-        private void Rest(int mine, int milliseconds)
+        private void Rest(int mine, int milliseconds, ManualResetEvent stop)
         {
-            for (int waited = 0; waited < milliseconds && Live(mine); waited += 50) Thread.Sleep(50);
+            if (Live(mine)) stop.WaitOne(milliseconds);
         }
 
         private static bool Gone(int pid)
@@ -400,7 +559,7 @@ namespace CapriDesktop
             lock (gate)
             {
                 int extra = count - 2 * chunk.Length;
-                if (extra > 0) { start = (start + extra) % ring.Length; count -= extra; }
+                if (extra > 0) { start = (start + extra) % ring.Length; count -= extra; Interlocked.Add(ref dropped, extra); }
                 for (int i = 0; i < chunk.Length; i++)
                 {
                     int theirSample = 0;
@@ -436,12 +595,15 @@ namespace CapriDesktop
             private ISoundClient client;
             private ISoundCapture capture;
             private short[] samples = new short[0];
+            internal AutoResetEvent ready;
+            private WaitHandle[] waiting;
 
             internal static Tap Open(int pid, string app, out string failed)
             {
                 failed = null;
                 IntPtr parameters = Marshal.AllocHGlobal(12), blob = Marshal.AllocHGlobal(8 + 2 * IntPtr.Size), format = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WaveFormat)));
                 ISoundClient client = null;
+                AutoResetEvent ready = new AutoResetEvent(false);
                 IActivation operation = null;
                 CallActivated done = new CallActivated();
                 try
@@ -476,8 +638,9 @@ namespace CapriDesktop
                     if (result != 0) { failed = Refused(result, app); return null; }
                     result = client.Start();
                     if (result != 0) { Wasapi.Release(service); failed = Refused(result, app); return null; }
-                    Tap tap = new Tap { client = client, capture = (ISoundCapture)service };
+                    Tap tap = new Tap { client = client, capture = (ISoundCapture)service, ready = ready };
                     client = null;
+                    ready = null;
                     return tap;
                 }
                 finally
@@ -488,12 +651,34 @@ namespace CapriDesktop
                     Wasapi.Release(client);
                     Wasapi.Release(operation);
                     done.Dispose();
+                    if (ready != null) ready.Dispose();
                 }
             }
 
-            private static string Refused(int result, string app)
+            internal bool Wait(ManualResetEvent stop)
             {
-                return "Windows wouldn't hand her " + app + "'s sound" + (result == -1 ? "" : " (0x" + result.ToString("X8") + ")") + ". It needs Windows 11 or an up-to-date Windows 10.";
+                if (waiting == null) waiting = new WaitHandle[] { stop, ready };
+                return WaitHandle.WaitAny(waiting, 10) != 0;
+            }
+
+            // Hearing one app needs Windows 10 version 2004 (build 19041) or later, the same as OBS's app audio capture. On
+            // those, updating Windows isn't the fix, so a refusal there points at the app (hearing flag 15).
+            internal static string Refused(int result, string app) { return Refused(result, app, Build()); }
+
+            internal static string Refused(int result, string app, int build)
+            {
+                return "Windows wouldn't hand her " + app + "'s sound" + (result == -1 ? "" : " (0x" + result.ToString("X8") + ")")
+                    + (result == -1 || build < 19041 ? ". It needs Windows 11 or an up-to-date Windows 10." : ". Restarting " + app + " can help.");
+            }
+
+            private static int Build()
+            {
+                try
+                {
+                    int build;
+                    return int.TryParse(Microsoft.Win32.Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber", null) as string, out build) ? build : 0;
+                }
+                catch (Exception) { return 0; }
             }
 
             // Everything Windows has for her since the last read, into her ring. False when the capture broke.
@@ -528,7 +713,32 @@ namespace CapriDesktop
                 Wasapi.Release(client);
                 capture = null;
                 client = null;
+                if (ready != null) ready.Dispose();
+                ready = null;
+                waiting = null;
             }
+        }
+
+        internal static void CheckWaits(List<string> checks)
+        {
+            using (ManualResetEvent stop = new ManualResetEvent(false))
+            using (Tap tap = new Tap { ready = new AutoResetEvent(false) })
+            {
+                tap.ready.Set();
+                if (!tap.Wait(stop) || tap.ready.WaitOne(0)) throw new Exception("Call audio did not consume its ready event.");
+                stop.Set();
+                if (tap.Wait(stop)) throw new Exception("Stopping call ears did not wake the audio wait.");
+                stop.Reset();
+                if (!tap.Wait(stop)) throw new Exception("The call audio timeout stopped the capture.");
+                using (ManualResetEvent next = new ManualResetEvent(false))
+                using (Tap fresh = new Tap { ready = new AutoResetEvent(false) })
+                {
+                    stop.Set();
+                    fresh.ready.Set();
+                    if (!fresh.Wait(next)) throw new Exception("An old call stopped the next capture.");
+                }
+            }
+            checks.Add("PASS call ears wake on audio or stop, keep the 10 ms timeout and give each capture its own events");
         }
 
         private static void SmokeApps(List<string> checks)
@@ -536,9 +746,7 @@ namespace CapriDesktop
             string[][] names = {
                 new[] { "Discord", "Discord", "DiscordPTB", "DiscordCanary" }, new[] { "Zoom", "Zoom" },
                 new[] { "Microsoft Teams", "ms-teams", "Teams" }, new[] { "WhatsApp", "WhatsApp" },
-                new[] { "Telegram", "Telegram" }, new[] { "Slack", "slack" }, new[] { "Signal", "Signal" },
-                new[] { "Skype", "Skype", "SkypeApp" }, new[] { "TeamSpeak", "ts3client_win64", "ts3client_win32", "TeamSpeak" },
-                new[] { "Mumble", "mumble" }, new[] { "Steam voice chat", "steam", "steamwebhelper" },
+                new[] { "TeamSpeak", "ts3client_win64", "ts3client_win32", "TeamSpeak" }, new[] { "Steam voice chat", "steam", "steamwebhelper" },
                 new[] { "Browser (Google Meet, web calls)", "chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "MicrosoftEdge", "MicrosoftEdgeCP" }
             };
             if (ChoicesWrong(names)) throw new Exception("The call app choices changed.");
@@ -549,7 +757,7 @@ namespace CapriDesktop
                     CallPick picked = CallApps.Pick(app[0], processes, null);
                     if (picked == null || picked.Id != 12 || picked.App.Choice != app[0]) throw new Exception("Call app didn't resolve " + app[i] + ".");
                 }
-            checks.Add("PASS call app names: every listed app and its Windows process names resolve, including old and new Teams, Skype, TeamSpeak and Edge builds");
+            checks.Add("PASS call app names: every listed app and its Windows process names resolve, including old and new Teams, TeamSpeak and Edge builds");
 
             List<CallProcess> open = new List<CallProcess> {
                 new CallProcess { Id = 1, Name = "Discord", Started = new DateTime(2026, 11, 1) },
@@ -591,6 +799,7 @@ namespace CapriDesktop
             string was = CallApps.Choice;
             Func<List<CallProcess>> processesWas = CallApps.Processes;
             Func<List<AppSound>> soundsWas = CallApps.Sounds;
+            CallApp[] lastWas = CallApps.Last;
             Func<int> findWas = Find;
             object owner = new object(), nextOwner = new object();
             try
@@ -607,6 +816,12 @@ namespace CapriDesktop
                     if (ears.Problem != "Zoom isn't open." || ears.Hearing) throw new Exception("Zoom's missing-app line changed.");
                     ears.Stop();
                 }
+                // A refusal only blames the Windows version where the version is the cause.
+                string oldRefused = Tap.Refused(unchecked((int)0x80070057), "Zoom", 19045 - 1000), newRefused = Tap.Refused(unchecked((int)0x80070057), "Zoom", 22631), missing = Tap.Refused(-1, "Zoom", 22631);
+                if (oldRefused != "Windows wouldn't hand her Zoom's sound (0x80070057). It needs Windows 11 or an up-to-date Windows 10." || newRefused != "Windows wouldn't hand her Zoom's sound (0x80070057). Restarting Zoom can help."
+                    || missing != "Windows wouldn't hand her Zoom's sound. It needs Windows 11 or an up-to-date Windows 10.")
+                    throw new Exception("A refused call app blamed the wrong thing: " + oldRefused + " / " + newRefused + " / " + missing);
+                checks.Add("PASS a call app Windows won't hand over only blames the Windows version below Windows 10 version 2004, and otherwise says restarting the app can help");
                 CallApps.Processes = delegate
                 {
                     CallApps.Choose("Microsoft Teams");
@@ -615,8 +830,8 @@ namespace CapriDesktop
                 CallApps.Choose("Zoom");
                 if (CallApps.Find() != 0 || CallApps.Current.Name != "Teams") throw new Exception("An old app lookup overwrote a new call app choice.");
 
-                List<CallProcess> two = new List<CallProcess> { new CallProcess { Id = 90, Name = "Zoom" }, new CallProcess { Id = 91, Name = "slack" }, new CallProcess { Id = 92, Name = "chrome" } };
-                AppSound zoom = new AppSound { Id = 90, Playing = true, Level = 1, Peak = 0.1f }, slack = new AppSound { Id = 91, Playing = true, Level = 1, Peak = 0.1f }, video = new AppSound { Id = 92, Playing = true, Level = 1, Peak = 0.1f };
+                List<CallProcess> two = new List<CallProcess> { new CallProcess { Id = 90, Name = "Zoom" }, new CallProcess { Id = 91, Name = "WhatsApp" }, new CallProcess { Id = 92, Name = "chrome" } };
+                AppSound zoom = new AppSound { Id = 90, Playing = true, Level = 1, Peak = 0.1f }, whatsapp = new AppSound { Id = 91, Playing = true, Level = 1, Peak = 0.1f }, video = new AppSound { Id = 92, Playing = true, Level = 1, Peak = 0.1f };
                 List<AppSound> playing = new List<AppSound> { video };
                 CallApps.Processes = delegate { return two; };
                 CallApps.Sounds = delegate { return new List<AppSound>(playing); };
@@ -625,25 +840,25 @@ namespace CapriDesktop
                 playing.Add(zoom);
                 if (CallApps.Find() != 90 || CallApps.Current.Name != "Zoom") throw new Exception("Auto didn't take Zoom next to a browser video.");
                 CallApps.Heard(90, owner);
-                playing.Remove(zoom); playing.Add(slack);
+                playing.Remove(zoom); playing.Add(whatsapp);
                 if (CallApps.Find() != 90 || CallApps.Find() != 90 || CallApps.Current.Name != "Zoom") throw new Exception("A ping in another app pulled Auto off the call.");
-                if (CallApps.Find() != 91 || CallApps.Current.Name != "Slack") throw new Exception("Auto never moved to the app that kept making sound.");
+                if (CallApps.Find() != 91 || CallApps.Current.Name != "WhatsApp") throw new Exception("Auto never moved to the app that kept making sound.");
                 CallApps.Left(90, owner);
                 CallApps.Heard(91, owner);
                 playing.Add(zoom);
-                if (CallApps.Find() != 91 || CallApps.Find() != 91 || CallApps.Find() != 91 || CallApps.Current.Name != "Slack") throw new Exception("Auto left the app she's hearing while it still made sound.");
+                if (CallApps.Find() != 91 || CallApps.Find() != 91 || CallApps.Find() != 91 || CallApps.Current.Name != "WhatsApp") throw new Exception("Auto left the app she's hearing while it still made sound.");
                 CallApps.Left(91, owner);
                 if (CallApps.Find() != 90 || CallApps.Current.Name != "Zoom") throw new Exception("Auto stayed with an app after her ears let go of it.");
                 CallApps.Heard(90, owner);
                 two.Add(new CallProcess { Id = 93, Name = "Discord" });
                 if (CallApps.Find() != 90 || CallApps.Find() != 90 || CallApps.Find() != 90 || CallApps.Find() != 90 || CallApps.Current.Name != "Zoom") throw new Exception("A silent Discord opening pulled Auto off the call she's hearing.");
-                playing.Remove(zoom); playing.Remove(slack);
+                playing.Remove(zoom); playing.Remove(whatsapp);
                 if (CallApps.Find() != 0 || CallApps.Find() != 0 || CallApps.Find() != 0 || CallApps.Find() != 0 || CallApps.Current.Name != "Zoom") throw new Exception("A quiet spell on the call she's hearing moved Auto to a silent Discord.");
                 AppSound discord = new AppSound { Id = 93, Playing = true, Level = 1, Peak = 0.1f };
                 playing.Add(discord);
                 if (CallApps.Find() != 90 || CallApps.Find() != 90 || CallApps.Find() != 93 || CallApps.Current.Name != "Discord") throw new Exception("Auto didn't go back to Discord once Discord made sound and the call she was hearing stayed quiet.");
                 CallApps.Left(90, owner);
-                playing.Remove(discord); playing.Add(slack);
+                playing.Remove(discord); playing.Add(whatsapp);
                 two.RemoveAt(two.Count - 1);
                 checks.Add("PASS Auto never takes a browser video for the call, stays on the app she's hearing through a ping elsewhere, Discord opening, a quiet spell or while it still makes sound, and moves after about three seconds of another call app's sound");
                 playing.Add(zoom);
@@ -660,8 +875,25 @@ namespace CapriDesktop
                 CallApps.Left(91, nextOwner);
                 if (CallApps.Find() != 90) throw new Exception("The owning ears did not release their hold.");
                 checks.Add("PASS old call ears cannot clear a new hold on the same pid or reset its drift; the owning ears still release it");
+
+                // Picking Auto mid-call used to reset her to Discord, so a silent Discord took her off Zoom while Zoom made sound.
+                two.Add(new CallProcess { Id = 93, Name = "Discord" });
+                playing.Remove(whatsapp);
+                CallApps.Choose("Zoom");
+                if (CallApps.Find() != 90 || CallApps.Current.Name != "Zoom") throw new Exception("Zoom wasn't found before the switch to Auto.");
+                CallApps.Heard(90, owner);
+                CallApps.Choose("Auto");
+                if (CallApps.Current.Name != "Zoom") throw new Exception("Switching the call app to Auto mid-call dropped the app she was hearing for " + CallApps.Current.Name + ".");
+                for (int look = 0; look < 5; look++)
+                    if (CallApps.Find() != 90 || CallApps.Current.Name != "Zoom") throw new Exception("Switching to Auto mid-call moved her to a silent Discord while Zoom made sound.");
+                CallApps.Left(90, owner);
+                CallApps.Choose("Zoom");
+                CallApps.Choose("Auto");
+                if (CallApps.Current.Name != "Discord") throw new Exception("Off a call, Auto no longer started from Discord.");
+                two.RemoveAt(two.Count - 1);
+                checks.Add("PASS switching the call app to Auto mid-call keeps her on the app she's hearing while it makes sound, even with a silent Discord open; off a call Auto still starts from Discord");
             }
-            finally { Find = findWas; CallApps.Processes = processesWas; CallApps.Sounds = soundsWas; CallApps.Left(90, owner); CallApps.Left(91, owner); CallApps.Left(90, nextOwner); CallApps.Left(91, nextOwner); CallApps.Choose(was); }
+            finally { Find = findWas; CallApps.Processes = processesWas; CallApps.Sounds = soundsWas; CallApps.Last = lastWas; CallApps.Left(90, owner); CallApps.Left(91, owner); CallApps.Left(90, nextOwner); CallApps.Left(91, nextOwner); CallApps.Choose(was); }
             checks.Add("PASS call capture keeps its swappable finder, names the chosen app when it isn't open and rejects a lookup from an old setting");
         }
 
@@ -755,7 +987,8 @@ namespace CapriDesktop
             if (!over.Heard(loud, 0.09, 0.02)) throw new Exception("Being talked over again didn't stop her newer answer.");
             over.Reset();
             checks.Add("PASS call talk-over: about a second of someone on the call talking over her stops her once and hands her ears their line from its start, a laugh doesn't, and a newer answer can be stopped too");
-            // Your own mic on a call: a laugh lets her finish, and about a second of you talking stops her. Off a call, two chunks still do.
+            // Your own mic on a call: a laugh lets her finish, and about a second of you talking stops her. Off a call, three chunks
+            // in a row still do once her echo has risen over the room.
             TalkOver yours = new TalkOver();
             for (int i = 0; i < 6; i++) yours.Heard(0.03, 0.1, 0.02, true);
             bool laughed = false;
@@ -764,11 +997,13 @@ namespace CapriDesktop
             int stoppedAt = -1;
             for (int i = 0; i < TalkOver.CallWindow && stoppedAt < 0; i++) if (yours.Heard(0.4, 0.1, 0.02, true)) stoppedAt = i;
             TalkOver off = new TalkOver();
+            for (int i = 0; i < 10; i++) off.Quiet(0.001);
             for (int i = 0; i < 6; i++) off.Heard(0.03, 0.1, 0.02);
-            bool offStopped = false;
-            for (int i = 0; i < 2; i++) offStopped |= off.Heard(0.4, 0.1, 0.02);
-            if (laughed || stoppedAt != TalkOver.CallNeeds - 1 || !offStopped) throw new Exception("Your mic talking over her on a call came out wrong: laugh " + laughed + ", stopped at chunk " + stoppedAt + ", off a call " + offStopped + ".");
-            checks.Add("PASS your mic on a call: a laugh lets her finish and about a second of you talking over her stops her; off a call a fifth of a second still does");
+            bool offEarly = false;
+            for (int i = 0; i < TalkOver.Held - 1; i++) offEarly |= off.Heard(0.4, 0.1, 0.02);
+            bool offStopped = off.Heard(0.4, 0.1, 0.02);
+            if (laughed || stoppedAt != TalkOver.CallNeeds - 1 || offEarly || !offStopped) throw new Exception("Your mic talking over her on a call came out wrong: laugh " + laughed + ", stopped at chunk " + stoppedAt + ", off a call " + offStopped + (offEarly ? " too soon" : "") + ".");
+            checks.Add("PASS your mic on a call: a laugh lets her finish and about a second of you talking over her stops her; off a call three tenths of a second still does and two chunks don't");
         }
 
         internal static short[] Pattern(int length, int seed)
@@ -981,6 +1216,7 @@ namespace CapriDesktop
     {
         internal readonly List<CallPart> Parts = new List<CallPart>();
         internal readonly CallApp App = CallApps.Current;
+        internal bool CallSound;
 
         internal CallTranscript() { }
 
@@ -988,6 +1224,31 @@ namespace CapriDesktop
         {
             string words = Hearing.Clean(text);
             if (words.Length > 0) Parts.Add(new CallPart { Words = words, FromCall = fromCall });
+        }
+
+        // Two call lines as one: the pieces of a line cut in two, or lines kept for her next turn. Copies of their parts in order,
+        // with neighbours joined by the same echo rule as Read, so a friend's echo next to their words still can't wake her.
+        internal static CallTranscript Join(CallTranscript first, CallTranscript then)
+        {
+            if (first == null && then == null) return null;
+            CallTranscript line = new CallTranscript();
+            foreach (CallTranscript each in new[] { first, then })
+            {
+                if (each == null) continue;
+                line.CallSound |= each.CallSound;
+                foreach (CallPart part in each.Parts) line.Parts.Add(new CallPart { FromCall = part.FromCall, Who = part.Who, Words = part.Words, At = part.At, Echo = part.Echo, Chunks = part.Chunks, Echoes = part.Echoes });
+            }
+            for (int i = line.Parts.Count - 1; i > 0; i--)
+            {
+                if (line.Parts[i - 1].FromCall != line.Parts[i].FromCall) continue;
+                if (line.Parts[i - 1].Leaked != line.Parts[i].Leaked) { line.Parts[i - 1].Echo = line.Parts[i].Echo = true; continue; }
+                line.Parts[i - 1].Words += " " + line.Parts[i].Words;
+                line.Parts[i - 1].Echo |= line.Parts[i].Echo;
+                line.Parts[i - 1].Chunks += line.Parts[i].Chunks;
+                line.Parts[i - 1].Echoes += line.Parts[i].Echoes;
+                line.Parts.RemoveAt(i);
+            }
+            return line;
         }
 
         internal void Words(out string user, out string discord)
@@ -1028,7 +1289,7 @@ namespace CapriDesktop
 
         internal static CallTranscript Read(CallChunk[] chunks)
         {
-            CallTranscript line = new CallTranscript();
+            CallTranscript line = new CallTranscript { CallSound = HasSound(chunks) };
             foreach (bool fromCall in new[] { false, true })
             {
                 int i = 0;
@@ -1077,6 +1338,14 @@ namespace CapriDesktop
                 line.Parts.RemoveAt(i);
             }
             return line;
+        }
+
+        // The call's own side made sound for 0.3 s or more, a voice or a game, whatever words came of it.
+        internal static bool HasSound(CallChunk[] chunks)
+        {
+            int count = 0;
+            if (chunks != null) foreach (CallChunk chunk in chunks) if (Active(chunk, true) && ++count >= 3) return true;
+            return false;
         }
 
         private static bool Active(CallChunk chunk, bool fromCall)

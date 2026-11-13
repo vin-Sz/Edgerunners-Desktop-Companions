@@ -15,6 +15,23 @@ namespace CapriDesktop
         internal bool SuggestionHints { get { return hints.ContainsKey(notesKey) && hints.ContainsKey(memoriesKey) && hints.ContainsKey(popTimes) && hints.ContainsKey(gameNotes) && hints.ContainsKey(miniGames); } }
         internal string SpeakerTip { get { return speakers.AccessibleDescription; } }
         internal string ScreenTip { get { return screens.AccessibleDescription; } }
+        private string screenNote;
+        internal string ScreenNoteText { get { return screenNote; } }
+
+        internal void ScreenNote(string text)
+        {
+            if (screenNote == text) return;
+            screenNote = text;
+            DescribeHints();
+            if (waitingHint != null && waitingHint.Control == screens) DismissHint();
+        }
+
+        private string HintFacts(SettingHint hint)
+        {
+            if (hint.Exact != null) return hint.Exact;
+            return hint.Control == screens && screenNote != null ? screenNote + " " + HintCard.Unpathed(hint.Topic.Facts) : hint.Topic.Facts;
+        }
+
         private readonly Timer hintDelay = new Timer { Interval = 400 };
         private HintCard hintCard;
         private SettingHint waitingHint, overHint, dismissedHint;
@@ -40,6 +57,8 @@ namespace CapriDesktop
             internal Control Control, Label;
             internal SelfKnow.Topic Topic;
             internal string Title, Text;
+            // A tip that's exactly these words, with no heading, instead of her help on the setting.
+            internal string Exact;
 
             internal Rectangle Bounds
             {
@@ -66,7 +85,7 @@ namespace CapriDesktop
             hint.Topic = topic;
             hint.Title = title ?? (control.Text.Length > 0 ? control.Text : topic.Name);
             using (Font ink = HintCard.Ink(Unit()))
-                hint.Text = HintCard.Brief(topic.Facts, ink, Math.Max(1, Scaled(332)), 6);
+                hint.Text = HintCard.Brief(HintFacts(hint), ink, Math.Max(1, Scaled(332)), 6);
             DescribeHint(hint);
         }
 
@@ -96,8 +115,10 @@ namespace CapriDesktop
             Explain(refresh, "Refresh");
             Explain(provider, "Provider", "Mainframe.cs", null, "Provider");
             Explain(freeKey, "Free key", "Mainframe.cs", null, "Free key providers");
+            Explain(planKey, "My plan", "Mainframe.cs", null, "My plan");
             Explain(setup, "Set up her brain", "Mainframe.cs", hint, "Set up her brain");
             for (int i = 0; i < rungs.Length; i++) Explain(rungs[i], i == 2 ? "MAX INTELLIGENCE" : i == 1 ? "MEDIUM INTELLIGENCE" : "NORMAL");
+            Explain(offRung, "No AI");
             Explain(textEntry, "NVIDIA, Google AI Studio (Gemini) or OpenRouter API key", "Mainframe.cs", null, "Brain API key");
             Explain(textConnect, "NVIDIA, Google AI Studio (Gemini) or OpenRouter API key", "Mainframe.cs", null, "Connect / Forget brain key");
             Explain(movePaid, "Move key to MAX INTELLIGENCE");
@@ -116,7 +137,6 @@ namespace CapriDesktop
             Explain(mics, "Mic: default", "Mainframe.cs", null, "Microphone");
             Explain(speakers, "Her speaker", "Mainframe.cs", null, "Her speaker");
             Explain(screens, "Screens", "Mainframe.cs", FindHintLabel("Screens"), "Screens to watch");
-            Explain(callApp, "Call app", "Mainframe.cs", callAppName, "Call app");
             Explain(shortcut, "KEYS >", "Mainframe.cs", null, "Talk key");
             Explain(muteShortcut, "Mic: default", "Mainframe.cs", null, "Mute mic key");
             Explain(voiceNote, "Mic: default", "Mainframe.cs", null, "Voice status");
@@ -134,8 +154,11 @@ namespace CapriDesktop
             Explain(nickname, "What should she call you?", "Mainframe.cs", FindHintLabel("What should she call you?"), "What should she call you?");
             Explain(layersKey, "Voice layers", "Mainframe.cs", null, "Layers");
             layersKey.StateValue = true;
+            Explain(remoteKey, "Remote", "MainframeRemote.cs", null, "Capri Remote");
             Explain(personalityKey, "Edit personality.md", "Mainframe.cs", null, "Her personality");
             Explain(huskMode, "Code/Husk Mode", "Mainframe.cs", FindHintLabel("Code/Husk Mode"), "Code/Husk Mode");
+            Explain(thinkingLevel, "Thinking", "Mainframe.cs", FindHintLabel("Thinking"), "Thinking");
+            Explain(thinkingExtra, "Extra request JSON", "Mainframe.cs", FindHintLabel("Extra request JSON"), "Extra request JSON");
             Control[] bindings = { talkKeys, muteKeys, typeKeys, hideKeys, pushKeys, gameKeys, confirmKeys, cancelKeys, clearKeys };
             string[] names = { "Talk key", "Mute mic key", "Type key", "Hide / Show key", "Push to talk key", "Gaming Mode key", "Confirm keys", "Cancel keys", "Turn push to talk off" };
             for (int i = 0; i < bindings.Length; i++) Explain(bindings[i], i == 4 ? "Push to talk: not set" : "KEYS >", "Mainframe.cs", null, names[i]);
@@ -144,9 +167,15 @@ namespace CapriDesktop
             Explain(localAddress, "Local server address", "Mainframe.cs", FindHintLabel("Local server address"), "Local server address");
             Explain(security, "SECURITY >", "Mainframe.cs", null, "Security");
             Explain(checkIns, "Check in on me");
+            Explain(jealousAIs, "Jealous of other AIs");
+            Explain(closeAIs, "Close other AIs for me");
+            Explain(jealousApps, "Apps she may close");
             for (int i = 0; i < careTimes.Length; i++) Explain(careTimes[i], Care.Names[i], "Care.cs", null, Care.Names[i] + " time");
             Explain(clipChoose, "Save folder", "Mainframe.cs", FindHintLabel("Save folder"), "Save folder");
             Explain(clipsFolder, "Save folder", "Mainframe.cs", null, "Open clips folder");
+            // Lachy's line is the whole tip here. What the setting does is in SelfKnow, for when they ask her.
+            hints[legacyStand].Exact = Mods.LegacyTip;
+            hints[legacyStand].Title = "";
             hintDelay.Tick += delegate { ShowHint(); };
             Deactivate += delegate { DismissHint(); };
             VisibleChanged += delegate { if (!Visible) DismissHint(); };
@@ -171,7 +200,7 @@ namespace CapriDesktop
             using (Font ink = HintCard.Ink(Unit()))
                 foreach (SettingHint hint in hintRows)
                 {
-                    hint.Text = HintCard.Brief(hint.Topic.Facts, ink, Math.Max(1, Scaled(332)), 6);
+                    hint.Text = HintCard.Brief(HintFacts(hint), ink, Math.Max(1, Scaled(332)), 6);
                     DescribeHint(hint);
                 }
         }
@@ -216,7 +245,7 @@ namespace CapriDesktop
             if (hint == null || !HintShows(hint) || Control.MouseButtons != MouseButtons.None || (mouseHint ? overHint != hint : !hint.Control.ContainsFocus)) { DismissHint(); return; }
             if (hintCard == null) hintCard = new HintCard();
             Rectangle area = Screen.FromRectangle(hint.Bounds).WorkingArea;
-            if (!hintCard.Place(hint.Title, hint.Topic.Facts, Unit(), hint.Bounds, area)) { DismissHint(); return; }
+            if (!hintCard.Place(hint.Title, HintFacts(hint), Unit(), hint.Bounds, area)) { DismissHint(); return; }
             hint.Text = hintCard.Body;
             DescribeHint(hint);
             hintCard.Show(this);
@@ -277,6 +306,7 @@ namespace CapriDesktop
             private Rectangle titleBox, bodyBox;
             private string title;
             internal string Body;
+            internal string Heading { get { return title; } }
 
             internal HintCard()
             {
@@ -359,7 +389,9 @@ namespace CapriDesktop
                 int width = Math.Min((int)Math.Round(360 * unit), room.Width), inside = width - padding * 2;
                 if (inside < bodyFont.Height * 3) return false;
                 title = name;
-                int titleHeight = Measure(name, titleFont, inside).Height;
+                bool headed = name.Length > 0;
+                if (!headed) gap = 0;
+                int titleHeight = headed ? Measure(name, titleFont, inside).Height : 0;
                 int lines = Math.Min(6, (room.Height - padding * 2 - gap - titleHeight) / bodyFont.Height);
                 if (lines < 1) return false;
                 Body = Brief(facts, bodyFont, inside, lines);
@@ -368,8 +400,9 @@ namespace CapriDesktop
                 if (bodyHeight + titleHeight + gap + padding * 2 > room.Height) return false;
                 titleBox = new Rectangle(padding, padding, inside, titleHeight);
                 bodyBox = new Rectangle(padding, titleBox.Bottom + gap, inside, bodyHeight);
-                ClientSize = new Size(width, bodyBox.Bottom + padding);
-                AccessibleName = title;
+                // A card with no heading is only as wide as its words.
+                ClientSize = new Size(headed ? width : Math.Min(width, Measure(Body, bodyFont, inside).Width + padding * 2), bodyBox.Bottom + padding);
+                AccessibleName = headed ? title : Body;
                 AccessibleDescription = Body;
                 Neon.Clip(this, 9 * unit, 3 * unit);
                 return true;
@@ -409,7 +442,8 @@ namespace CapriDesktop
                 title = name;
                 Body = "";
                 int pad = (int)Math.Ceiling(12 * unit), gap = (int)Math.Ceiling(8 * unit);
-                Size words = TextRenderer.MeasureText(name, titleFont, Size.Empty, Wrap);
+                // Measured with no width, a title wraps after every letter, which squashed the call panel's tips (Lachy, 7 Nov).
+                Size words = Measure(name, titleFont, Math.Min((int)Math.Round(360 * unit), area.Width) - pad * 2);
                 titleBox = new Rectangle(pad, pad, words.Width, words.Height);
                 bodyBox = Rectangle.Empty;
                 ClientSize = new Size(words.Width + pad * 2, words.Height + pad * 2);

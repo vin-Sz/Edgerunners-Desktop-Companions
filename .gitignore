@@ -5,3 +5,9 @@ node_modules/
 
 # Krita backups
 *.kra~
+**/bin/
+**/obj/
+**/__pycache__/
+*.pyc
+cross/native/capri-input
+worker/.codes-secret

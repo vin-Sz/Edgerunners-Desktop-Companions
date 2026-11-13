@@ -6,16 +6,89 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace CapriDesktop
 {
+    // A saved list she can't read, or one with entries she can't read, is copied to <name>.unreadable.json before anything
+    // saves over it, like her settings, and she carries on with the entries she could read. They hear about it once, ahead of
+    // her next reply about that list. While the copy keeps failing, she doesn't save over the file.
+    internal sealed class SavedList<T>
+    {
+        private readonly string path, label, kept;
+        private string note;
+        private bool uncopied;
+
+        internal SavedList(string path, string label)
+        {
+            this.path = path;
+            this.label = label;
+            kept = Path.GetFileNameWithoutExtension(path) + ".unreadable.json";
+        }
+
+        private static Exception CopyUnreadable(string path, string kept)
+        {
+#if CROSS
+            try { File.Copy(path, Path.Combine(Path.GetDirectoryName(path), kept), true); return null; }
+            catch (Exception error) { return error; }
+#else
+            return Companion.CopyUnreadable(path, kept);
+#endif
+        }
+
+        internal List<T> Read(Predicate<T> readable)
+        {
+            if (!File.Exists(path)) return new List<T>();
+            List<T> saved = null;
+            Exception error = null;
+            try { using (FileStream input = File.OpenRead(path)) saved = (List<T>)new DataContractJsonSerializer(typeof(List<T>)).ReadObject(input); }
+            catch (Exception reading) { error = reading; }
+            if (saved == null) saved = new List<T>();
+            int count = saved.Count;
+            saved.RemoveAll(item => item == null || !readable(item));
+            if (error == null && saved.Count == count) return saved;
+            Exception copying = CopyUnreadable(path, kept);
+            uncopied = copying != null;
+            // Only the kind of error goes in errors.txt: its message can quote the file.
+            Brain.Log("startup", -1, Path.GetFileName(path) + (error == null ? " had entries she couldn't read" : " couldn't be read (" + error.GetType().Name + ")")
+                + (uncopied ? " or copied (" + copying.GetType().Name + "), so she won't save over it until she can copy it." : ". The old file is kept as " + kept + "."));
+            note = (saved.Count == 0 ? "Your saved " + label + " couldn't be read, so I started a new list." : "Some of your saved " + label + " couldn't be read, so I kept the rest.")
+                + (uncopied ? " I couldn't keep a copy of the old file yet, so I won't save over it until I can." : " The old file is kept as " + kept +
+#if CROSS
+                    " in " + Path.GetDirectoryName(path) + ".");
+#else
+                    " in %LocalAppData%\\Capri.");
+#endif
+            return saved;
+        }
+
+        internal void Write(List<T> items, string ending)
+        {
+            if (uncopied)
+            {
+                if (CopyUnreadable(path, kept) != null) throw new IOException("Couldn't keep a copy of your old " + Path.GetFileName(path) + ", so I didn't save over it. Try again in a moment.");
+                uncopied = false;
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            string temporary = path + ending;
+            using (FileStream output = File.Create(temporary)) new DataContractJsonSerializer(typeof(List<T>)).WriteObject(output, items);
+            if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
+        }
+
+        // Her reply, with what happened to the file ahead of it the first time.
+        internal string Told(string reply)
+        {
+            string told = Interlocked.Exchange(ref note, null);
+            return told == null ? reply : told + "\n" + reply;
+        }
+    }
+
     [DataContract]
     internal sealed class Reminder
     {
         [DataMember] public string Text;
         [DataMember] public string When;
         [DataMember] public bool Said;
-        internal bool Late;
 
         internal DateTime Due { get { return DateTime.ParseExact(When, "o", CultureInfo.InvariantCulture, DateTimeStyles.None); } }
     }
@@ -30,8 +103,8 @@ namespace CapriDesktop
     internal sealed class Reminders
     {
         private readonly object gate = new object();
-        private readonly string remindersPath, routinesPath;
-        private readonly string remindersError, routinesError;
+        private readonly SavedList<Reminder> remindersFile;
+        private readonly SavedList<Routine> routinesFile;
         private List<Reminder> reminders;
         private List<Routine> routines;
         [ThreadStatic] private static HashSet<string> running;
@@ -39,56 +112,23 @@ namespace CapriDesktop
 
         internal Reminders(string folder, DateTime started)
         {
-            remindersPath = Path.Combine(folder, "reminders.json");
-            routinesPath = Path.Combine(folder, "routines.json");
-            reminders = Read<Reminder>(remindersPath, out remindersError);
-            routines = Read<Routine>(routinesPath, out routinesError);
-            foreach (Reminder reminder in reminders)
+            remindersFile = new SavedList<Reminder>(Path.Combine(folder, "reminders.json"), "reminders");
+            routinesFile = new SavedList<Routine>(Path.Combine(folder, "routines.json"), "routines");
+            reminders = remindersFile.Read(delegate(Reminder reminder)
             {
                 DateTime due;
-                if (reminder == null || string.IsNullOrWhiteSpace(reminder.Text) || !DateTime.TryParseExact(reminder.When, "o", CultureInfo.InvariantCulture, DateTimeStyles.None, out due))
-                {
-                    remindersError = "Couldn't read a saved reminder.";
-                    break;
-                }
-                reminder.Late = !reminder.Said && due <= started;
-            }
-            foreach (Routine routine in routines)
-                if (routine == null || Key(routine.Phrase).Length == 0 || string.IsNullOrWhiteSpace(routine.Steps)) { routinesError = "Couldn't read a saved routine."; break; }
+                if (string.IsNullOrWhiteSpace(reminder.Text) || !DateTime.TryParseExact(reminder.When, "o", CultureInfo.InvariantCulture, DateTimeStyles.None, out due)) return false;
+                return true;
+            });
+            routines = routinesFile.Read(routine => Key(routine.Phrase).Length > 0 && !string.IsNullOrWhiteSpace(routine.Steps));
         }
 
-        private static List<T> Read<T>(string path, out string problem)
-        {
-            problem = null;
-            try
-            {
-                if (!File.Exists(path)) return new List<T>();
-                using (FileStream input = File.OpenRead(path))
-                {
-                    List<T> saved = (List<T>)new DataContractJsonSerializer(typeof(List<T>)).ReadObject(input);
-                    if (saved == null) throw new SerializationException("The saved list is empty.");
-                    return saved;
-                }
-            }
-            catch (IOException readIo) { problem = "Couldn't read " + Path.GetFileName(path) + ": " + readIo.Message; }
-            catch (UnauthorizedAccessException readAccess) { problem = "Couldn't read " + Path.GetFileName(path) + ": " + readAccess.Message; }
-            catch (SerializationException readJson) { problem = "Couldn't read " + Path.GetFileName(path) + ": " + readJson.Message; }
-            return new List<T>();
-        }
+        internal string Remind(ToolArguments args) { return remindersFile.Told(RemindReply(args)); }
 
-        private static void Write<T>(string path, List<T> saved)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            string temporary = path + ".new";
-            using (FileStream output = File.Create(temporary)) new DataContractJsonSerializer(typeof(List<T>)).WriteObject(output, saved);
-            if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
-        }
-
-        internal string Remind(ToolArguments args)
+        private string RemindReply(ToolArguments args)
         {
             lock (gate)
             {
-                if (remindersError != null) return remindersError;
                 if (args.Action == "list")
                 {
                     List<Reminder> waiting = reminders.FindAll(pending => !pending.Said);
@@ -105,7 +145,7 @@ namespace CapriDesktop
                         ?? changed.Find(part => !part.Said && (" " + Key(part.Text) + " ").Contains(" " + wanted + " "));
                     if (cancelled == null) return "Couldn't find that reminder.";
                     changed.Remove(cancelled);
-                    Write(remindersPath, changed);
+                    remindersFile.Write(changed, ".new");
                     reminders = changed;
                     return "Cancelled your reminder: " + cancelled.Text;
                 }
@@ -113,33 +153,54 @@ namespace CapriDesktop
                 if (string.IsNullOrWhiteSpace(args.Text)) return "What should I remind you about?";
                 if (!Parse(args.When, Now(), out when)) return "What time should I remind you? Try in 20 minutes or on 5 December at 9am.";
                 changed.Add(new Reminder { Text = args.Text.Trim(), When = DateTime.SpecifyKind(when, DateTimeKind.Unspecified).ToString("o", CultureInfo.InvariantCulture) });
-                Write(remindersPath, changed);
+                remindersFile.Write(changed, ".new");
                 reminders = changed;
                 return "I'll remind you " + when.ToString("f") + ": " + args.Text.Trim();
             }
+        }
+
+        internal bool Waiting(DateTime now)
+        {
+            lock (gate) return reminders.Exists(reminder => !reminder.Said && reminder.Due <= now);
         }
 
         internal string Take(DateTime now)
         {
             lock (gate)
             {
-                if (remindersError != null) return null;
                 Reminder next = null;
                 foreach (Reminder candidate in reminders)
                     if (!candidate.Said && candidate.Due <= now && (next == null || candidate.Due < next.Due)) next = candidate;
                 if (next == null) return null;
                 next.Said = true;
-                try { Write(remindersPath, reminders); }
+                try { remindersFile.Write(reminders, ".new"); }
                 catch { next.Said = false; throw; }
-                return next.Late ? "Late reminder, due " + next.Due.ToString("f") + ": " + next.Text : "Reminder: " + next.Text;
+                string line = "Reminder: " + next.Text;
+                string overdue = Overdue(next.Due, now);
+                return overdue == null ? line : line + (Regex.IsMatch(line, @"[.!?]$") ? " " : ". ") + overdue;
             }
         }
 
-        internal string Routine(ToolArguments args)
+        // Minutes while it's still the same sitting, hours within the day, and the date after that: "1440 minutes ago" helps nobody.
+        internal static string Overdue(DateTime due, DateTime now)
+        {
+            TimeSpan late = now - due;
+            if (late.TotalMinutes <= 1) return null;
+            if (late.TotalMinutes < 90)
+            {
+                int minutes = (int)late.TotalMinutes;
+                return "That was due " + minutes.ToString(CultureInfo.InvariantCulture) + (minutes == 1 ? " minute" : " minutes") + " ago.";
+            }
+            if (late.TotalHours < 24) return "That was due about " + ((int)Math.Round(late.TotalHours)).ToString(CultureInfo.InvariantCulture) + " hours ago.";
+            return "That was due " + due.ToString("f") + ".";
+        }
+
+        internal string Routine(ToolArguments args) { return routinesFile.Told(RoutineReply(args)); }
+
+        private string RoutineReply(ToolArguments args)
         {
             lock (gate)
             {
-                if (routinesError != null) return routinesError;
                 if (args.Action == "list")
                 {
                     List<string> lines = routines.ConvertAll(listedRoutine => listedRoutine.Phrase + ": " + listedRoutine.Steps);
@@ -160,7 +221,7 @@ namespace CapriDesktop
                     if (existing != null) changed.Remove(existing);
                     changed.Add(new Routine { Phrase = phrase, Steps = args.Steps.Trim() });
                 }
-                Write(routinesPath, changed);
+                routinesFile.Write(changed, ".new");
                 routines = changed;
                 return args.Action == "forget" ? "Forgot your routine: " + phrase : "When you say " + phrase + ", I'll " + args.Steps.Trim();
             }
@@ -170,7 +231,6 @@ namespace CapriDesktop
         {
             lock (gate)
             {
-                if (routinesError != null) return null;
                 Routine found = routines.Find(item => Key(item.Phrase) == Key(phrase));
                 return found == null ? null : found.Steps;
             }
@@ -179,7 +239,7 @@ namespace CapriDesktop
         internal string Run(string phrase, Func<string, string> run)
         {
             string steps = Steps(phrase);
-            if (steps == null) return "Couldn't find that routine.";
+            if (steps == null) return routinesFile.Told("Couldn't find that routine.");
             if (running == null) running = new HashSet<string>();
             string key = Key(phrase);
             if (!running.Add(key)) return "Already doing that routine.";
@@ -217,6 +277,8 @@ namespace CapriDesktop
                 return Call("routine", new ToolArguments { Phrase = routine.Groups[1].Value, Steps = routine.Groups[2].Value });
             string steps = running != null && running.Contains(Key(said)) ? null : Steps(said);
             if (steps != null) return Call("routine", new ToolArguments { Action = "run", Phrase = said });
+            ToolArguments timing = Stopwatches.Request(text);
+            if (timing != null) return Call("stopwatch", timing);
             string[] starters =
             {
                 @"^remind me\s+(.+)$", @"^recu[eé]rdame\s+(.+)$", @"^rappelle[- ]moi\s+(.+)$",
@@ -396,6 +458,63 @@ namespace CapriDesktop
             }
             if (nextHour) hour = (hour + 23) % 24;
             return true;
+        }
+    }
+
+    // Her one stopwatch, with no laps (#181). It counts on a clock that doesn't jump when the PC's time changes, and it isn't
+    // saved, so it ends when she closes. Mac and Linux share it.
+    internal static class Stopwatches
+    {
+        private static readonly object gate = new object();
+        private static readonly System.Diagnostics.Stopwatch ticking = System.Diagnostics.Stopwatch.StartNew();
+        internal static Func<TimeSpan> Clock = delegate { return ticking.Elapsed; };
+        private static TimeSpan? started;
+
+        internal static bool Running { get { lock (gate) return started != null; } }
+
+        // Starting it again while it runs only says how long it's been, so asking twice never loses the time.
+        internal static string Do(ToolArguments args)
+        {
+            lock (gate)
+            {
+                TimeSpan now = Clock();
+                if (string.IsNullOrEmpty(args.Action) || args.Action == "start")
+                {
+                    if (started != null) return "Your stopwatch is already running: " + Words(now - started.Value) + ".";
+                    started = now;
+                    return "Started your stopwatch.";
+                }
+                if (started == null) return "Your stopwatch isn't running.";
+                string time = Words(now - started.Value);
+                if (args.Action != "stop") return "Your stopwatch is at " + time + ".";
+                started = null;
+                return "Stopped your stopwatch at " + time + ".";
+            }
+        }
+
+        // Whole seconds, the way a stopwatch shows them, with no part that's 0: "4 minutes 12 seconds", "2 hours", "0 seconds".
+        internal static string Words(TimeSpan span)
+        {
+            long seconds = Math.Max(0, span.Ticks / TimeSpan.TicksPerSecond);
+            List<string> parts = new List<string>();
+            if (seconds >= 3600) parts.Add(Count(seconds / 3600, "hour"));
+            if (seconds / 60 % 60 > 0) parts.Add(Count(seconds / 60 % 60, "minute"));
+            if (seconds % 60 > 0 || parts.Count == 0) parts.Add(Count(seconds % 60, "second"));
+            return string.Join(" ", parts.ToArray());
+        }
+
+        private static string Count(long count, string unit) { return count.ToString(CultureInfo.InvariantCulture) + " " + unit + (count == 1 ? "" : "s"); }
+
+        // Her set phrases, from text Hands.Asked has cleaned up. A bare "how long has it been" only means the stopwatch while it
+        // runs; otherwise it's a question for her brain.
+        internal static ToolArguments Request(string text)
+        {
+            string asked = text ?? "";
+            if (Regex.IsMatch(asked, @"^(?:(?:start|begin|set|run)(?: up)? (?:(?:a|the|my) )?stopwatch|(?:put|turn) (?:a|the|my) stopwatch on|(?:put|turn) on (?:a|the|my) stopwatch|stopwatch(?: (?:start|on))?)$", RegexOptions.IgnoreCase)) return new ToolArguments { Action = "start" };
+            if (Regex.IsMatch(asked, @"^(?:check (?:(?:the|my) )?stopwatch|how long has (?:the|my) stopwatch been (?:running|going|on)|what(?:'?s| is| does) (?:the|my) stopwatch (?:at|on|say|show)|is (?:the|my) stopwatch (?:still )?(?:running|going|on))$", RegexOptions.IgnoreCase)) return new ToolArguments { Action = "check" };
+            if (Regex.IsMatch(asked, @"^(?:(?:stop|end|kill|cancel) (?:(?:the|my) )?stopwatch|turn (?:off (?:the|my) stopwatch|(?:the|my) stopwatch off)|stopwatch (?:stop|off))$", RegexOptions.IgnoreCase)) return new ToolArguments { Action = "stop" };
+            if (Running && Regex.IsMatch(asked, @"^how long(?: has|'s) it been(?: (?:running|going|so far))?$", RegexOptions.IgnoreCase)) return new ToolArguments { Action = "check" };
+            return null;
         }
     }
 }
