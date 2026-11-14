@@ -30,6 +30,8 @@ $fewerFrames = @{
     'laydown' = @(60, 30, 16, 8); 'laydown_talk' = @(60, 30, 16, 8); 'laydown_sleep' = @(60, 30, 16, 8)
     'laydown_blink' = @(8, 30, 4, 8); 'laydown_blink_glitch' = @(8, 30, 4, 8)
 }
+# Sheets that may also come in the size Capri's had before 0.9.0, which the app still plays (Clip.Older): the older width and height.
+$olderSizes = @{ 'idle' = @(3840, 384) }
 $sheetWidths = @{}
 $shorterSheets = @{}
 $swapped = New-Object System.Collections.Generic.List[string]
@@ -55,6 +57,7 @@ $swap = {
             $scale = if ($theirs[1] -eq $capri[1] * 2) { 2 } else { 1 }
             $isShorter = $shorter -and $capri[1] * $scale -eq $theirs[1] -and $theirs[0] -eq ($capri[0] / $shorter[0] * $shorter[2] * $scale)
             if ($isShorter) { $shorterSheets[$clipName] = $shorter }
+            elseif ($olderSizes[$clipName] -and $theirs[0] -eq $olderSizes[$clipName][0] * $scale -and $theirs[1] -eq $olderSizes[$clipName][1] * $scale) { }
             elseif ($capri[0] * $scale -ne $theirs[0] -or $capri[1] * $scale -ne $theirs[1]) {
                 $allowed = if ($shorter) { ", or $($capri[0] / $shorter[0] * $shorter[2] * 2)x$($capri[1] * 2) or $($capri[0] / $shorter[0] * $shorter[2])x$($capri[1]) for $($shorter[2]) frames" } else { '' }
                 throw ("$own is $($theirs[0])x$($theirs[1]) px, but it should be $($capri[0] * 2)x$($capri[1] * 2) at double size or $($capri[0])x$($capri[1]) at Capri's$allowed. See characters/lucy/ART.md.")
