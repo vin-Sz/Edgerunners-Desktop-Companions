@@ -93,6 +93,25 @@ function Resolve-ProjectList([string]$Path) {
     } finally { Remove-Item -LiteralPath $folder -Recurse -Force }
 }
 
+# Keeps both sides' lines. Only for lists where order and repeats don't matter, like .gitignore.
+function Resolve-Union([string]$Path) {
+    $base = Get-Stage 1 $Path; $ours = Get-Stage 2 $Path; $theirs = Get-Stage 3 $Path
+    if ($null -eq $base -or $null -eq $ours -or $null -eq $theirs) { return $false }
+    $folder = Join-Path ([IO.Path]::GetTempPath()) ('merge-capri-' + [guid]::NewGuid())
+    [void](New-Item -ItemType Directory -Path $folder)
+    try {
+        $encoding = [Text.UTF8Encoding]::new($false)
+        $files = @('ours', 'base', 'theirs') | ForEach-Object { Join-Path $folder $_ }
+        [IO.File]::WriteAllText($files[0], $ours, $encoding)
+        [IO.File]::WriteAllText($files[1], $base, $encoding)
+        [IO.File]::WriteAllText($files[2], $theirs, $encoding)
+        $union = Invoke-Git @('merge-file', '-p', '--union', $files[0], $files[1], $files[2])
+        if ($union.Code -lt 0 -or $union.Text.Contains('<<<<<<< ')) { return $false }
+        Save-Resolved $Path $union.Text
+        return $true
+    } finally { Remove-Item -LiteralPath $folder -Recurse -Force }
+}
+
 # Prints the conflicts short enough to read, so nobody has to open a huge file to see them.
 function Show-Conflict([string]$Path) {
     Write-Report @("  $Path")
@@ -149,6 +168,7 @@ foreach ($path in @((Invoke-Git @('diff', '--name-only', '--diff-filter=U')).Tex
         'README.md' { (Invoke-Git @('checkout', '--ours', '--', $path)).Code -eq 0 -and (Invoke-Git @('add', '--', $path)).Code -eq 0 }
         'ci/build-windows.ps1' { Resolve-BuildScript $path }
         'cross/Capri.Cross.csproj' { Resolve-ProjectList $path }
+        '.gitignore' { Resolve-Union $path }
         default { $false }
     }
     if ($done) { $fixed += $path } else { $left += $path }
