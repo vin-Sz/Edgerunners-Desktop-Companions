@@ -27,4 +27,5 @@
 "fromTitle != "CAPRI"" => "fromTitle != "TALIA""
 "CLIPS CAPRI WATCH" => "CLIPS TALIA WATCH"
 "WATCH CAPRI CLIPS" => "WATCH TALIA CLIPS"
+"HeldSection() == "CAPRI"" => "HeldSection() == "TALIA""
 "panel.Draft.Contains("You are Capri")" => "panel.Draft.Contains("You are Talia")"
