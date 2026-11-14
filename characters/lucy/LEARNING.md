@@ -5,6 +5,31 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 14 Nov: 647 of Lachy's updates come in (his 0.9.0)
+
+**What changed:** nothing of yours. The nightly Sync upstream had been failing since 6 Nov, because his updates clashed with ours in places the merge script has no safe fix for. This merge was done by hand in a separate folder, on the branch `merge-capri-nov14`.
+
+**What clashed, and what was kept:**
+- `app/Hands.cs`: he added Apple Music on the same lines where we added YouTube Music. Both are in. His new code also removes the space from an app's name ("apple music" becomes "applemusic"), which would have broken "youtube music", so our code now takes it with or without the space.
+- `app/Talk.cs`: his new lines, with the character's speaker name where his says "CAPRI: ".
+- `.github/workflows/ci.yml`: his new steps and longer test time, still built in our short temp folder. His new install test builds there too.
+- `.gitignore`: both lists. The merge script now does this one by itself.
+
+**Talia's build needed seven swap rules updated**, because he reworded the code they look for. Her self-test also gets his longer time limit (35 minutes, was 15), since his test grew.
+
+**The one that matters for your drawing:** Capri's standing loop is new art. It's 60 frames at 24 a second, in narrow 116 px frames, with its own blink and mouth sheets (`idle_blink`, `idle_mouth`). **Your 16-frame idle still works and nothing needs redrawing.** The app kept the older layout (16 frames of 240 px at 8 a second, with the old `blink` and `mouth`) for skins, and picks it when a sheet is exactly that wide. Two things stopped a double-size sheet from getting it, and both are fixed: the build refused any idle that wasn't Capri's new size, and the app only knew the older layout at 3840 px, not 7680.
+
+**Not checked:** that fix was compiled with a blank stand-in sheet, never run. The first real test is your idle going in.
+
+**New from him that will still be Capri until drawn or switched off:**
+- `click.png` and `form.png`, two new sheets
+- "Legacy stand", a setting that swaps in `idle_legacy.png`, Capri's old standing art. In Talia's build it would show Capri
+- New installer text that says Capri, like "Quit Capri from her tray menu". `characters/app.txt` doesn't cover these yet
+
+**One idea worth knowing:** a merge can be wrong with no conflict at all. Git only reports a clash when both sides change the same lines. His space-removing line and our "youtube music" check were in different places, so git merged them without a word, and together they'd have quietly stopped YouTube Music from working. That's why a merge gets read and tested, not just accepted when git is happy.
+
+---
+
 ## 6 Nov: Talia's lines are in her build
 
 **What changed:** you liked all the drafts, so they're in. Her pop-ins, Halloween lines, "no" and error line are in her own `characters/talia/Character.cs`. The rest live in Lachy's files (`Capri.cs`, `Care.cs`, `Reactions.cs`), so a new `characters/talia/lines.txt` swaps them, in the same `"Capri's" => "hers"` format as `names.txt`.

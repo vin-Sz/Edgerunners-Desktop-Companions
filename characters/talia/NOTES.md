@@ -44,6 +44,10 @@ You chose 16 frames at 8 a second for sitting and lying (4 Nov), which is what C
 
 Her Krita files are already these shapes, at twice the size. A sheet of hers uses the new numbers from the moment it goes in, and any sheet you haven't drawn stays Capri's 60 frames, so sitting and lying can look uneven until a set is finished. The "perch fps" slider does nothing to a 16-frame sheet.
 
+## Her standing sheet after Capri 0.9.0
+
+Capri's `idle` is now 60 narrow frames with its own `idle_blink` and `idle_mouth`. Hers stays as `ART.md` says: 16 frames of 240 px at 8 a second (480 px at double size), with `blink` and `mouth`. The app plays a sheet that wide the older way, and her build allows it (14 Nov, compiled but not run with real art).
+
 ## Her art's size
 
 Draw and export at the size her Krita files already are: double the numbers above and in `ART.md`, so 480×768 for a standing frame. The build keeps sheets at that size, so she stays sharp even at the Giant setting. At the default Medium she's shrunk to about a third, so set Krita's zoom to 35% to see how she'll really look.
