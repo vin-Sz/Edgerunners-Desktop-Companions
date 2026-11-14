@@ -4,9 +4,9 @@
 # The self-test draws frame 20 of each lying sheet, which a 16-frame sheet doesn't have.
 "Draw(graphics, lieClips[k], 20);" => "Draw(graphics, lieClips[k], 20 % lieClips[k].Count);"
 # The frame rate slider counts in Capri's 60 frames, so a shorter sheet plays at its own speed instead.
-"if ((clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && preferences.PerchFps != 30)" => "if (clip.Count == 60 && (clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && preferences.PerchFps != 30)"
+"if ((clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && perchRate != 30)" => "if (clip.Count == 60 && (clip == perch || clip == perchDance || clip == laydown || clip == laydownSleep) && perchRate != 30)"
 # In a 16-frame loop the blink starts at frame 9, the same as her standing loop, not frame 28.
-"int blinkFrom = clip == perch || clip == laydown ? PerchBlinkFrom : BlinkFrom;" => "int blinkFrom = clip.Count == 60 ? PerchBlinkFrom : BlinkFrom;"
+"int blinkFrom = clip == perch || clip == laydown ? PerchBlinkFrom : idle.Old" => "int blinkFrom = clip == perch || clip == laydown ? (clip.Count == 60 ? PerchBlinkFrom : BlinkFrom) : idle.Old"
 # While sheets go in one at a time, her sitting and talking sheets can have different counts, so the frame is found by how far through the loop she is.
 "if (PerchTalks(TalkingNow)) { shown = perchTalk; cell = loopCell; }" => "if (PerchTalks(TalkingNow)) { shown = perchTalk; cell = loopCell * perchTalk.Count / clip.Count; following = following * perchTalk.Count / clip.Count; }"
 "else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell; }" => "else if (LieTalks(TalkingNow)) { shown = laydownTalk; cell = loopCell * laydownTalk.Count / clip.Count; following = following * laydownTalk.Count / clip.Count; }"

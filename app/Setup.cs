@@ -21,9 +21,17 @@ namespace CapriSetup
         internal const string RegistryPath = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Capri.Desktop";
         internal static readonly string[] Packs = { "brain", "voice", "ears", "wake" };
 
-        [STAThread]
-        private static int Main(string[] args)
+        internal static bool Wanted(string file, string[] args)
         {
+            if (Array.IndexOf(args, "--silent") >= 0 || Array.IndexOf(args, "--package") >= 0) return true;
+            if (args.Length > 0 && Array.IndexOf(new[] { "--close", "--update", "--verify", "--verify-voice", "--remove-files", "--uninstall" }, args[0]) >= 0) return true;
+            string name = Path.GetFileNameWithoutExtension(file);
+            return name.IndexOf("setup", StringComparison.OrdinalIgnoreCase) >= 0 || string.Equals(name, "Uninstall", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static int Run(string[] args)
+        {
+            if (args.Length == 2 && args[0] == "--close") return CloseFolder(args[1]);
             // A silent command she can't read exits 2, and one that fails exits 1, each with the reason on stderr.
             int mode;
             string package;
@@ -34,7 +42,7 @@ namespace CapriSetup
                 if (mode == 2) return RemoveFiles(true);
                 if (mode == 1)
                 {
-                    string unsaved = Install(false);
+                    string unsaved = Install(false, true);
                     // She's installed by now, so the marker says who carries her even when her shortcut couldn't be saved.
                     SetupFiles.Mark(InstallPath, package ?? "manual");
                     if (unsaved != null) throw new IOException("Capri is installed, but her shortcut could not be saved: " + unsaved);
@@ -79,16 +87,7 @@ namespace CapriSetup
             catch (Exception error) { Notice.Tell(null, error.Message, "Capri couldn't update", true); return 1; }
         }
 
-        internal static byte[] Payload()
-        {
-            using (Stream source = Assembly.GetExecutingAssembly().GetManifestResourceStream("Capri.App.exe"))
-            using (MemoryStream memory = new MemoryStream())
-            {
-                if (source == null) throw new InvalidDataException("The Capri application payload is missing.");
-                source.CopyTo(memory);
-                return memory.ToArray();
-            }
-        }
+        internal static byte[] Payload() { return File.ReadAllBytes(Application.ExecutablePath); }
 
         private static int Verify(string output)
         {
@@ -101,7 +100,7 @@ namespace CapriSetup
                 File.WriteAllBytes(Path.Combine(output, "Capri.exe"), bytes);
                 using (SHA256 sha = SHA256.Create()) File.WriteAllText(Path.Combine(output, "payload.sha256"), BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant());
                 if (!Ours(Path.Combine(output, "Capri.exe"))) throw new InvalidDataException("The installer doesn't recognise its own Capri.exe.");
-                if (Ours(Application.ExecutablePath) || Ours(Path.Combine(Environment.SystemDirectory, "notepad.exe")) || Ours(Path.Combine(output, "missing.exe"))) throw new InvalidDataException("The installer takes other programs for Capri.");
+                if (Ours(Path.Combine(Environment.SystemDirectory, "notepad.exe")) || Ours(Path.Combine(output, "missing.exe"))) throw new InvalidDataException("The installer takes other programs for Capri.");
                 string home = Path.Combine(output, "Capri");
                 if (!Inside(Path.Combine(home, "Capri.exe"), home) || !Inside(Path.Combine(home, "brain", "llama-server.exe"), home + "\\") || Inside(Path.Combine(output, "Capri2", "Capri.exe"), home) || Inside(Path.Combine(Environment.SystemDirectory, "notepad.exe"), home) || Inside(home, home)) throw new InvalidDataException("The uninstaller would close the wrong programs.");
                 string link = Path.Combine(output, "Capri.lnk");
@@ -118,7 +117,7 @@ namespace CapriSetup
                     Snap(preview, Path.Combine(output, "installer.png"));
                     preview.Speaking(127L << 20, VoicePack.Size, Megabytes(127L << 20) + " of " + Megabytes(VoicePack.Size));
                     Application.DoEvents();
-                    if (!preview.Saying("Installing the local speech model", "This may take some time")) throw new InvalidDataException("The installer doesn't say it's installing the local speech model.");
+                    if (!preview.Saying("FREE VOICE", "Installing her free voice", "This may take some time. Other voices are under VOICE in Capri Mainframe.")) throw new InvalidDataException("The installer doesn't name her free voice or say where to pick other voices.");
                     Snap(preview, Path.Combine(output, "installer-speech.png"));
                     preview.Close();
                 }
@@ -143,7 +142,7 @@ namespace CapriSetup
                     failed.Close();
                 }
                 if (Array.IndexOf(Packs, "brain") < 0 || Array.IndexOf(Packs, "voice") < 0 || Array.IndexOf(Packs, "ears") < 0 || Array.IndexOf(Packs, "wake") < 0) throw new InvalidDataException("The uninstaller would leave one of her packs behind.");
-                File.WriteAllText(Path.Combine(output, "packaging-test.txt"), "PASS embedded executable extracted\nPASS PE signature\nPASS SHA-256 computed\nPASS an unmarked Capri.exe is recognised as Capri, other programs aren't\nPASS installer and uninstaller windows rendered\nPASS her notices show their title, message and OK in her look, sized to fit the message\nPASS the installer says it's installing the local speech model, that it may take some time, and that an API key gives a better, faster voice\nPASS the uninstaller closes Capri and anything running from her folder, like her brain, and nothing else\nPASS her shortcut is saved through Windows' own shell link, even over an old read-only one, and points at Capri.exe\nPASS a shortcut Windows won't save comes back as its reason instead of stopping the install\nPASS the uninstaller removes her brain, voice, ears and wake packs\nLIMIT installation and uninstallation were not performed\n");
+                File.WriteAllText(Path.Combine(output, "packaging-test.txt"), "PASS the installer wrote itself as Capri.exe\nPASS PE signature\nPASS SHA-256 computed\nPASS an unmarked Capri.exe is recognised as Capri, other programs aren't\nPASS installer and uninstaller windows rendered\nPASS her notices show their title, message and OK in her look, sized to fit the message\nPASS the installer says it's installing the local speech model, that it may take some time, and that an API key gives a better, faster voice\nPASS the uninstaller closes Capri and anything running from her folder, like her brain, and nothing else\nPASS her shortcut is saved through Windows' own shell link, even over an old read-only one, and points at Capri.exe\nPASS a shortcut Windows won't save comes back as its reason instead of stopping the install\nPASS the uninstaller removes her brain, voice, ears and wake packs\nLIMIT installation and uninstallation were not performed\n");
                 return 0;
             }
             catch (Exception error) { Directory.CreateDirectory(output); File.WriteAllText(Path.Combine(output, "failure.txt"), error.ToString()); return 1; }
@@ -151,19 +150,25 @@ namespace CapriSetup
 
         // A shortcut Windows won't save, often because of an antivirus, doesn't stop the install. She's installed either way,
         // so its reason comes back for the installer to show. Null means every shortcut was saved.
-        internal static string Install(bool desktop)
+        internal static string Install(bool desktop, bool quiet = false)
         {
             string destination = InstallPath;
             string marker = Path.Combine(destination, ".capri-install");
             string existing = Path.Combine(destination, "Capri.exe");
             if (Directory.Exists(destination) && !File.Exists(marker) && File.Exists(existing) && !Ours(existing)) throw new IOException("There's a Capri.exe in " + destination + " that isn't this Capri. Move it out of that folder, then install again.");
-            // Her input helper lives a moment after she closes, so a copy on its way out gets a few seconds.
+            // Her input helper lives a moment after she closes, so a copy on its way out gets a few seconds. A copy started as
+            // administrator can't be closed from here, so Windows is asked to close it as administrator (Splinter, 6 Nov).
             foreach (Process process in Process.GetProcessesByName("Capri"))
             {
                 using (process)
                 {
-                    try { if (string.Equals(process.MainModule.FileName, Path.Combine(destination, "Capri.exe"), StringComparison.OrdinalIgnoreCase) && !process.WaitForExit(3000)) throw new IOException("Quit Capri from her tray menu, then install again."); }
-                    catch (System.ComponentModel.Win32Exception) { }
+                    bool held;
+                    if (!string.Equals(SetupFiles.FileOf(process, out held), existing, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (Gone(process, 3000)) continue;
+                    if (!held) throw new IOException("Quit Capri from her tray menu, then install again.");
+                    if (quiet) throw new IOException(AdminCopy);
+                    CloseAsAdmin(destination);
+                    if (!Gone(process, 5000)) throw new IOException(AdminCopy);
                 }
             }
             Directory.CreateDirectory(destination);
@@ -192,9 +197,11 @@ namespace CapriSetup
                 key.SetValue("InstallLocation", destination);
                 key.SetValue("DisplayIcon", Path.Combine(destination, "Capri.exe"));
                 key.SetValue("UninstallString", "\"" + Path.Combine(destination, "Uninstall.exe") + "\" --uninstall");
+                // Package managers like winget remove her through this one, with no window.
+                key.SetValue("QuietUninstallString", "\"" + Path.Combine(destination, "Uninstall.exe") + "\" --silent --uninstall");
                 key.SetValue("NoModify", 1, RegistryValueKind.DWord);
                 key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
-                key.SetValue("EstimatedSize", (Payload().Length + new FileInfo(Application.ExecutablePath).Length) / 1024, RegistryValueKind.DWord);
+                key.SetValue("EstimatedSize", new FileInfo(Application.ExecutablePath).Length * 2 / 1024, RegistryValueKind.DWord);
             }
             return unsaved ?? onDesktop;
         }
@@ -395,18 +402,32 @@ namespace CapriSetup
                 string destination = Path.GetFullPath(InstallPath);
                 string expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Capri"));
                 if (!string.Equals(destination, expected, StringComparison.OrdinalIgnoreCase) || !File.Exists(Path.Combine(destination, ".capri-install"))) throw new IOException("The Capri install marker could not be verified.");
-                CloseEverything(destination);
+                if (CloseEverything(destination))
+                {
+                    if (silent) throw new IOException(AdminCopy);
+                    CloseAsAdmin(destination);
+                    if (CloseEverything(destination)) throw new IOException(AdminCopy);
+                }
                 string uninstaller = Path.Combine(destination, "Uninstall.exe");
                 SetupFiles.Retire(uninstaller, string.Equals(Path.GetFullPath(Application.ExecutablePath), uninstaller, StringComparison.OrdinalIgnoreCase));
-                SetupFiles.RemoveApp(Path.Combine(destination, "Capri.exe"));
-                foreach (string pack in Packs)
+                try
                 {
-                    string folder = Path.Combine(destination, pack);
-                    Patiently(delegate { if (Directory.Exists(folder)) Directory.Delete(folder, true); });
+                    SetupFiles.RemoveApp(Path.Combine(destination, "Capri.exe"));
+                    foreach (string pack in Packs)
+                    {
+                        string folder = Path.Combine(destination, pack);
+                        Patiently(delegate { if (Directory.Exists(folder)) Directory.Delete(folder, true); });
+                    }
+                    DeleteShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Capri.lnk"), destination);
+                    DeleteShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Capri.lnk"), destination);
+                    SetupFiles.Unmark(destination);
                 }
-                DeleteShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Capri.lnk"), destination);
-                DeleteShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Capri.lnk"), destination);
-                SetupFiles.Unmark(destination);
+                catch
+                {
+                    // Her uninstall entry still points at the uninstaller, so it goes back for the next try.
+                    SetupFiles.Unretire(uninstaller, Application.ExecutablePath);
+                    throw;
+                }
                 Registry.CurrentUser.DeleteSubKeyTree(RegistryPath, false);
                 File.Delete(Path.Combine(destination, ".capri-install"));
                 if (!silent) Notice.Tell(null, "Capri has been removed.\n\nYour position and size settings were kept in " + destination + ".", "Capri", false);
@@ -416,10 +437,11 @@ namespace CapriSetup
         }
 
         // Capri and anything running from her folder, like her brain's engine, hold its files, so they're closed first.
-        // Nothing outside the folder is touched.
-        internal static void CloseEverything(string folder)
+        // Nothing outside the folder is touched. It says whether one was started as administrator, which this copy can't close.
+        internal static bool CloseEverything(string folder)
         {
             int self;
+            bool locked = false;
             using (Process me = Process.GetCurrentProcess()) self = me.Id;
             foreach (Process process in Process.GetProcesses())
             {
@@ -427,7 +449,9 @@ namespace CapriSetup
                 {
                     try
                     {
-                        if (process.Id == self || !Inside(process.MainModule.FileName, folder)) continue;
+                        bool held;
+                        if (process.Id == self || !Inside(SetupFiles.FileOf(process, out held), folder)) continue;
+                        if (held) { locked = true; continue; }
                         process.Kill();
                         process.WaitForExit(5000);
                     }
@@ -436,6 +460,39 @@ namespace CapriSetup
                     catch (NotSupportedException) { }
                 }
             }
+            return locked;
+        }
+
+        internal const string AdminCopy = "Capri is running as administrator, so setup can't close her. Quit her from her tray menu, then try again.";
+
+        // Starts this setup again as administrator only to close what runs from her folder, and waits for it. No to Windows'
+        // prompt leaves her running, so it says how to quit her instead. The caller checks she's gone.
+        private static void CloseAsAdmin(string folder)
+        {
+            try
+            {
+                using (Process helper = Process.Start(new ProcessStartInfo(Application.ExecutablePath, "--close \"" + folder.TrimEnd('\\') + "\"") { UseShellExecute = true, Verb = "runas" }))
+                    if (helper == null || !helper.WaitForExit(30000)) throw new IOException(AdminCopy);
+            }
+            catch (System.ComponentModel.Win32Exception) { throw new IOException(AdminCopy); }
+        }
+
+        private static bool Gone(Process process, int wait)
+        {
+            try { return process.WaitForExit(wait); }
+            catch (System.ComponentModel.Win32Exception) { return false; }
+        }
+
+        // The administrator copy CloseAsAdmin starts. It only closes things in a folder named Capri with her install marker.
+        internal static int CloseFolder(string folder)
+        {
+            try
+            {
+                folder = Path.GetFullPath(folder);
+                if (!SetupFiles.Closable(folder)) return 2;
+                return CloseEverything(folder) ? 1 : 0;
+            }
+            catch (Exception) { return 1; }
         }
 
         internal static bool Inside(string file, string folder)
@@ -505,7 +562,7 @@ namespace CapriSetup
             chip.BackColor = Color.Transparent;
             using (Stream image = Assembly.GetExecutingAssembly().GetManifestResourceStream("Capri.Chip.png")) if (image != null) using (Bitmap loaded = new Bitmap(image)) chip.Image = new Bitmap(loaded);
             Controls.Add(chip);
-            LabelAt(removing ? "Remove the app and its shortcuts for this Windows user.\nQuit Capri from the tray before continuing." : "Right-click for her menu.", 34, 198, 610, 50, Neon.Type(11f), Neon.Faint);
+            LabelAt(removing ? "Remove the app and its shortcuts for this Windows user.\nQuit Capri from the tray before continuing." : File.Exists(Path.Combine(Program.InstallPath, "settings.json")) ? "Right-click for her menu." : "She'll show you around when she opens.", 34, 198, 610, 50, Neon.Type(11f), Neon.Faint);
             section = LabelAt("OPTIONS", 34, 254, 400, 20, Neon.Type(10f, true), Neon.White);
             section.Visible = !removing;
             desktop = new Tick();
@@ -641,8 +698,8 @@ namespace CapriSetup
                 catch (Exception error) { Notice.Tell(this, "Capri is installed, but the package marker couldn't be cleared. Delete " + SetupFiles.Marker + " in " + Program.InstallPath + " to let her update herself. " + error.Message, "Capri", true); }
             }
             catch (Exception error) { status.Text = "Capri could not finish. Your files are still here."; primary.Enabled = true; Notice.Tell(this, error.Message, "Capri couldn't install", true); return; }
-            if (Environment.Is64BitOperatingSystem && !VoicePack.Complete(VoicePack.Folder(Program.InstallPath))) FetchVoice();
-            else Finish();
+            // She opens straight away and fetches her free voice herself while she shows them around, like the Store copy.
+            Finish();
         }
 
         // Without her shortcut she's still installed, so they're told why and shown Capri.exe to pin.
@@ -692,9 +749,10 @@ namespace CapriSetup
             fetching = true;
             desktop.Visible = false;
             launch.Visible = false;
-            section.Text = "SPEECH MODEL";
-            stage.Text = "Installing the local speech model";
-            note.Text = "This may take some time. For a better sounding, faster voice, get an API key.";
+            // The Mainframe's own words for it, so people can find it again under VOICE.
+            section.Text = "FREE VOICE";
+            stage.Text = "Installing her free voice";
+            note.Text = "This may take some time. Other voices are under VOICE in Capri Mainframe.";
             stage.Visible = true;
             note.Visible = true;
             if (!stopping) cancel.Text = "Skip";
@@ -706,7 +764,7 @@ namespace CapriSetup
             Invalidate();
         }
 
-        internal bool Saying(string heading, string warning) { return stage.Visible && note.Visible && stage.Text == heading && note.Text.StartsWith(warning, StringComparison.Ordinal) && note.Text.IndexOf("API key", StringComparison.Ordinal) >= 0; }
+        internal bool Saying(string title, string heading, string warning) { return stage.Visible && note.Visible && section.Text == title && stage.Text == heading && note.Text == warning; }
 
         private void Fetched(string failed)
         {

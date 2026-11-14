@@ -44,8 +44,18 @@ namespace CapriDesktop
     internal sealed class VoiceException : Exception
     {
         internal readonly int Status;
+        // Windows' own words and codes for what went wrong, for errors.txt only. The message is what people see.
+        internal readonly string Detail;
 
         internal VoiceException(string message, int status = 0) : base(message) { Status = status; }
+        internal VoiceException(string message, string detail) : base(message) { Detail = detail; }
+
+        // What errors.txt keeps: Windows' detail first, then the plain line.
+        internal static string Logged(Exception error)
+        {
+            VoiceException voice = error as VoiceException;
+            return voice != null && !string.IsNullOrEmpty(voice.Detail) ? voice.Detail + " " + error.Message : error.Message;
+        }
     }
 
     internal sealed class VoiceListing
@@ -78,13 +88,24 @@ namespace CapriDesktop
         internal Voice(Speaker output) { player = output; }
 #endif
         internal static volatile int Loudness = 100;
+#if CROSS
+        internal static volatile bool CubicLoudness;
+#endif
 
         internal static short[] Louder(short[] samples)
         {
             int percent = Loudness;
             if (percent == 100) return samples;
+#if CROSS
+            double gain = percent / 100.0;
+            if (CubicLoudness) gain = gain * gain * gain;
+#endif
             short[] scaled = new short[samples.Length];
+#if CROSS
+            for (int i = 0; i < samples.Length; i++) scaled[i] = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, samples[i] * gain));
+#else
             for (int i = 0; i < samples.Length; i++) scaled[i] = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, samples[i] * percent / 100));
+#endif
             return scaled;
         }
 
@@ -100,6 +121,7 @@ namespace CapriDesktop
 
 #if !CROSS
         internal bool Busy { get { return player.Busy; } }
+        internal bool Playing { get { return player.Left > 0 || player.DeviceLeft > 0; } }
 #endif
 
 #if CROSS
@@ -308,10 +330,12 @@ namespace CapriDesktop
         internal const string RestrictHint = " Still failing? Make a new key with Restrict key turned off.";
         internal const string Refused = "ElevenLabs turned her voice away (error 403) without saying why. A VPN or proxy can do that." + RestrictHint;
 
-        internal static string Short(string text)
+        internal static string Short(string text) { return Short(text, 72); }
+
+        internal static string Short(string text, int room)
         {
             text = (text ?? "").Trim();
-            return text.Length > 72 ? text.Substring(0, 69) + "..." : text;
+            return text.Length > room ? text.Substring(0, room - 3) + "..." : text;
         }
 
         internal static T Read<T>(byte[] json) { using (MemoryStream stream = new MemoryStream(json)) return (T)new DataContractJsonSerializer(typeof(T)).ReadObject(stream); }
@@ -358,8 +382,9 @@ namespace CapriDesktop
             string id = VoiceId;
             string model = Model;
             if (key == null || id == null) throw new VoiceException("No voice picked.");
+            string said = Sayable(text);
             StringBuilder body = new StringBuilder("{\"text\":");
-            body.Append(Quote(Sayable(text)));
+            body.Append(Quote(said));
             string words = body.ToString();
             body.Append(",\"model_id\":").Append(Quote(string.IsNullOrEmpty(model) ? DefaultModel : model));
             string settings = Settings;
@@ -370,20 +395,90 @@ namespace CapriDesktop
             Tuple<string, byte[]> last = lastSaid;
             if (last != null && last.Item1 == asked) return last.Item2;
             string address = "/v1/text-to-speech/" + Uri.EscapeDataString(id) + "?output_format=wav_24000";
+            string paceKey = id + "\n" + (string.IsNullOrEmpty(model) ? DefaultModel : model) + "\n" + settings;
+            byte[] payload = Encoding.UTF8.GetBytes(body.ToString());
             byte[] wav;
-            try { wav = Clean(Send(Open(address, key, "POST"), Encoding.UTF8.GetBytes(body.ToString()))); }
+            try { wav = Clean(Send(Open(address, key, "POST"), payload)); }
             catch (VoiceException error)
             {
                 // A model or setting this account or voice can't use shouldn't cost her her voice.
                 if (error.Status != 400 && error.Status != 404 && error.Status != 422 || (settings == null && !string.IsNullOrEmpty(model))) throw;
                 string plain = words + ",\"model_id\":" + Quote(string.IsNullOrEmpty(model) ? CallModel : model) + "}";
-                wav = Clean(Send(Open(address, key, "POST"), Encoding.UTF8.GetBytes(plain)));
+                payload = Encoding.UTF8.GetBytes(plain);
+                paceKey = id + "\n" + (string.IsNullOrEmpty(model) ? CallModel : model) + "\n";
+                wav = Clean(Send(Open(address, key, "POST"), payload));
+            }
+#if CROSS
+            int letters = 0;
+            foreach (char c in Uncued(said)) if (char.IsLetterOrDigit(c)) letters++;
+#else
+            int letters = VoiceServer.Letters(said);
+#endif
+            // ElevenLabs can hand back a clip that ends early, which sounds like her voice stopping mid-reply while the text goes on
+            // (#158). Against this voice's own pace, one far too quick for its words is asked for once more and the longer one kept,
+            // like Fish Audio's pieces. One only a bit quick isn't, since asking again costs them credits, but it's logged too.
+            double pace = Pace(paceKey), seconds = Seconds(wav);
+            if (Quick(letters, seconds, pace, 1.3, 20))
+            {
+                bool again = Quick(letters, seconds, pace, 1.6, 25);
+                string returned = "not asked";
+                if (again)
+                {
+                    try
+                    {
+                        byte[] retry = Clean(Send(Open(address, key, "POST"), payload));
+                        double more = Seconds(retry);
+                        returned = more.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s";
+                        if (more > seconds) wav = retry;
+                    }
+                    catch (Exception error) { returned = "failed " + error.GetType().Name; }
+                }
+                double speed = seconds > 0 ? letters / seconds : 0;
+                Brain.Log("voice cut", -1, "ElevenLabs: " + seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s, letters=" + letters
+                    + ", letters/s=" + speed.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + ", pace=" + (pace > 0 ? pace.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : "none")
+                    + ", asked again=" + again + ", returned=" + returned + ", kept=" + Seconds(wav).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s");
+            }
+            double kept = Seconds(wav);
+            if (letters >= 40 && kept > 0 && !Quick(letters, kept, pace, 1.3, 25))
+            {
+                lock (paces)
+                {
+                    List<double> recent;
+                    if (!paces.TryGetValue(paceKey, out recent)) { recent = new List<double>(); paces.Add(paceKey, recent); }
+                    recent.Add(letters / kept);
+                    if (recent.Count > 8) recent.RemoveAt(0);
+                }
             }
             lastSaid = Tuple.Create(asked, wav);
             return wav;
         }
 
         private volatile Tuple<string, byte[]> lastSaid;
+        // Letters a second of each voice's last eight whole clips, by voice, model and settings, since speed and the model change it.
+        private static readonly Dictionary<string, List<double>> paces = new Dictionary<string, List<double>>();
+
+        // The median of a voice's whole clips, once it has three. None yet is 0.
+        private static double Pace(string key)
+        {
+            lock (paces)
+            {
+                List<double> recent;
+                if (!paces.TryGetValue(key, out recent) || recent.Count < 3) return 0;
+                double[] sorted = recent.ToArray();
+                Array.Sort(sorted);
+                int count = sorted.Length;
+                return count % 2 == 1 ? sorted[count / 2] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2;
+            }
+        }
+
+        // A clip of 40 or more letters said quicker than its voice's pace times the margin, or than a flat rate while its pace
+        // isn't known. Nobody talks 20 letters a second.
+        private static bool Quick(int letters, double seconds, double pace, double margin, double flat)
+        {
+            if (letters < 40) return false;
+            if (seconds <= 0) return true;
+            return letters / seconds > (pace > 0 ? pace * margin : flat);
+        }
 
         internal static string Quote(string value)
         {
@@ -396,6 +491,10 @@ namespace CapriDesktop
             }
             return quoted.Append('"').ToString();
         }
+
+        // Quote is JSON for her brain. Text people read or hear in quotes, like "Should I send "hi"?", shows as typed: line
+        // breaks and tabs are spaces, with no \u000a or doubled backslashes.
+        internal static string InQuotes(string value) { return "\"" + Regex.Replace(value ?? "", @"\s+", " ").Trim() + "\""; }
 
         internal static short[] Samples(byte[] wav, out int rate)
         {
@@ -517,24 +616,25 @@ namespace CapriDesktop
 #else
             // A line stopped with sound still to play goes in errors.txt with what stopped it, so a report of her voice stopping
             // mid-reply says which part of her did it (ticket 35).
-            double left = player.Left;
-            if (left > 0.5) Brain.Log("voice cut", -1, left.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s left, stopped by " + Stopper());
-            player.Close();
+            player.Close(true, null);
 #endif
         }
 
 #if !CROSS
-        internal void Finish() { player.EndAnswer(); player.Close(false); }
+        internal void Finish() { player.EndAnswer(); player.Close(false, "finished"); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        private static string Stopper()
+        internal static string Stopper()
         {
-            StackTrace trace = new StackTrace(2, false);
+            StackTrace trace = new StackTrace(1, false);
             List<string> names = new List<string>();
             for (int i = 0; i < trace.FrameCount && names.Count < 3; i++)
             {
                 MethodBase method = trace.GetFrame(i).GetMethod();
-                if (method != null) names.Add(method.Name);
+                if (method == null) continue;
+                // The speaker's own clear, and Stop, Finish or Hush handing over to it, don't say which part of her stopped the line.
+                if (method.DeclaringType == typeof(Speaker) || method.DeclaringType == typeof(Voice) && (method.Name == "Stop" || method.Name == "Finish") || method.Name == "Hush") continue;
+                names.Add(method.Name);
             }
             return string.Join(" < ", names.ToArray());
         }
@@ -2581,7 +2681,7 @@ namespace CapriDesktop
                 try { tts = SherpaOnnxCreateOfflineTts(ref config); }
                 finally { File.Delete(opening); }
             }
-            catch (IOException error) { throw new VoiceException(error.Message); }
+            catch (IOException error) { throw new VoiceException(Told(error)); }
             finally { foreach (IntPtr pointer in held) Marshal.FreeHGlobal(pointer); }
             if (tts == IntPtr.Zero) throw new VoiceException("Her free voice wouldn't start.");
             british = gb;
@@ -2592,6 +2692,12 @@ namespace CapriDesktop
         // so sherpa-onnx gets there through a plain-named junction.
         private static readonly object plainGate = new object();
         private static string plainRoot, plainAlias;
+        internal const string SpecialLetters = "Her voice files are in a folder with special letters in its name, and her voice can't read those.";
+        // When no junction could be made, her voices on this PC can't start there, and a cloud voice reads nothing from it.
+        internal const string SpecialVoice = "Her voice files are in a folder with special letters in its name, and her voices on this PC can't read those. A voice under CLOUD VOICE still works.";
+
+        // What a voice that couldn't open its files says: the special-letters folder gets its next step.
+        internal static string Told(IOException error) { return error.Message == SpecialLetters ? SpecialVoice : error.Message; }
 
         internal static string Plain(string value)
         {
@@ -2601,7 +2707,7 @@ namespace CapriDesktop
             {
                 if (plainRoot != root) { plainAlias = Junction(root); plainRoot = root; }
                 string plain = value.Replace(root, plainAlias);
-                if (!IsPlain(plain)) throw new IOException("Her voice files are in a folder with special letters in its name, and her voice can't read those.");
+                if (!IsPlain(plain)) throw new IOException(SpecialLetters);
                 return plain;
             }
         }
@@ -2632,7 +2738,7 @@ namespace CapriDesktop
                 catch (UnauthorizedAccessException) { }
                 catch (System.ComponentModel.Win32Exception) { }
             }
-            throw new IOException("Her voice files are in a folder with special letters in its name, and her voice can't read those.");
+            throw new IOException(SpecialLetters);
         }
 
         // Her ears run on the same sherpa-onnx, so they load it from here too.
@@ -3128,7 +3234,7 @@ namespace CapriDesktop
                 try { tts = LocalVoice.SherpaOnnxCreateOfflineTts(ref config); }
                 catch (SEHException) { tts = IntPtr.Zero; }
             }
-            catch (IOException error) { throw new VoiceException(error.Message); }
+            catch (IOException error) { throw new VoiceException(LocalVoice.Told(error)); }
             finally { foreach (IntPtr pointer in held) Marshal.FreeHGlobal(pointer); }
             if (tts == IntPtr.Zero) throw new VoiceException("That voice model wouldn't start. Check it's a Piper, Kokoro, Kitten or Pocket TTS model for sherpa-onnx.");
             opened = key;
@@ -3208,6 +3314,9 @@ namespace CapriDesktop
 
         internal bool Awake { get { lock (gate) return awake && (server == null || !server.HasExited); } }
 
+        // The zip passed its checksum, so a missing server means antivirus took it (owner flag A14). Fits the VOICE note.
+        internal const string ServerGone = "Your antivirus likely took tts-server.exe. Allow it, then try again.";
+
         internal void Install(Action<string, long, long> progress)
         {
             Directory.CreateDirectory(folder);
@@ -3228,7 +3337,7 @@ namespace CapriDesktop
                 string staging = engine + ".new";
                 if (Directory.Exists(staging)) Directory.Delete(staging, true);
                 ZipFile.ExtractToDirectory(zip, staging);
-                if (!File.Exists(Path.Combine(staging, "tts-server.exe"))) throw new IOException("The HD voice download is missing tts-server.exe.");
+                if (!File.Exists(Path.Combine(staging, "tts-server.exe"))) throw new IOException(ServerGone);
                 lock (gate)
                 {
                     Close();
@@ -3326,7 +3435,7 @@ namespace CapriDesktop
                     if (!Installed) throw new VoiceException("Get her HD voice in Capri Mainframe first.");
                     number = port = Engine.FreePort();
                     try { running = server = Spawn(StartInfo(number)); }
-                    catch (System.ComponentModel.Win32Exception error) { throw new VoiceException(Voice.Short("Her HD voice wouldn't start: " + error.Message)); }
+                    catch (System.ComponentModel.Win32Exception error) { throw new VoiceException("Her HD voice wouldn't start: " + Brain.Plainly("HD voice", error)); }
                     if (running.StartInfo.RedirectStandardError)
                     {
                         running.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs failure) { if (server == running && MemoryError(failure.Data)) memoryFailed = true; };
@@ -4013,12 +4122,17 @@ namespace CapriDesktop
                     throw new VoiceException(name + " at " + Where(endpoint) + " stopped answering.");
                 }
                 int status = (int)response.StatusCode;
-                string detail;
+                string reply, detail;
                 using (response)
-                using (StreamReader reader = new StreamReader(response.GetResponseStream())) detail = Said(reader.ReadToEnd());
+                using (StreamReader reader = new StreamReader(response.GetResponseStream())) reply = reader.ReadToEnd();
+                detail = Said(reply);
                 // Fish Audio's 404 is a voice it can't find, and its 429 is too many lines too fast.
                 if (status == 404 && name == "Fish Audio") throw new VoiceException("Fish Audio can't find that voice (HTTP 404). Check its ID or link on fish.audio.");
                 if (status == 404) throw new VoiceException(name + " has no " + endpoint.AbsolutePath + " (HTTP 404). Check its address.");
+                // OpenAI answers 429 when the account's credit is gone as well, which waiting won't fix, so its reply is read the way
+                // her brain reads one. The service's own words go to errors.txt.
+                if (OutOfCredit(status, reply) && !(status == 402 && name == "Fish Audio"))
+                    throw new VoiceException(Credit(name, theirs), "HTTP " + status + ": " + Voice.Short(detail));
                 if (status == 429) throw new VoiceException(name + " is busy (HTTP 429). Try again in a moment.");
                 if (status == 401 || status == 403) throw new VoiceException(string.IsNullOrEmpty(key) ? name + " wants a key (HTTP " + status + "). Add it under " + (theirs ? "CUSTOM LOCAL > Set up" : "CLOUD VOICE") + "." : name + " turned down its key (HTTP " + status + ").");
                 // Fish Audio's paid models answer 402 on an account with no credit. Its free tier is a model of its own.
@@ -4083,12 +4197,24 @@ namespace CapriDesktop
             return Regex.Replace(text, @"\s+", " ").Trim();
         }
 
+        // A 429 or 402 whose reply says the credit or quota is gone, the way her brain's Meaning reads one.
+        internal static bool OutOfCredit(int status, string reply)
+        {
+            return (status == 429 || status == 402) && Regex.IsMatch(reply ?? "", @"insufficient[_ ](quota|balance)|no credits|credit balance|billing", RegexOptions.IgnoreCase);
+        }
+
+        internal static string Credit(string name, bool theirs)
+        {
+            return name + " is out of credit. " + (name == "OpenAI" ? "Add credit at platform.openai.com" : "Add credit to its account") + ", or pick another voice under " + (theirs ? "CUSTOM LOCAL" : "CLOUD VOICE") + ".";
+        }
+
         // Her free voice says any line the server can't. What went wrong is noted once, until the server answers again.
         internal Func<string, byte[]> Or(Func<string, byte[]> fallback, Action<string> trouble)
         {
             return delegate(string words)
             {
                 string problem;
+                string detail = null;
                 try
                 {
                     byte[] wav = Speak(words);
@@ -4099,6 +4225,7 @@ namespace CapriDesktop
                 {
                     if (fallback == null) throw;
                     problem = error.Message;
+                    detail = error.Detail;
                 }
                 // Anything else that breaks is said the same way, so her free voice still fills in.
                 catch (Exception error)
@@ -4111,6 +4238,7 @@ namespace CapriDesktop
                 {
                     noted = problem;
                     trouble(problem);
+                    if (!string.IsNullOrEmpty(detail)) Brain.Log(Name(Url, Api), -1, detail);
                 }
                 return fallback(Voice.Uncued(words));
             };

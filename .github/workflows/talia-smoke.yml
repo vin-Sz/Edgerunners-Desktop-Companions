@@ -29,18 +29,18 @@ permissions:
 jobs:
   windows:
     runs-on: windows-2025
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - name: Make the screen 1080p
-        shell: pwsh
+        shell: powershell
         run: ./ci/wide-screen.ps1
       # Same short temp folder as ci.yml, for the same 260-letter path limit.
       - name: Build as Talia and self-test
         shell: pwsh
         run: |
           # Keeps why the script stopped, so the next step can show it without a GitHub login.
-          try { ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -Character talia -SmokeTest -SmokeSeconds 900 }
+          try { ./ci/build-windows.ps1 -OutputDirectory "$env:RUNNER_TEMP\w" -Character talia -SmokeTest -SmokeSeconds 2100 }
           catch {
             ($_.Exception.Message + "`n" + $_.InvocationInfo.PositionMessage) | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'why-it-stopped.txt')
             throw

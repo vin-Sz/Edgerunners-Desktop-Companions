@@ -3,8 +3,10 @@
 # Same format as app.txt, and {character} becomes her folder's name. Nothing is moved or deleted, so a character who already has
 # files in the shared folder keeps them there, and they need moving by hand. Mac and Linux builds don't have this yet.
 
+# The memories and transcripts lines are also in one of the self-test's checks, with its own data folder, so they spell the
+# folder out instead of using ownFolder, which only exists where the app starts.
 "Brain.MemoryPath = Path.Combine(data, "me.md");" => "string ownFolder = Path.Combine(Path.Combine(data, "characters"), "{character}"); Directory.CreateDirectory(ownFolder); Brain.MemoryPath = Path.Combine(ownFolder, "me.md");"
 "Brain.PersonalityPath = Path.Combine(data, Brain.PersonalityName);" => "Brain.PersonalityPath = Path.Combine(ownFolder, Brain.PersonalityName);"
-"Brain.MemoriesPath = Path.Combine(data, "memories.md");" => "Brain.MemoriesPath = Path.Combine(ownFolder, "memories.md");"
-"Brain.TranscriptPath = Path.Combine(data, "transcripts");" => "Brain.TranscriptPath = Path.Combine(ownFolder, "transcripts");"
+"Brain.MemoriesPath = Path.Combine(data, "memories.md");" => "Brain.MemoriesPath = Path.Combine(Path.Combine(Path.Combine(data, "characters"), "{character}"), "memories.md");"
+"Brain.TranscriptPath = Path.Combine(data, "transcripts");" => "Brain.TranscriptPath = Path.Combine(Path.Combine(Path.Combine(data, "characters"), "{character}"), "transcripts");"
 "brain.Load(Path.Combine(data, "chat.json"));" => "brain.Load(Path.Combine(ownFolder, "chat.json"));"

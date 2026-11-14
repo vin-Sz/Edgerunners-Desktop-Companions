@@ -32,7 +32,6 @@
 "Capri is still closing" => "Edgerunners Desktop is still closing"
 "Capri updated but couldn't restart" => "Edgerunners Desktop updated but couldn't restart"
 "Capri couldn't update" => "Edgerunners Desktop couldn't update"
-"The Capri application payload" => "The Edgerunners Desktop application payload"
 "Capri has been removed" => "Edgerunners Desktop has been removed"
 "Capri couldn't install" => "Edgerunners Desktop couldn't install"
 "Capri could not be removed" => "Edgerunners Desktop could not be removed"

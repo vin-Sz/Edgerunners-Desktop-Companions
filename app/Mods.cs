@@ -22,7 +22,16 @@ namespace CapriDesktop
         [DataMember(Name = "sounds_like")] public bool SoundsLike;
         [DataMember(Name = "hearing_log")] public bool HearingLog;
         [DataMember(Name = "colors")] public ModColors Colors;
+        [DataMember(Name = "accessory")] public bool Accessory;
+        // What accessories were called before they had a name of their own.
+        [DataMember(Name = "overlay")] public bool Overlay;
         internal bool Intro;
+        internal string[] Permissions = new string[0];
+        // A code mod's // requires: line: the mod API it needs, and other mods that must be installed and on.
+        internal int NeedsApi;
+        internal string[] Requires = new string[0];
+        internal string[] Games;
+        internal string Know;
     }
 
     [DataContract]
@@ -41,7 +50,7 @@ namespace CapriDesktop
         internal ModFile File;
         internal string Path;
         internal bool On;
-        internal bool Code, Changed, Skin;
+        internal bool Code, Changed, Skin, Skill;
         internal string Hash;
     }
 
@@ -52,15 +61,6 @@ namespace CapriDesktop
 
     internal sealed partial class Mods
     {
-#if CROSS
-        internal const string CodeExtension = ".capri-code";
-        internal const string WindowsOnly = "Windows only for now";
-
-        private Mod LoadCode(string file, HashSet<string> off) { throw new ModException(WindowsOnly); }
-        private Mod ImportCode(string file, Func<ModFile, string, bool> ask) { throw new ModException(WindowsOnly); }
-        private bool SetCode(Mod mod, bool on, Func<ModFile, string, bool> ask) { throw new ModException(WindowsOnly); }
-        private void RemoveCode(Mod mod) { }
-#endif
         internal const string Extension = ".capri-mod";
         internal const int Format = 1;
         private const int Largest = 64 * 1024;
@@ -74,6 +74,10 @@ namespace CapriDesktop
         private readonly string folder;
         private volatile Regex called;
         private volatile string note = "";
+        // What running code mods add to her personality, after her own rules.
+        internal volatile string ModNotes = "";
+        // What running code mods tell her fresh each message, like the weather or a timer's time left.
+        internal Func<string> ModContext;
         private volatile SoundsLike sounds;
         private volatile bool logging;
 
@@ -88,7 +92,11 @@ namespace CapriDesktop
                 SoundsLike like = sounds;
                 return names != null && names.IsMatch(words ?? "") || like != null && like.Hears(words);
             };
-            Hands.AlsoCalled = delegate { return note; };
+            Hands.AlsoCalled = delegate
+            {
+                Func<string> context = ModContext;
+                return note + ModNotes + (context == null ? "" : context());
+            };
             Load();
         }
 
@@ -124,6 +132,7 @@ namespace CapriDesktop
                     List<string> found = new List<string>(Directory.GetFiles(folder, "*" + Extension));
                     found.AddRange(Directory.GetFiles(folder, "*" + CodeExtension));
                     found.AddRange(Directory.GetFiles(folder, "*" + SkinExtension));
+                    found.AddRange(Directory.GetFiles(folder, "*" + SkillExtension));
                     found.Sort(StringComparer.OrdinalIgnoreCase);
                     files = found.ToArray();
                 }
@@ -144,6 +153,7 @@ namespace CapriDesktop
                     {
                         if (string.Equals(Path.GetExtension(file), CodeExtension, StringComparison.OrdinalIgnoreCase)) { All.Add(LoadCode(file, off)); continue; }
                         if (string.Equals(Path.GetExtension(file), SkinExtension, StringComparison.OrdinalIgnoreCase)) { All.Add(LoadSkin(file, off)); continue; }
+                        if (string.Equals(Path.GetExtension(file), SkillExtension, StringComparison.OrdinalIgnoreCase)) { All.Add(LoadSkill(file, off)); continue; }
                         ModFile read = Read(File.ReadAllText(file));
                         if (!string.Equals(read.Id, Path.GetFileNameWithoutExtension(file), StringComparison.OrdinalIgnoreCase)) throw new ModException("its file name doesn't match its id, " + read.Id + ".");
                         All.Add(new Mod { File = read, Path = file, On = !off.Contains(read.Id) });
@@ -160,14 +170,15 @@ namespace CapriDesktop
             Apply();
         }
 
-        internal Mod Import(string file, Func<ModFile, string, bool> ask)
+        internal Mod Import(string file, Func<ModFile, string, bool> ask, HashSet<string> keepOff = null)
         {
-            if (string.Equals(Path.GetExtension(file), CodeExtension, StringComparison.OrdinalIgnoreCase)) return ImportCode(file, ask);
-            if (string.Equals(Path.GetExtension(file), SkinExtension, StringComparison.OrdinalIgnoreCase)) return ImportSkin(file);
+            if (string.Equals(Path.GetExtension(file), CodeExtension, StringComparison.OrdinalIgnoreCase)) return ImportCode(file, ask, keepOff);
+            if (string.Equals(Path.GetExtension(file), SkinExtension, StringComparison.OrdinalIgnoreCase)) return ImportSkin(file, keepOff == null);
+            if (string.Equals(Path.GetExtension(file), SkillExtension, StringComparison.OrdinalIgnoreCase)) return ImportSkill(file);
             string text;
             try
             {
-                if (!string.Equals(Path.GetExtension(file), Extension, StringComparison.OrdinalIgnoreCase)) throw new ModException("That isn't a " + Extension + ", " + CodeExtension + " or " + SkinExtension + " file.");
+                if (!string.Equals(Path.GetExtension(file), Extension, StringComparison.OrdinalIgnoreCase)) throw new ModException("That isn't a " + Extension + ", " + CodeExtension + ", " + SkinExtension + " or " + SkillExtension + " file.");
                 if (new FileInfo(file).Length > Largest) throw new ModException("That mod is too big. A mod is a small settings file.");
                 text = File.ReadAllText(file);
             }
@@ -191,6 +202,22 @@ namespace CapriDesktop
             catch (UnauthorizedAccessException error) { throw new ModException("Couldn't save that mod: " + error.Message); }
             Load();
             return All.Find(mod => mod.File.Id == read.Id);
+        }
+
+        // A newer copy of a mod that's already in, from the mods directory. It goes in through the normal import, so a code mod
+        // still asks, and then every mod is left on or off the way it was: importing turns a mod on and other skins and colour
+        // sets off, which an update shouldn't.
+        internal Mod Update(string file, Func<ModFile, string, bool> ask)
+        {
+            HashSet<string> before = Off();
+            Mod made = Import(file, ask, before);
+            if (made == null) return null;
+            string id = made.File.Id;
+            if (Off().SetEquals(before)) return made;
+            WriteOff(before);
+            Load();
+            Reskin();
+            return All.Find(mod => mod.File.Id == id);
         }
 
         internal bool Set(Mod mod, bool on, Func<ModFile, string, bool> ask)
@@ -298,13 +325,20 @@ namespace CapriDesktop
             logging = wantLog;
             if (!wantLog) DeleteLog();
             ApplySkin();
+            skills = All.FindAll(mod => mod.Skill && mod.On).ToArray();
+            knownSkills = All.FindAll(mod => mod.Skill).ToArray();
+            skillNote = Standing(skills);
             note = names.Length == 0 ? "" : "\nThey can also call you " + Listed(names) + ". Those are nicknames for you, so answer to them like your own name.";
         }
 
         internal string LogPath { get { return Path.Combine(folder, LogFile); } }
 
+        internal Action<string, bool> HeardSpeech;
+
         internal void LogHearing(string heard, bool forHer)
         {
+            Action<string, bool> tell = HeardSpeech;
+            if (tell != null) tell(heard, forHer);
             if (!logging) return;
             try
             {

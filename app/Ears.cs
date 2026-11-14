@@ -59,6 +59,13 @@ namespace CapriDesktop
         internal string OpenedId { get { return openedId; } }
         internal volatile bool Muted;
         internal volatile string Chosen;
+        // Power saver over a game (issue #111): her mics are polled and their routes checked less often. Every chunk still gets
+        // heard and decoded, so Hey Capri and Listen for Capri keep working; she might just take a moment longer to hear you.
+        internal static volatile bool Gentle;
+        // In ms: her WASAPI mic's and her beat listener's sleep between looks, and how often an open mic's route is checked.
+        internal static int MicPollMs { get { return Gentle ? 30 : 15; } }
+        internal static int BeatPollMs { get { return Gentle ? 30 : 10; } }
+        internal static int RouteMs { get { return Gentle ? 6000 : 2000; } }
         private IntPtr device;
         private IntPtr[] headers;
         private Thread worker;
@@ -116,7 +123,7 @@ namespace CapriDesktop
                 if (!running) return false;
                 if (Environment.TickCount - lastChunk > 5000 || (modern != null && !modern.Alive)) return true;
                 if (Environment.TickCount - routeAt < 0) return false;
-                routeAt = Environment.TickCount + 2000;
+                routeAt = Environment.TickCount + RouteMs;
                 return DeviceChanged;
             }
         }
@@ -289,13 +296,17 @@ namespace CapriDesktop
             return null;
         }
 
+        private const string MicConsent = @"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone";
+
+        // Their switch for her: Let desktop apps for a normal install, and her own line on that page for a Store copy.
+        internal static string MicSwitch { get { return MicConsent + @"\" + (Packaged.Family ?? "NonPackaged"); } }
+
         internal static bool PrivacyBlocked()
         {
-            const string path = @"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone";
             try
             {
-                using (RegistryKey machine = Registry.LocalMachine.OpenSubKey(path))
-                using (RegistryKey desktop = Registry.CurrentUser.OpenSubKey(path + @"\NonPackaged"))
+                using (RegistryKey machine = Registry.LocalMachine.OpenSubKey(MicConsent))
+                using (RegistryKey desktop = Registry.CurrentUser.OpenSubKey(MicSwitch))
                     return Denied(machine == null ? null : machine.GetValue("Value") as string, desktop == null ? null : desktop.GetValue("Value") as string);
             }
             catch (Exception) { return false; }
@@ -311,12 +322,15 @@ namespace CapriDesktop
             if (result == unchecked((int)0x80070005)) return Dictation.MicBlocked;
             if (result == 4 || result == unchecked((int)0x8889000A)) return "Can't open your mic: another app has it to itself. Close it, or untick exclusive mode in your mic's Sound settings.";
             if (result == 2 || result == 6 || result == unchecked((int)0x80070490) || result == unchecked((int)0x88890004)) return Dictation.NoMic;
-            return "Can't open your mic (Windows error 0x" + result.ToString("X8") + "). Check Settings > System > Sound > Input, or pick another under VOICE.";
+            // Windows' code goes in errors.txt with the step that failed, not in the line people see.
+            return Unopened;
         }
+
+        internal const string Unopened = "Windows wouldn't open your mic. Check Settings > System > Sound > Input, or pick another under VOICE.";
 
         private static void CheckWave(int result, string operation)
         {
-            if (result != 0) throw new VoiceException("WaveIn " + operation + " failed (" + result + "). " + Problem(result));
+            if (result != 0) throw new VoiceException(Problem(result), "WaveIn " + operation + " failed (" + result + ").");
         }
 
         internal void Start()
@@ -388,7 +402,7 @@ namespace CapriDesktop
                     running = false;
                     CloseWave();
                     preferModern = true;
-                    Brain.Log("ears", -1, "WaveIn couldn't open " + name + " as 16000 Hz mono 16-bit PCM: " + error.Message + " Trying WASAPI.");
+                    Brain.Log("ears", -1, "WaveIn couldn't open " + name + " as 16000 Hz mono 16-bit PCM: " + VoiceException.Logged(error) + " Trying WASAPI.");
                 }
             }
             try
@@ -402,9 +416,11 @@ namespace CapriDesktop
             catch (Exception error)
             {
                 running = false;
-                Brain.Log("ears", -1, "WASAPI couldn't open " + name + " [" + openedId + "]: " + error.Message);
-                if (Changed != null) Changed(error.Message);
-                throw new VoiceException(error.Message);
+                Brain.Log("ears", -1, "WASAPI couldn't open " + name + " [" + openedId + "]: " + VoiceException.Logged(error));
+                // Only her own plain lines reach the hearing line and her bubble; anything else Windows threw is errors.txt's.
+                string plain = error is VoiceException ? error.Message : Unopened;
+                if (Changed != null) Changed(plain);
+                throw new VoiceException(plain);
             }
         }
 
@@ -472,7 +488,7 @@ namespace CapriDesktop
                     }
                 }
             }
-            catch (Exception error) { if (running) { lastChunk = Environment.TickCount - 6000; Brain.Log("ears", -1, "Her mic stopped: " + error.Message); } }
+            catch (Exception error) { if (running) { lastChunk = Environment.TickCount - 6000; Brain.Log("ears", -1, "Her mic stopped: " + VoiceException.Logged(error)); } }
         }
 
         private void Receive(short[] chunk)
@@ -581,7 +597,7 @@ namespace CapriDesktop
         private readonly Thread worker;
         private readonly ManualResetEvent ready = new ManualResetEvent(false);
         private volatile bool stopped, alive;
-        private volatile string failure;
+        private volatile string failure, failureDetail;
         private string format;
 
         internal SoundIn(string id, Action<short[]> hear) : this(id, hear, null, null) { }
@@ -592,8 +608,8 @@ namespace CapriDesktop
             worker = new Thread(Run) { IsBackground = true, Name = "Capri WASAPI mic" };
             worker.SetApartmentState(ApartmentState.STA);
             worker.Start();
-            if (!ready.WaitOne(3000)) { stopped = true; throw new VoiceException("Windows took too long to open your mic."); }
-            if (failure != null) throw new VoiceException(failure);
+            if (!ready.WaitOne(3000)) { stopped = true; throw new VoiceException("Windows took too long to open your mic. Plug it in again or pick another under VOICE, then try again."); }
+            if (failure != null) throw new VoiceException(failure, failureDetail);
         }
 
         internal bool Alive { get { return alive; } }
@@ -601,7 +617,14 @@ namespace CapriDesktop
 
         private static void Check(int result, string operation)
         {
-            if (result < 0) throw new VoiceException("WASAPI mic " + operation + " failed (0x" + result.ToString("X8") + "). " + Ears.Problem(result));
+            if (result < 0) throw new VoiceException(Ears.Problem(result), "WASAPI mic " + operation + " failed (0x" + result.ToString("X8") + ").");
+        }
+
+        // A plain line for people, with Windows' own words and code kept for errors.txt.
+        private void Failed(Exception error)
+        {
+            failure = error is VoiceException ? error.Message : Ears.Unopened;
+            failureDetail = error is VoiceException ? ((VoiceException)error).Detail : error.GetType().Name + ": " + error.Message;
         }
 
         private static void Release(object value) { try { if (value != null && Marshal.IsComObject(value)) Marshal.ReleaseComObject(value); } catch (Exception) { } }
@@ -629,7 +652,7 @@ namespace CapriDesktop
                         client = (ISoundClient)found;
                     }
                     Check(client.GetMixFormat(out native), "format");
-                    if (native == IntPtr.Zero) throw new VoiceException("Windows returned no mic format.");
+                    if (native == IntPtr.Zero) throw new VoiceException("Windows didn't say how your mic records. Plug it in again or pick another under VOICE.", "WASAPI mic format was empty.");
                     pcm = new MicPcm(native);
                     format = pcm.Format;
                     Check(client.Initialize(0, 0, 1000000, 0, native, IntPtr.Zero), "initialize");
@@ -645,24 +668,24 @@ namespace CapriDesktop
                     started = true;
                     alive = true;
                 }
-                catch (Exception error) { failure = error.Message; return; }
+                catch (Exception error) { Failed(error); return; }
                 finally { ready.Set(); }
                 while (!stopped)
                 {
                     int waiting;
                     Check(capture.GetNextPacketSize(out waiting), "packet size");
-                    if (waiting == 0) { Thread.Sleep(15); continue; }
+                    if (waiting == 0) { Thread.Sleep(Ears.MicPollMs); continue; }
                     IntPtr data;
                     int frames, flags;
                     long position, time;
                     int result = capture.GetBuffer(out data, out frames, out flags, out position, out time);
-                    if (result == 0x08890001) { Thread.Sleep(15); continue; }
+                    if (result == 0x08890001) { Thread.Sleep(Ears.MicPollMs); continue; }
                     Check(result, "get buffer");
                     try { pcm.Read(data, frames, (flags & 2) != 0, hear); }
                     finally { Check(capture.ReleaseBuffer(frames), "release buffer"); }
                 }
             }
-            catch (Exception error) { failure = error.Message; if (!stopped) Brain.Log("ears", -1, "Her WASAPI mic stopped: " + failure); }
+            catch (Exception error) { Failed(error); if (!stopped) Brain.Log("ears", -1, "Her WASAPI mic stopped: " + VoiceException.Logged(error)); }
             finally
             {
                 alive = false;
@@ -687,10 +710,15 @@ namespace CapriDesktop
         internal static string DefaultId;
         internal static string WaveDefaultId;
         internal static Action<string> Missing;
+        // Her voice for Capri Remote's call (app/RemoteLive.cs): every line she plays, at her own level, and a cut-off.
+        internal static Action<short[], int> Tap;
+        internal static Action Hushed;
         internal static Func<List<Output>> Devices = ReadDevices;
         private static readonly object gate = new object();
         private static Func<List<Output>> listed;
         private static List<Output> outputs;
+        // Each read of Windows' outputs is numbered, so one that answers after a newer one doesn't replace it.
+        private static int reads, kept;
         private static string missingId;
         private static bool fellBack;
         private readonly bool silent;
@@ -708,6 +736,20 @@ namespace CapriDesktop
         private double loudest = 0.05;
         private long began;
         private long until;
+        // Her two voice speakers have a name for their voice cut lines in errors.txt. Her sound effects and test speakers don't.
+        internal string Name;
+        // A smoke check's own clock in seconds, so it can walk her speaker through gaps without waiting for them.
+        internal Func<double> Clock;
+        // Samples handed to the wave API since it last started over, against its own count of what it has played.
+        private long fed;
+        // What she played in the last second, kept after it ends: her echo can still be in the mic for that long.
+        private readonly List<SoundLevel> history = new List<SoundLevel>();
+        private struct SoundLevel
+        {
+            internal long At, End;
+            internal double Level;
+        }
+        private long Now { get { return Clock == null ? Stopwatch.GetTimestamp() : (long)(Clock() * Stopwatch.Frequency); } }
         // How loud each twelfth of a second of what she's playing is, so her ears know how much of the mic is her.
         private readonly List<double> levels = new List<double>();
         private MicAnswer answer;
@@ -718,6 +760,12 @@ namespace CapriDesktop
         [DllImport("winmm.dll")] private static extern int waveOutWrite(IntPtr device, IntPtr header, int size);
         [DllImport("winmm.dll")] private static extern int waveOutReset(IntPtr device);
         [DllImport("winmm.dll")] private static extern int waveOutClose(IntPtr device);
+        [DllImport("winmm.dll")] private static extern int waveOutGetPosition(IntPtr device, ref WaveTime time, int size);
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WaveTime
+        {
+            internal uint Type, Value, Reserved;
+        }
         [DllImport("winmm.dll")] private static extern int waveOutGetNumDevs();
         [DllImport("winmm.dll", CharSet = CharSet.Unicode)] private static extern int waveOutGetDevCaps(IntPtr id, ref OutputCaps caps, int size);
         [DllImport("winmm.dll")] private static extern int waveOutMessage(IntPtr device, int message, out int size, IntPtr unused);
@@ -775,13 +823,23 @@ namespace CapriDesktop
             return found;
         }
 
+        // Windows' outputs: the last read, or a fresh one. A fresh read happens outside the lock, so a speaker that's slow to answer,
+        // like a Bluetooth headset waking up, never holds up her voice, which takes the last read meanwhile (#100).
         internal static List<Output> List(bool fresh = false)
         {
+            Func<List<Output>> read;
+            int reading;
             lock (gate)
             {
-                Func<List<Output>> read = Devices;
-                if (fresh || listed != read) { outputs = read(); listed = read; }
-                return outputs;
+                read = Devices;
+                if (!fresh && listed == read) return outputs;
+                reading = ++reads;
+            }
+            List<Output> found = read();
+            lock (gate)
+            {
+                if (reading > kept) { outputs = found; listed = read; kept = reading; }
+                return found;
             }
         }
 
@@ -854,7 +912,7 @@ namespace CapriDesktop
             string id = picked == null ? (modern == null ? WaveDefaultId : DefaultId) : picked.Id;
             int index = picked == null ? -1 : picked.Index;
             if (sampleRate == rate && string.Equals(openedId, id, StringComparison.OrdinalIgnoreCase) && openedIndex == index && (silent || device != IntPtr.Zero || (modern != null && modern.Alive))) return;
-            Close(false);
+            Close(false, "speaker reopened");
             rate = sampleRate;
             openedId = id;
             openedIndex = index;
@@ -889,10 +947,29 @@ namespace CapriDesktop
             return "Can't open your speakers (Windows error " + failed + "). Check Settings > System > Sound, then try again.";
         }
 
-        internal bool Busy { get { return Stopwatch.GetTimestamp() < Interlocked.Read(ref until) + Stopwatch.Frequency * 35 / 100; } }
+        internal bool Busy { get { long end = SoundEnd; return end > 0 && Now < end + Stopwatch.Frequency * 35 / 100; } }
 
         // Seconds of sound still to play.
-        internal double Left { get { return Math.Max(0, Interlocked.Read(ref until) - Stopwatch.GetTimestamp()) / (double)Stopwatch.Frequency; } }
+        internal double Left { get { return Math.Max(0, Interlocked.Read(ref until) - Now) / (double)Stopwatch.Frequency; } }
+        internal long SoundEnd { get { return Interlocked.Read(ref until); } }
+        // Seconds since her sound ran out by her clock: 0 while it plays, and forever once cleared.
+        internal double Ago { get { long end = SoundEnd; return end == 0 ? double.PositiveInfinity : Math.Max(0, Now - end) / (double)Stopwatch.Frequency; } }
+
+        // Seconds the speakers themselves still have to play. A device running behind her clock (Bluetooth, a busy PC) still
+        // has some after her clock says she's done, and closing it then cuts her last words.
+        internal double DeviceLeft
+        {
+            get
+            {
+                if (rate <= 0) return 0;
+                if (modern != null) return modern.Left / (double)rate;
+                if (device == IntPtr.Zero) return 0;
+                WaveTime time = new WaveTime { Type = 2 };
+                if (waveOutGetPosition(device, ref time, Marshal.SizeOf(typeof(WaveTime))) != 0) return 0;
+                long played = time.Type == 2 ? time.Value : time.Type == 4 ? time.Value / 2 : time.Type == 1 ? (long)time.Value * rate / 1000 : fed;
+                return Math.Max(0, fed - played) / (double)rate;
+            }
+        }
 
         internal void Play(short[] samples)
         {
@@ -918,9 +995,20 @@ namespace CapriDesktop
             Output picked = string.IsNullOrEmpty(Chosen) ? null : Resolve(List());
             if (!string.Equals(openedId, picked == null ? (modern == null ? WaveDefaultId : DefaultId) : picked.Id, StringComparison.OrdinalIgnoreCase) || (picked != null && openedIndex != picked.Index) || (modern != null && !modern.Alive)) Open(rate);
             Sweep();
-            long now = Stopwatch.GetTimestamp();
+            long now = Now;
             if (now >= Interlocked.Read(ref until)) { began = now; shapes.Clear(); leftover.Clear(); lock (levels) levels.Clear(); Interlocked.Exchange(ref until, now); }
+            long start = Interlocked.Read(ref until);
             Interlocked.Add(ref until, samples.Length * Stopwatch.Frequency / rate);
+            lock (history)
+            {
+                history.RemoveAll(delegate(SoundLevel level) { return level.End < now - Stopwatch.Frequency; });
+                int part = Math.Max(1, rate / 12);
+                for (int i = 0; i < samples.Length; i += part)
+                {
+                    int count = Math.Min(part, samples.Length - i);
+                    history.Add(new SoundLevel { At = start + i * Stopwatch.Frequency / rate, End = start + (i + count) * Stopwatch.Frequency / rate, Level = Loudness(samples, i, count) });
+                }
+            }
             leftover.AddRange(samples);
             int step = Math.Max(1, rate / 12);
             short[] all = leftover.ToArray();
@@ -942,6 +1030,8 @@ namespace CapriDesktop
                 if (answer == null) BeginAnswer();
                 if (answer != null) answer.Give(samples.Length, rate);
                 MicMix.Hear(this, samples, rate, answer);
+                Action<short[], int> tap = Tap;
+                if (tap != null) tap(samples, rate);
                 samples = Voice.Louder(samples);
             }
             Send(samples);
@@ -977,17 +1067,18 @@ namespace CapriDesktop
                 Marshal.FreeHGlobal(header.Data);
                 Marshal.FreeHGlobal(pointer);
                 if (ReopenGone()) { Send(samples); return; }
-                Clear();
+                Clear("speaker write failed");
                 string problem = "Windows' wave API " + (prepared == 0 ? "write" : "prepare") + " failed (error " + written + ", " + rate + " Hz, " + samples.Length + " samples).";
                 Brain.Log("Speakers", -1, problem);
                 throw new VoiceException(problem);
             }
             pending.Add(pointer);
+            fed += samples.Length;
         }
 
         internal int Shape()
         {
-            long now = Stopwatch.GetTimestamp();
+            long now = Now;
             if (now >= Interlocked.Read(ref until) || shapes.Count == 0) return -1;
             int index = (int)((now - began) * 12 / Stopwatch.Frequency);
             return index >= 0 && index < shapes.Count ? shapes[index] : -1;
@@ -996,7 +1087,7 @@ namespace CapriDesktop
         // How loud she's playing now: the loudest of the last 300 ms, since the mic hears her a moment late.
         internal double Level()
         {
-            long now = Stopwatch.GetTimestamp();
+            long now = Now;
             if (now >= Interlocked.Read(ref until)) return 0;
             int index = (int)((now - began) * 12 / Stopwatch.Frequency);
             double most = 0;
@@ -1004,20 +1095,45 @@ namespace CapriDesktop
             return most;
         }
 
-        internal void Clear()
+        // Her loudest in the last second or less, after her sound has ended too.
+        internal double Level(double seconds)
         {
-            Clear(true);
+            long now = Now, since = now - (long)(seconds * Stopwatch.Frequency);
+            double most = 0;
+            lock (history) foreach (SoundLevel level in history) if (level.At <= now && level.End >= since) most = Math.Max(most, level.Level);
+            return most;
         }
 
-        private void Clear(bool cut)
+        internal void Clear()
         {
+            Clear("cleared");
+        }
+
+        internal void Clear(string reason, bool recent = false)
+        {
+            Clear(true, reason, recent);
+        }
+
+        // Sound dropped before it played goes in errors.txt with what dropped it, so a report of her voice stopping mid-reply says
+        // which part of her did it (ticket 35, #158). A stream cleared in the second after its sound also lost the rest of its turn.
+        private void Clear(bool cut, string reason, bool recent)
+        {
+            if (!string.IsNullOrEmpty(Name))
+            {
+                double left = Math.Max(Left, DeviceLeft);
+                if (left > 0.25 || recent && Ago < 1) Brain.Log("voice cut", -1, Name + ": " + left.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s left, " + (reason == null ? "" : reason + ", ") + "stopped by " + Voice.Stopper());
+            }
             if (device != IntPtr.Zero) waveOutReset(device);
             if (modern != null) modern.Clear();
+            fed = 0;
             if (cut) { MicMix.Hush(this); EndAnswer(); }
+            Action hushed = Hushed;
+            if (cut && !Plain && hushed != null) hushed();
             Sweep();
             shapes.Clear();
             leftover.Clear();
             lock (levels) levels.Clear();
+            lock (history) history.Clear();
             Interlocked.Exchange(ref until, 0);
         }
 
@@ -1037,12 +1153,12 @@ namespace CapriDesktop
 
         internal void Close()
         {
-            Close(true);
+            Close(true, "closed");
         }
 
-        internal void Close(bool cut)
+        internal void Close(bool cut, string reason = "closed")
         {
-            Clear(cut);
+            Clear(cut, reason, false);
             if (device != IntPtr.Zero) waveOutClose(device);
             device = IntPtr.Zero;
             if (modern != null) modern.Dispose();
@@ -1075,6 +1191,23 @@ namespace CapriDesktop
         // Samples handed to Windows so far.
         internal long Fed;
         internal long Played;
+        // What a clear threw away from Windows' buffer, which never counts as played.
+        private long cleared;
+
+        // Samples still to play: queued here, or handed to Windows and not drained yet.
+        internal long Left
+        {
+            get
+            {
+                lock (gate)
+                {
+                    if (flush) return 0;
+                    long queued = -headAt;
+                    foreach (short[] chunk in chunks) queued += chunk.Length;
+                    return Math.Max(0, Interlocked.Read(ref Fed) - Interlocked.Read(ref Played) - Interlocked.Read(ref cleared)) + queued;
+                }
+            }
+        }
 
         internal SoundOut(int rate) : this(rate, null, null, null) { }
 
@@ -1209,6 +1342,7 @@ namespace CapriDesktop
                         if (started) Check(client.Stop(), "stop before clear");
                         started = false;
                         Check(client.Reset(), "reset");
+                        Interlocked.Add(ref cleared, waiting);
                         waiting = 0;
                         progress = Stopwatch.GetTimestamp();
                         volumeAt = 0;
@@ -1780,22 +1914,25 @@ namespace CapriDesktop
         }
     }
 
-    // Her own ears: NVIDIA's Parakeet TDT 0.6B (CC-BY-4.0), run by the sherpa-onnx her free voice ships. v2 hears English;
-    // v3 hears 25 European languages and works out which one it's hearing. They hear whichever mic is picked, offline,
-    // without Windows' online speech setting.
+    // Her own ears: Parakeet TDT 0.6B (CC-BY-4.0), run by the sherpa-onnx her free voice ships. NVIDIA's v2 hears English;
+    // Ultra, NVIDIA's v3 trained further by Moondream, hears 25 European languages and works out which one it's hearing.
+    // They hear whichever mic is picked, offline, without Windows' online speech setting.
     internal sealed class LocalEars : IDisposable
     {
+        // Capri's own copies of the exact packs she was tested on. sherpa-onnx re-uploaded theirs on 7 Nov 2026, and a changed
+        // file can't pass the size and hash pinned here, so every copy of Capri lost her ears at once.
+        internal const string Hosted = "https://github.com/lachydotmcg/capri-desktop/releases/download/ears-pack-1/";
         internal const string Pack = "parakeet-tdt-0.6b-v2-int8";
-        internal static string PackUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2";
+        internal static string PackUrl = Hosted + "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2";
         internal static string PackSha = "157c157bc51155e03e37d2466522a3a737dd9c72bb25f36eb18912964161e1ad";
         internal static long PackSize = 482468385;
         private const string Inside = "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8";
-        internal const string EuropeanPack = "parakeet-tdt-0.6b-v3-int8";
-        internal static string EuropeanUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2";
-        internal static string EuropeanSha = "5793d0fd397c5778d2cf2126994d58e9d56b1be7c04d13c7a15bb1b4eafb16bf";
-        internal static long EuropeanSize = 487170055;
-        private const string EuropeanInside = "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8";
-        // What v3 hears, as two-letter language codes.
+        internal const string EuropeanPack = "parakeet-tdt-0.6b-ultra-int8";
+        internal static string EuropeanUrl = Hosted + "sherpa-onnx-nemo-parakeet-tdt-0.6b-ultra-int8.tar.bz2";
+        internal static string EuropeanSha = "9f84fa1a60bc6c55455bf24241bacd1ec76171321e0086c4bef829472f128dc7";
+        internal static long EuropeanSize = 487131623;
+        private const string EuropeanInside = "sherpa-onnx-nemo-parakeet-tdt-0.6b-ultra-int8";
+        // What Ultra hears, as two-letter language codes.
         internal static readonly string[] European = { "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk" };
         internal static readonly string[] Needed = { "encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt" };
         private readonly string root;
@@ -1820,7 +1957,7 @@ namespace CapriDesktop
 
         internal bool Fits { get { return IntPtr.Size == 8 && Array.IndexOf(European, language) >= 0; } }
 
-        // The pack that hears their language: v2 for English, v3 for its other languages, none for the rest, which keep Windows speech.
+        // The pack that hears their language: v2 for English, Ultra for its other languages, none for the rest, which keep Windows speech.
         internal string Model { get { return !Fits ? null : language == "en" ? Pack : EuropeanPack; } }
 
         internal long Size { get { return Model == EuropeanPack ? EuropeanSize : PackSize; } }
@@ -1869,7 +2006,7 @@ namespace CapriDesktop
             File.Delete(tarball);
         }
 
-        internal static bool SystemBzip = true;
+        internal static bool SystemBzip = Environment.OSVersion.Version.Build >= 22000;
         internal static int TarTimeout = 600000;
         internal static Func<ProcessStartInfo, Process> StartTar = Process.Start;
         internal static string TarPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "tar.exe");
@@ -2435,8 +2572,11 @@ namespace CapriDesktop
         private float[] floats = new float[0];
         private short[] shorts = new short[0];
         private int[] ints = new int[0];
+        private bool timed;
+        private long firstAt, firstPosition, nextPosition;
+        private readonly Func<long> clock;
 
-        private SoundTap(string device, ISoundClient client, ISoundCapture capture, int rate, int channels, int bits, bool isFloat)
+        internal SoundTap(string device, ISoundClient client, ISoundCapture capture, int rate, int channels, int bits, bool isFloat, Func<long> time = null)
         {
             Device = device;
             this.client = client;
@@ -2445,6 +2585,7 @@ namespace CapriDesktop
             Channels = channels;
             Bits = bits;
             Float = isFloat;
+            clock = time ?? delegate { return ClipBuffer.Now; };
         }
 
         internal string Format { get { return Rate + " Hz, " + Channels + " channels, " + Bits + "-bit " + (Float ? "float" : "PCM"); } }
@@ -2548,8 +2689,23 @@ namespace CapriDesktop
                             }
                     }
                     long duration = frames * 10000000L / Rate;
-                    if (time <= 0 || (flags & 4) != 0) time = (long)(Stopwatch.GetTimestamp() * (10000000.0 / Stopwatch.Frequency)) - duration;
-                    newest = time + duration;
+                    // Counting samples keeps blocks exactly end to end, but a sound card's clock isn't the PC's: over a long game
+                    // the count walks away from the real time. So the clock is set again from the packet's own time once it is
+                    // 20 ms out, or 3 ms out while the packet is silent, where the join can't be heard.
+                    if (timed && time > 0 && (flags & 4) == 0 && position >= nextPosition)
+                    {
+                        long off = Math.Abs(firstAt + (position - firstPosition) * 10000000 / Rate - time);
+                        if (off > 200000 || (silent && off > 30000)) timed = false;
+                    }
+                    if (!timed || position < nextPosition || ((flags & 1) != 0 && time > 0 && (flags & 4) == 0))
+                    {
+                        firstAt = time <= 0 || (flags & 4) != 0 ? clock() - duration : time;
+                        firstPosition = position;
+                        timed = true;
+                    }
+                    time = firstAt + (position - firstPosition) * 10000000 / Rate;
+                    nextPosition = position + frames;
+                    newest = firstAt + (position - firstPosition + frames) * 10000000 / Rate;
                     if (packet != null) pcm(packet, time, Rate);
                 }
                 finally { capture.ReleaseBuffer(frames); }
@@ -2789,7 +2945,8 @@ namespace CapriDesktop
                 double heardAt = now(), checkedAt = heardAt, openedAt = -10, estimateAt = heardAt + 1;
                 while (playing == run)
                 {
-                    Thread.Sleep(10);
+                    // Its 100 ms of buffer leaves room for Power saver's slower pace.
+                    Thread.Sleep(Ears.BeatPollMs);
                     double at = now();
                     if (tap != null && at - checkedAt > 5)
                     {
@@ -2833,7 +2990,7 @@ namespace CapriDesktop
     internal sealed class WakeWord : IDisposable
     {
         internal const string Pack = "kws-zipformer-gigaspeech-3.3M-2024-01-01";
-        internal static string PackUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2";
+        internal static string PackUrl = LocalEars.Hosted + "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2";
         internal static string PackSha = "f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a";
         internal static long PackSize = 17626723;
         private const string Inside = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01";
@@ -2878,8 +3035,8 @@ namespace CapriDesktop
         // The mic is open: Windows shows its mic-in-use icon.
         internal bool Listening { get { return mic.Listening; } }
 
-        // While she talks the mic stays open but nothing is decoded, so her own voice can't wake her. What it hears then still
-        // goes to Overheard, so she can tell when they talk over her.
+        // While she talks the mic stays open but nothing is decoded, so her own voice can't wake her. All it hears still goes
+        // to Overheard, so she can tell when they talk over her, and how quiet the room was before she started.
         internal bool Held { get { return held; } set { held = value; } }
         internal Action<short[]> Overheard;
 
@@ -2958,11 +3115,11 @@ namespace CapriDesktop
             lock (gate)
             {
                 if (spotter == IntPtr.Zero || stream == IntPtr.Zero) return;
+                Action<short[]> overheard = Overheard;
+                if (overheard != null) overheard(chunk);
                 if (held)
                 {
                     heldWas = true;
-                    Action<short[]> overheard = Overheard;
-                    if (overheard != null) overheard(chunk);
                     return;
                 }
                 // What she half-heard before she spoke is dropped, so the end of her line can't finish a keyword.

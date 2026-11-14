@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
@@ -53,6 +54,34 @@ namespace CapriDesktop
         internal static int ClampLook(int look) { return look < 0 || look >= Looks.Length ? 0 : look; }
         internal static bool Mono { get { return shade != 0; } }
         internal static string[] LookColours(int look) { return Looks[ClampLook(look)]; }
+        // Fluent menu items and submenu presenters use DynamicResources instead of
+        // inheriting ContextMenu.Foreground. Keep those resources inside this menu
+        // and reuse the mutable look brushes so a live palette change stays readable.
+        internal static void ConfigureMenu(ContextMenu menu)
+        {
+            menu.Resources["MenuFlyoutPresenterBackground"] = Ground;
+            menu.Resources["MenuFlyoutPresenterBorderBrush"] = Brim;
+            menu.Resources["MenuFlyoutItemBackground"] = Brushes.Transparent;
+            menu.Resources["MenuFlyoutItemBackgroundPointerOver"] = Hover;
+            menu.Resources["MenuFlyoutItemBackgroundPressed"] = Pressed;
+            menu.Resources["MenuFlyoutItemBackgroundDisabled"] = Brushes.Transparent;
+            menu.Resources["MenuFlyoutItemForeground"] = White;
+            menu.Resources["MenuFlyoutItemForegroundPointerOver"] = White;
+            menu.Resources["MenuFlyoutItemForegroundPressed"] = White;
+            menu.Resources["MenuFlyoutItemForegroundDisabled"] = Faint;
+            menu.Resources["MenuFlyoutItemKeyboardAcceleratorTextForeground"] = Faint;
+            menu.Resources["MenuFlyoutItemKeyboardAcceleratorTextForegroundPointerOver"] = White;
+            menu.Resources["MenuFlyoutItemKeyboardAcceleratorTextForegroundPressed"] = White;
+            menu.Resources["MenuFlyoutItemKeyboardAcceleratorTextForegroundDisabled"] = Faint;
+            menu.Resources["MenuFlyoutSubItemChevron"] = White;
+            menu.Resources["MenuFlyoutSubItemChevronPointerOver"] = White;
+            menu.Resources["MenuFlyoutSubItemChevronPressed"] = White;
+            menu.Resources["MenuFlyoutSubItemChevronDisabled"] = Faint;
+            menu.Resources["MenuFlyoutSubItemChevronSubMenuOpened"] = Cyan;
+            // Separator.xaml uses this key; scope it to the same menu only.
+            menu.Resources["SystemControlForegroundBaseMediumLowBrush"] = Rule;
+        }
+
         internal static void UseLook(int look)
         {
             shade = ClampLook(look);
@@ -121,6 +150,11 @@ namespace CapriDesktop
             return path;
         }
 
+        internal static bool Marked(Control control) { return TopLevel.GetTopLevel(control) is MainframeWindow window && window.Marks(control); }
+        internal static void Ring(DrawingContext context, Rect around, double tr = 0, double br = 5, double bl = 0)
+        {
+            context.DrawGeometry(null, new Pen(White, 2), Cut(new Rect(around.X + 1, around.Y + 1, Math.Max(0, around.Width - 2), Math.Max(0, around.Height - 2)), 0, tr, br, bl));
+        }
         internal static Geometry Mark(params Point[] points)
         {
             var path = new StreamGeometry();
@@ -247,10 +281,14 @@ namespace CapriDesktop
         {
             FontFamily = MainframeTheme.Text; FontSize = MainframeTheme.Size;
             MinWidth = MinHeight = 0; Padding = new Thickness(0); Cursor = new Cursor(StandardCursorType.Hand);
-            Template = new FuncControlTemplate<Button>((owner, scope) => new Panel());
+            // Glyph buttons must hit across their full bounds, not only painted X strokes.
+            Template = new FuncControlTemplate<Button>((owner, scope) => new Panel { Background = Brushes.Transparent });
             PropertyChanged += (_, _) => InvalidateVisual();
         }
         internal void Press() { OnClick(); }
+        // A click on Mac and Linux goes through Program.Guard, like her menu's, so a bug behind a button is written down
+        // instead of ending her. Pickers' choices are buttons too.
+        protected override void OnClick() { Program.Guard(() => base.OnClick()); }
         public override void Render(DrawingContext context)
         {
             bool hot = IsPointerOver, lit = hot || IsKeyboardFocusWithin;
@@ -262,6 +300,7 @@ namespace CapriDesktop
                 var pen = new Pen(hot ? Glyph == 2 ? MainframeTheme.Hot : MainframeTheme.Cyan : MainframeTheme.Faint, 1.5);
                 if (Glyph == 1) context.DrawLine(pen, new Point(x - 5, y), new Point(x + 5, y));
                 else { context.DrawLine(pen, new Point(x - 4.5, y - 4.5), new Point(x + 4.5, y + 4.5)); context.DrawLine(pen, new Point(x - 4.5, y + 4.5), new Point(x + 4.5, y - 4.5)); }
+                if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(Bounds.Size), br: 4);
                 return;
             }
             IBrush face, rim, ink;
@@ -280,9 +319,11 @@ namespace CapriDesktop
                 using (context.PushTransform(Matrix.CreateTranslation(-6, -5.6) * Matrix.CreateScale(Swell, Swell) * Matrix.CreateTranslation(left + 6, y)))
                     context.DrawGeometry(MainframeTheme.Rose, null, HeartShape);
                 MainframeTheme.Write(context, Text, new Rect(left + 17, 0, wide + 2, h), ink, TextSize);
+                if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(Bounds.Size));
                 return;
             }
             MainframeTheme.Write(context, Text, Chevron ? new Rect(10, 0, Math.Max(0, w - 32), h) : new Rect(Bounds.Size), ink, TextSize, false, Chevron ? TextAlignment.Left : TextAlignment.Center);
+            if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(Bounds.Size));
         }
         private static IBrush Toward(Color from, Color to, double amount)
         {
@@ -309,6 +350,8 @@ namespace CapriDesktop
             PropertyChanged += (_, _) => InvalidateVisual();
         }
         internal void Flip() { OnClick(); }
+        // Its clicks and its OFF and ON halves go through Program.Guard, like a button's.
+        protected override void OnClick() { Program.Guard(() => base.OnClick()); }
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             double x = e.GetPosition(this).X, start = Bounds.Width - Switch;
@@ -320,7 +363,7 @@ namespace CapriDesktop
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             double x = e.GetPosition(this).X, start = Bounds.Width - Switch;
             Focus();
-            if (x >= start) { Checked = x >= start + Switch / 2.0; e.Handled = true; }
+            if (x >= start) { Program.Guard(() => Checked = x >= start + Switch / 2.0); e.Handled = true; }
             else base.OnPointerPressed(e);
         }
         public override void Render(DrawingContext context)
@@ -353,6 +396,7 @@ namespace CapriDesktop
             MainframeTheme.Write(context, "OFF", off, offInk, 35.0 / 3, true, TextAlignment.Center);
             MainframeTheme.Write(context, "ON", on, onInk, 35.0 / 3, true, TextAlignment.Center);
             if (IsKeyboardFocusWithin) context.DrawGeometry(null, new Pen(MainframeTheme.Cyan, 1), MainframeTheme.Cut(new Rect(start - 2, 0.5, Switch + 1.5, h - 1)));
+            if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(start - 4, 0, Switch + 4, h));
             double room = start - 10;
             MainframeTheme.Write(context, Text, new Rect(0, 0, room, h), MainframeTheme.Rose);
             double after = MainframeTheme.Words(Text).Width + 10;
@@ -377,6 +421,7 @@ namespace CapriDesktop
             double after = 32 + MainframeTheme.Words(Text, bold: true).Width;
             if (Hint != null) MainframeTheme.Write(context, Hint, new Rect(after, 0, Math.Max(0, w - after), h), MainframeTheme.Faint, 12);
             if (Flag != null) MainframeTheme.Write(context, Flag, new Rect(0, 0, w - 6, h), MainframeTheme.Yellow, 12, align: TextAlignment.Right);
+            if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(Bounds.Size));
         }
         internal override string TextFits()
         {
@@ -392,7 +437,7 @@ namespace CapriDesktop
         public override void Render(DrawingContext context)
         {
             double w = Bounds.Width, h = Bounds.Height;
-            bool hot = IsPointerOver || IsKeyboardFocusWithin;
+            bool hot = IsEnabled && (IsPointerOver || IsKeyboardFocusWithin);
             context.DrawRectangle(Brushes.Transparent, null, new Rect(Bounds.Size));
             if (hot)
             {
@@ -407,7 +452,7 @@ namespace CapriDesktop
                 context.DrawLine(tick, new Point(11, h / 2), new Point(12.8, h / 2 + 2));
                 context.DrawLine(tick, new Point(12.8, h / 2 + 2), new Point(16, h / 2 - 2));
             }
-            MainframeTheme.Write(context, Text, new Rect(28, 0, w - 38, h), hot ? MainframeTheme.Cyan : MainframeTheme.White);
+            MainframeTheme.Write(context, Text, new Rect(28, 0, w - 38, h), !IsEnabled ? MainframeTheme.Faint : hot ? MainframeTheme.Cyan : MainframeTheme.White);
         }
     }
 
@@ -434,9 +479,18 @@ namespace CapriDesktop
         {
             next = Math.Clamp(next, 0, Choices.Length - 1);
             if (next == value) return;
-            value = next; InvalidateVisual(); Changed?.Invoke(value);
+            // What it changes runs through Program.Guard, like a button's click, whether it was a drag, a key or a click.
+            value = next; InvalidateVisual();
+            Action<int> changed = Changed;
+            if (changed != null) Program.Guard(() => changed(next));
         }
-        private void Settle() { if (settled != value) { settled = value; Released?.Invoke(); } }
+        private void Settle()
+        {
+            if (settled == value) return;
+            settled = value;
+            Action released = Released;
+            if (released != null) Program.Guard(released);
+        }
         internal void Slide(int next) { Pick(next); Settle(); }
         private int At(double x) { return (int)Math.Round((x - 6) / Math.Max(1, Bounds.Width - 12) * (Choices.Length - 1)); }
         private int Zone(double x) { double reach = Math.Min(Bounds.Width / 3, 36); return x < reach ? -1 : x > Bounds.Width - reach ? 1 : 0; }
@@ -481,6 +535,7 @@ namespace CapriDesktop
                 MainframeTheme.Write(context, Shown, new Rect(26, 0, w - 52, h - 4), MainframeTheme.Cyan, align: TextAlignment.Center);
                 double dash = Choices.Length <= 4 ? 11 : 8, left = w / 2 - (Choices.Length * dash + (Choices.Length - 1) * 3) / 2;
                 for (int i = 0; i < Choices.Length; i++) context.DrawRectangle(i == value ? MainframeTheme.Lit : MainframeTheme.Dash, null, new Rect(left + i * (dash + 3), h - 5.5, dash, 1.5));
+                if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(Bounds.Size), tr: 5);
                 return;
             }
             double travel = w - 12, knob = 1 + travel * value / Math.Max(1, Choices.Length - 1);
@@ -495,6 +550,7 @@ namespace CapriDesktop
                 using (context.PushClip(new Rect(knob, 0, 10, h))) MainframeTheme.Write(context, Shown, new Rect(Bounds.Size), MainframeTheme.Brush("#28060C"), align: TextAlignment.Center);
             }
             context.DrawGeometry(null, new Pen(rim, 1), shape);
+            if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(Bounds.Size));
         }
         internal string TextFits()
         {
@@ -521,13 +577,19 @@ namespace CapriDesktop
         }
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
-            if (Chevron && e.GetPosition(this).X >= Bounds.Width - 28 && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { Drop?.Invoke(); e.Handled = true; }
+            if (Chevron && e.GetPosition(this).X >= Bounds.Width - 28 && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                Action drop = Drop;
+                if (drop != null) Program.Guard(drop);
+                e.Handled = true;
+            }
             else base.OnPointerPressed(e);
         }
         public override void Render(DrawingContext context)
         {
             context.DrawGeometry(MainframeTheme.Well, new Pen(Box.IsKeyboardFocusWithin ? MainframeTheme.Cyan : MainframeTheme.WellEdge, 1), MainframeTheme.Cut(new Rect(0.5, 0.5, Bounds.Width - 1, Bounds.Height - 1)));
             if (Chevron) MainframeTheme.Drop(context, Bounds.Width - 19, Bounds.Height / 2, IsPointerOver);
+            if (MainframeTheme.Marked(this)) MainframeTheme.Ring(context, new Rect(Bounds.Size));
         }
         internal string TextFits() { return MainframeTheme.Words(Cue).Width > Width - (Chevron ? 38 : 20) + 0.5 ? Cue : null; }
     }
@@ -538,8 +600,11 @@ namespace CapriDesktop
         private string[] choices = Array.Empty<string>();
         private int selected;
         internal bool Check = true;
+        internal bool[] Greyed = Array.Empty<bool>();
         internal event Action<int> Changed;
         internal string[] Choices { get { return choices; } }
+        internal bool MenuOpen { get { return popup != null && popup.IsOpen; } }
+        private bool IsGreyed(int at) { return at < Greyed.Length && Greyed[at]; }
         internal int Selected { get { return selected; } set { selected = Math.Clamp(value, 0, Math.Max(0, choices.Length - 1)); Text = choices.Length == 0 ? "None" : choices[selected]; } }
         internal NeonPicker() { Chevron = true; Click += (_, _) => Open(); }
         internal void Options(string[] options)
@@ -547,7 +612,15 @@ namespace CapriDesktop
             if (string.Join("\n", choices) == string.Join("\n", options)) return;
             CloseMenu(); choices = options; Selected = selected;
         }
-        internal void Pick(int at) { if (at < 0 || at >= choices.Length) return; Selected = at; Changed?.Invoke(at); CloseMenu(); }
+        // A bug behind a choice is written down by Program.Guard, and its menu still closes.
+        internal void Pick(int at)
+        {
+            if (at < 0 || at >= choices.Length || IsGreyed(at)) return;
+            Selected = at;
+            Action<int> changed = Changed;
+            try { if (changed != null) Program.Guard(() => changed(at)); }
+            finally { CloseMenu(); }
+        }
         internal void CloseMenu() { if (popup != null) { popup.IsOpen = false; popup = null; } }
         private void Open() { OpenAt(this); }
         internal void OpenAt(Control target)
@@ -558,25 +631,36 @@ namespace CapriDesktop
             var buttons = new List<NeonButton>();
             double wide = Math.Max(Width, 150);
             var top = TopLevel.GetTopLevel(target);
-            double screen = top is Window window ? (window.Screens.ScreenFromWindow(window)?.WorkingArea.Width ?? 1280) / window.RenderScaling : 1280;
+            double screen = top is Window window ? (window.Screens.ScreenFromWindow(window) is Avalonia.Platform.Screen shown ? X11Safety.Work(shown).Width : 1280) / window.RenderScaling : 1280;
             foreach (string choice in choices) wide = Math.Max(wide, MainframeTheme.Words(choice).Width + 46);
             wide = Math.Min(wide, screen - 32);
             for (int i = 0; i < choices.Length; i++)
             {
                 int at = i;
-                var row = new NeonChoice { Text = choices[i], Checked = Check && i == selected, Width = wide, Height = 26 };
+                var row = new NeonChoice { Text = choices[i], Checked = Check && i == selected, Width = wide, Height = 26, IsEnabled = !IsGreyed(i) };
                 AutomationProperties.SetName(row, choices[i]);
-                row.Click += (_, _) => Pick(at);
+                row.Click += (_, _) => { Pick(at); (target is NeonEntry entry ? entry.Box : target).Focus(); };
                 row.KeyDown += (_, e) =>
                 {
-                    if (e.Key == Key.Down || e.Key == Key.Up) { buttons[(at + (e.Key == Key.Down ? 1 : buttons.Count - 1)) % buttons.Count].Focus(); e.Handled = true; }
+                    if (e.Key == Key.Down || e.Key == Key.Up)
+                    {
+                        int next = at, step = e.Key == Key.Down ? 1 : buttons.Count - 1;
+                        do next = (next + step) % buttons.Count; while (IsGreyed(next) && next != at);
+                        buttons[next].Focus();
+                        e.Handled = true;
+                    }
                     if (e.Key == Key.Escape) { CloseMenu(); Focus(); e.Handled = true; }
                 };
                 buttons.Add(row); rows.Children.Add(row);
             }
-            var scroll = new ScrollViewer { Content = rows, MaxHeight = 400, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            // On a Mac her menu's ScrollViewer came up with a plain ContentPresenter, which squeezed a long list like Language to its
+            // height so it couldn't scroll. Her own template always scrolls, and the rim draws her thumb as the Mainframe page does.
+            var scroll = new ScrollViewer { Content = rows, MaxHeight = 400, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                Template = new FuncControlTemplate<ScrollViewer>((owner, scope) => new ScrollContentPresenter { Name = "PART_ContentPresenter", [!ContentPresenter.ContentProperty] = owner[!ContentControl.ContentProperty] }.RegisterInNameScope(scope)) };
             var plate = new NeonPlate { Menu = true, Child = new Border { Padding = new Thickness(4), Child = scroll } };
-            var surface = new Grid(); surface.Children.Add(plate); surface.Children.Add(new NeonRim { Plate = plate, IsHitTestVisible = false });
+            var rim = new NeonRim { Plate = plate, IsHitTestVisible = false };
+            scroll.ScrollChanged += (_, _) => { plate.Scroll = scroll.Offset.Y; plate.View = scroll.Viewport.Height; plate.Page = scroll.Extent.Height; rim.InvalidateVisual(); };
+            var surface = new Grid(); surface.Children.Add(plate); surface.Children.Add(rim);
             surface.SizeChanged += (_, _) => surface.Clip = MainframeTheme.Cut(new Rect(surface.Bounds.Size), 10, 4, 10, 4);
             popup = new Popup { PlacementTarget = target, Placement = PlacementMode.Bottom, IsLightDismissEnabled = true,
                 Child = surface };

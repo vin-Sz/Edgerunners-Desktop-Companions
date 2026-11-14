@@ -55,17 +55,17 @@ namespace CapriDesktop
         internal const double Pace = 170, Dash = 560, Heavy = 120, PrintGap = 36, PrintLife = 6, GlitchIn = 0.7, HaulReach = 6;
         private const int Margin = 90;
         internal const int KeepShowing = 140;
-        private static readonly string[] HaulLines =
+        internal static readonly string[] HaulLines =
         {
             "mine now", "you weren't using this", "redecorating", "this goes over here now", "borrowing this", "i'm taking this one", "stop clicking it"
         };
-        private static readonly string[] NoteLines =
+        internal static readonly string[] NoteLines =
         {
             "there are more of me now", "i live here", "nice files", "we voted. you lost.", "your mouse is mine",
             "hold esc if you're scared", "capri.exe has duplicated", "we're unionising", "who let me out",
             "don't check task manager", "i named the others", "all of us are the real one"
         };
-        private static readonly string[] FakeLines =
+        internal static readonly string[] FakeLines =
         {
             "deleting system32", "deleting your saves", "formatting C:", "uninstalling windows", "deleting your homework",
             "uninstalling your gpu", "deleting your minecraft world", "sending your search history to your mum"
@@ -172,7 +172,7 @@ namespace CapriDesktop
                 if (note.BarFrom >= 0 && now - note.BarFrom >= note.BarFor)
                 {
                     note.BarFrom = -1;
-                    note.Text = Owned;
+                    note.Text = Said.In(Owned);
                     note.Stale = true;
                 }
             if (now >= noteAt && Bodies.Count > 0)
@@ -225,7 +225,7 @@ namespace CapriDesktop
             {
                 body.Fetching = false;
                 bool fake = random.Next(2) == 0;
-                body.Carrying = new CloneNote { X = body.X, Y = body.Y, Text = fake ? FakeLines[random.Next(FakeLines.Length)] : NoteLines[random.Next(NoteLines.Length)], BarFrom = fake ? now : -1, BarFor = fake ? Between(6, 12) : 0 };
+                body.Carrying = new CloneNote { X = body.X, Y = body.Y, Text = Said.In(fake ? FakeLines[random.Next(FakeLines.Length)] : NoteLines[random.Next(NoteLines.Length)]), BarFrom = fake ? now : -1, BarFor = fake ? Between(6, 12) : 0 };
                 Notes.Add(body.Carrying);
                 Wander(body);
                 return;
@@ -329,7 +329,7 @@ namespace CapriDesktop
             chosen.ToY = taken.Y + taken.GrabY;
             if (chosen.Line == null)
             {
-                chosen.Line = HaulLines[random.Next(HaulLines.Length)];
+                chosen.Line = Said.In(HaulLines[random.Next(HaulLines.Length)]);
                 chosen.LineUntil = now + 2.5;
             }
             Hauls.Add(taken);
@@ -542,7 +542,7 @@ namespace CapriDesktop
             }
             foreach (CloneHaul haul in Swarm.Hauls) if (!haul.Holding) Track(haul);
             Point? dragged = Swarm.Tick(now, passed, took < SlowTick, handsFree, new Point(cursor.X - room.X, cursor.Y - room.Y), handsFree && !Mousing());
-            if (dragged != null) Cursor.Position = new Point(room.X + dragged.Value.X, room.Y + dragged.Value.Y);
+            Nab(dragged == null ? (Point?)null : new Point(room.X + dragged.Value.X, room.Y + dragged.Value.Y));
             foreach (CloneHaul haul in Swarm.Hauls) if (haul.Holding) Carry(haul);
             if (unsaved && now >= markAt)
             {
@@ -555,6 +555,28 @@ namespace CapriDesktop
             Frames++;
             Action<double> ticked = Ticked;
             if (ticked != null) ticked(now);
+        }
+
+        // While one of them has their cursor, it goes where she drags it and her sign is up (#106), until she lets go of it or
+        // they're put away. The smoke test watches PutCursor instead of moving the real one.
+        internal Action<Point> PutCursor = delegate(Point at) { Cursor.Position = at; };
+        private bool nabbing;
+
+        internal bool Nabbing { get { return nabbing; } }
+
+        internal void Nab(Point? to)
+        {
+            if (to.HasValue)
+            {
+                if (!nabbing) { nabbing = true; InControl.Begin(to.Value); }
+                else InControl.Near(to.Value);
+                PutCursor(to.Value);
+            }
+            else if (nabbing)
+            {
+                nabbing = false;
+                InControl.End();
+            }
         }
 
         private List<CloneHaul> Offered()
@@ -741,6 +763,9 @@ namespace CapriDesktop
             Bitmap made;
             if (cells.TryGetValue(key, out made)) return made;
             made = new Bitmap(canvas, canvas, PixelFormat.Format32bppPArgb);
+            // On her artist's standing set a clone glitches in on the first frame of that loop, with the glitch drawn under her.
+            double under = 0;
+            if (Companion.StandsIn(clip, idle)) { under = Companion.UnderLevel(clip, cell); clip = idle; cell = 0; }
             Bitmap strip = left && clip.HasFlipped ? clip.FlippedNow : clip.Strip;
             int width = strip.Width / clip.Count;
             float high = size * clip.Height, broad = high * width / strip.Height;
@@ -751,7 +776,9 @@ namespace CapriDesktop
                 graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 graphics.TranslateTransform(canvas / 2f, canvas / 2f);
                 if (left) graphics.ScaleTransform(-1, 1);
-                graphics.DrawImage(strip, new RectangleF(-broad / 2f + clip.ShiftX * size, -high / 2f + clip.ShiftY * size, broad, high), new RectangleF(cell * width, 0, width, strip.Height), GraphicsUnit.Pixel);
+                RectangleF target = new RectangleF(-broad / 2f + clip.ShiftX * size, -high / 2f + clip.ShiftY * size, broad, high);
+                if (under > 0) Shatter.Under(graphics, strip, new Rectangle(cell * width, 0, width, strip.Height), target, under, (int)(key & 0x7FFFFFFF));
+                graphics.DrawImage(strip, target, new RectangleF(cell * width, 0, width, strip.Height), GraphicsUnit.Pixel);
             }
             cells[key] = made;
             return made;
@@ -807,8 +834,12 @@ namespace CapriDesktop
                     double age = now - body.Born;
                     bool grinning = (body == Swarm.Nabber && Swarm.Holding) || (body.Hauling != null && body.Hauling.Holding);
                     Clip clip = age < Swarm.GlitchIn ? glitch : grinning ? grin : Swarm.Walking(body, now) ? walk : idle;
+                    // On her artist's standing set a grinning clone stands in her loop, since her grin is her old stand.
+                    if (clip == grin && Companion.StandsIn(grin, idle)) clip = idle;
                     int which = clip == glitch ? 0 : clip == grin ? 1 : clip == walk ? 2 : 3;
                     int cell = clip == glitch ? Math.Min(clip.Count - 1, (int)(age * clip.Fps)) : (int)((now + body.Phase) * clip.Fps) % clip.Count;
+                    // Every drawn frame stays in memory here, so a long loop keeps about 16 of them.
+                    cell -= cell % Math.Max(1, clip.Count / 16);
                     graphics.DrawImage(Cell(clip, which, cell, body.Left), (int)body.X - canvas / 2, (int)body.Y - canvas / 2, canvas, canvas);
                 }
                 foreach (CloneBody body in Swarm.Bodies)
@@ -845,6 +876,7 @@ namespace CapriDesktop
             closing = true;
             if (disposing)
             {
+                Nab(null);
                 ticks.Dispose();
                 if (hint != null) { hint.Dispose(); hint = null; }
                 foreach (Bitmap cell in cells.Values) cell.Dispose();
@@ -898,6 +930,8 @@ namespace CapriDesktop
         private string cloneLast;
 
         private int upsets;
+        private double upsetAt;
+        private double upsetNoteAt;
 
         private string CloneTool(string action, int count) { return InvokeRequired ? (string)Invoke(new Func<string, int, string>(Clone), action, count) : Clone(action, count); }
 
@@ -910,16 +944,38 @@ namespace CapriDesktop
         }
 
         // An insult sets her clones off 1 time in 3, then 2 in 3, and always by the third. Never over a job, a game or a stream,
-        // and the note near her tells anyone who's never met them how to stop it.
-        internal bool Upset(int roll)
+        // and the note near her tells anyone who's never met them how to stop it. One she sat out still counts toward the
+        // next for ten minutes. Ones thrown at her clones while they're out don't.
+        internal bool Upset(int roll, string held = null)
         {
-            if (!preferences.UpsetChaos || working != null || hidden || cloneWindow != null || InChat || Computer.Streaming || Computer.GameOpen() != null) return false;
-            upsets++;
-            if (roll >= upsets) return false;
+            if (!preferences.UpsetChaos) return false;
+            if (cloneWindow != null) return UpsetHeld("clones already out");
+            double now = clock.Elapsed.TotalSeconds;
+            if (now - upsetAt > 600) upsets = 0;
+            upsetAt = now;
+            upsets = Math.Min(3, upsets + 1);
+            if (held == null) held = working != null ? "job" : hidden ? "hidden" : InChat ? "voice chat" : Computer.Streaming ? "stream" : Computer.GameOpen() != null ? "game" : null;
+            if (held != null) return UpsetHeld(held);
+            if (roll >= upsets)
+            {
+                Brain.Log("chaos when upset", -1, "No clones this time: chance. Tally " + upsets + "/3.");
+                return false;
+            }
             upsets = 0;
             Clone("spawn", 0);
-            if (cloneWindow != null) cloneWindow.Pin(Swarm.Sorry, new Point(anchor.X + Width / 2, anchor.Y - 24));
+            if (cloneWindow != null) cloneWindow.Pin(Said.In(Swarm.Sorry), new Point(anchor.X + Width / 2, anchor.Y - 24));
             return true;
+        }
+
+        private bool UpsetHeld(string reason)
+        {
+            double now = clock.Elapsed.TotalSeconds;
+            if (now >= upsetNoteAt)
+            {
+                upsetNoteAt = now + 60;
+                Brain.Log("chaos when upset", -1, "Clones held: " + reason + ". Tally " + upsets + "/3.");
+            }
+            return false;
         }
 
         // A number makes exactly that many. No number makes one that keeps multiplying until they stop it.
