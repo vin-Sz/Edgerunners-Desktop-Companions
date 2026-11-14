@@ -26,6 +26,8 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 - "Legacy stand", a setting that swaps in `idle_legacy.png`, Capri's old standing art. In Talia's build it would show Capri
 - New installer text that says Capri, like "Quit Capri from her tray menu". `characters/app.txt` doesn't cover these yet
 
+**What GitHub's self-test caught afterwards:** three checks failed on the first run. Our own YouTube Music check expects the app's name with its space, so his space-removing line now leaves "youtube music" alone. Two of his new checks look for Capri's name in her Mainframe's sections and in the personality file, so `characters/talia/checks.txt` swaps those for Talia's build.
+
 **One idea worth knowing:** a merge can be wrong with no conflict at all. Git only reports a clash when both sides change the same lines. His space-removing line and our "youtube music" check were in different places, so git merged them without a word, and together they'd have quietly stopped YouTube Music from working. That's why a merge gets read and tested, not just accepted when git is happy.
 
 ---

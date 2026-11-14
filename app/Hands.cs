@@ -3951,6 +3951,7 @@ namespace CapriDesktop
                 if (!found.Groups[3].Success && (Playable.IsMatch(target) || PlainGame.IsMatch(target) || Nickname(target) != null || Showing(target))) return false;
                 if (brainy && !ClearMusic(target, found.Groups[3].Success)) return false;
                 if (found.Groups[3].Success) args.App = Regex.Replace(found.Groups[3].Value.ToLowerInvariant(), @"\s+", "");
+                if (args.App == "youtubemusic") args.App = "youtube music";
                 if (Regex.IsMatch(target, @"^(music$|some music$|((a|any|some|random) )?(song|track|tune|music)s?$|(something|anything)\b(?!\s+by\s))", RegexOptions.IgnoreCase)) { tool = "play_music"; args.Kind = "song"; args.Song = Pick(); return true; }
                 Match kind = Regex.Match(target, @"^(?:(?:the|my|your)\s+)?(.+?)\s+(playlist|album)$", RegexOptions.IgnoreCase);
                 Match first = Regex.Match(target, @"^(?:the\s+)?(playlist|album)\s+(.+)$", RegexOptions.IgnoreCase);

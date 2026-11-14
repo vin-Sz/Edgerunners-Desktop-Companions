@@ -20,3 +20,11 @@
 "halloweenWrong = "a Halloween line without Happy Halloween: " + spookyLine" => "halloweenWrong = "an empty Halloween line""
 # Her menu's title has her name.
 "menu.Items[0].Text.StartsWith("CAPRI", StringComparison.Ordinal)" => "menu.Items[0].Text.StartsWith("TALIA", StringComparison.Ordinal)"
+
+# The self-test's walk through her Mainframe's sections reads the section named after her, and its file editor check looks for her personality's first words.
+""BRAIN VOICE CAPRI"" => ""BRAIN VOICE TALIA""
+""CAPRI VOICE BRAIN"" => ""TALIA VOICE BRAIN""
+"fromTitle != "CAPRI"" => "fromTitle != "TALIA""
+"CLIPS CAPRI WATCH" => "CLIPS TALIA WATCH"
+"WATCH CAPRI CLIPS" => "WATCH TALIA CLIPS"
+"panel.Draft.Contains("You are Capri")" => "panel.Draft.Contains("You are Talia")"
