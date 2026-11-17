@@ -1,0 +1,67 @@
+# The Linux self-test on Talia's own Mac and Linux build (dotnet build -p:Character=talia), on GitHub's machine.
+# It's a separate file from mac-linux.yml because that one is Capri's and merges in from capri-desktop. Mac and Linux
+# compile the same code, so this also shows her Mac build compiles. Her Mac self-test isn't here: a Mac machine on GitHub
+# costs ten times the minutes, and the Mac-only parts don't touch her words.
+name: Talia Linux self-test
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+    # Anything her Mac and Linux build is made from runs it. The ! lines skip what never goes into her build, and later
+    # lines win, so personality.md goes back in last. Same idea as talia-smoke.yml.
+    paths:
+      - 'app/**'
+      - 'assets/**'
+      - 'cross/**'
+      - 'characters/**'
+      - 'ci/build-linux.sh'
+      - '.github/workflows/talia-linux.yml'
+      - '!**/*.md'
+      - '!characters/lucy/**'
+      - '!characters/*/krita/**'
+      - 'characters/talia/personality.md'
+  workflow_dispatch:
+
+concurrency:
+  group: talia-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Native Linux dependencies
+        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends libwayland-dev libxkbcommon-dev libxcb1-dev pkg-config
+      # The build reads Character from the environment, the same as -p:Character=talia.
+      - name: Build as Talia
+        env:
+          Character: talia
+        run: bash ci/build-linux.sh "$PWD/out/Talia"
+      - name: Install a test desktop
+        timeout-minutes: 15
+        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends xvfb xauth openbox xcompmgr libice6 libsm6 libfontconfig1
+      - name: Self-test
+        timeout-minutes: 10
+        run: |
+          xvfb-run -a -s "-screen 0 1920x1080x24" bash -c 'openbox & sleep 2; xcompmgr & sleep 1; out/Talia/Capri --smoke "$PWD/smoke/linux"' || true
+          cat smoke/linux/smoke-test.txt
+          if grep -q '^FAIL' smoke/linux/smoke-test.txt; then
+            grep '^FAIL' smoke/linux/smoke-test.txt | head -c 3000 | sed 's/^/::error title=Talia Linux self-test::/'
+            exit 1
+          fi
+          test "$(grep -c '^PASS' smoke/linux/smoke-test.txt)" -ge 20
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-talia-linux
+          path: smoke

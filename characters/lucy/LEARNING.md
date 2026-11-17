@@ -5,6 +5,22 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 17 Nov: Talia on Mac and Linux
+
+**What changed:** a Mac or Linux build made with `dotnet build -p:Character=talia` now has her personality, her fixed lines (pop-ups, check-ins, "pay attention to me", Night City and lag lines), her name in its menus and Mainframe, and her name in what it tells the AI. Before, only `Character.cs` and her art went in, so she talked like Capri. A plain build is untouched.
+
+**How:** the Windows build has always worked by copying Lachy's code and swapping exact pieces of text in the copy (`characters/Use-Character.ps1`). Mac and Linux are built by `dotnet`, which can't run that PowerShell script, so `characters/use-character.py` does the same swaps in Python, reading the same `names.txt`, `lines.txt` and `prompts.txt`. `characters/Character.targets` runs it just before compiling and points the compiler at the copy. Lachy's `cross/Capri.Cross.csproj` only gets one line that pulls that file in.
+
+**Why a second file of swaps (`characters/talia/mac-linux.txt`)?** Lachy wrote the Mac and Linux app separately (`cross/`), and some things are worded differently there. Her "pay attention to me" lines are seven in that code and ten on Windows, so the Windows rule doesn't match. Her Mainframe section is called `CAPRI` there and `CAPRI >` on Windows. A rule only swaps exact text, so these needed their own lines. Her words in it are copied from `lines.txt`, not new.
+
+**Left out on purpose:** the app's own name, settings folder and updates (`characters/app.txt`), her own folder for memories, and her art's sizes. Those are bigger pieces of Windows work that Mac and Linux don't have yet. One of them matters before a Mac or Linux release: the updater there still looks at Lachy's releases, so it would offer to update her into Capri.
+
+**How it was tested:** compiled and self-tested on Linux in the cloud, not on your PC: all 316 checks passed, and a plain build still has Capri. The new **Talia Linux self-test** Action does the same on GitHub whenever her build's files change. Mac compiles the same code, so this covers whether her Mac build compiles too, but not the Mac-only parts.
+
+**Idea: a build that wears a character is a find-and-replace on a copy.** That's why a rule that stops matching gets a warning: it means Lachy changed his words, and she'd quietly go back to sounding like Capri there.
+
+---
+
 ## 17 Nov: Talia's build stops telling the AI she's Capri
 
 **What changed:** three things, all in her build only. Lachy's files are untouched.

@@ -6,12 +6,13 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 
 | File | What it is |
 | --- | --- |
-| `personality.md` | Her personality. A `-Character talia` build on Windows makes it her default, because `builtin-personality.txt` is here. Mac and Linux builds don't have this yet |
+| `personality.md` | Her personality. A `-Character talia` build makes it her default, because `builtin-personality.txt` is here. On Mac and Linux that's `dotnet build -p:Character=talia` |
 | `Character.cs` | Her lines from the code (pop-ups, Halloween, her "no", her error line). Used in place of `app/Character.cs` |
 | `lines.md` | Her versions of Capri's fixed lines that skip the AI, and how she talks across season 2. The app doesn't read it |
-| `lines.txt` | Those lines, swapped into a copy of Lachy's code when her build is made. Same format as `names.txt`. Windows only |
+| `lines.txt` | Those lines, swapped into a copy of Lachy's code when her build is made. Same format as `names.txt` |
 | `names.txt` | Her name where you see it, and her installer's name |
-| `prompts.txt` | Her name in the instructions the app sends to the AI, for jobs, games, streams, screen watching and board games. Same format as `names.txt`. Windows only |
+| `prompts.txt` | Her name in the instructions the app sends to the AI, for jobs, games, streams, screen watching and board games. Same format as `names.txt` |
+| `mac-linux.txt` | Swaps only the Mac and Linux build needs, where Lachy's Mac and Linux code (`cross/`) words something differently from Windows. Her `names.txt`, `lines.txt` and `prompts.txt` go into that build as well |
 | `checks.txt` | The self-test's checks of Capri's personality, changed in a copy of the code to fit Talia's text |
 | `CAPRI-LEFTOVERS.md` | What she inherited from Capri that may not suit her, with decisions waiting. Read it before drawing |
 | `krita/` | One ready-to-draw `.kra` per animation. Remake with `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\talia\krita -Character Talia` |
@@ -28,6 +29,7 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 - [x] Where she is on the show's timeline: kept vague on purpose. She knows her history but doesn't say how it ended, so she keeps her chrome jokes and doesn't spoil the finale
 - [x] Build the personality in as her default (4 Nov). Not checked against the show on purpose: you chose not to rewatch E02 and E07, so her teasing and her bickering with Capri rest on the research. If something sounds wrong when you do talk to her, say so and it gets fixed
 - [x] Self-test on GitHub instead of your PC: the **Talia self-test** Action runs when `characters/` or `ci/` changes
+- [x] Her personality, lines and name in the Mac and Linux build too (17 Nov), checked by the **Talia Linux self-test** Action. Still Capri's there, because Windows has them as separate work that Mac and Linux don't have yet: the app's own name, settings folder and updates (`characters/app.txt`), her own folder for memories (`own-files.txt`), and her art's sizes. Nobody makes a Mac or Linux release of her yet, so none of this reaches anyone
 - [ ] Her art and icon
 - [ ] Her voice: later, on purpose. It's the least important part for now
 - [ ] "Capri Mainframe" and "Hey Capri": still Capri's, for the same reasons as in Lucy's notes
