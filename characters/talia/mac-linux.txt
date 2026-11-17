@@ -1,0 +1,17 @@
+# Talia's swaps that only the Mac and Linux build needs (characters/use-character.py), same format as names.txt.
+# Her names.txt, lines.txt and prompts.txt go into that build too. This file is for the places where the Mac and Linux code
+# (cross/) has its own wording of something Windows has, so the Windows line doesn't match there.
+
+# Her "pay attention to me" lines: the Mac and Linux code has only the first seven of Capri's ten, so this gives it all of hers
+# from lines.txt.
+"{ "Psst. Remember me? Tiny, glitchy, very important.", "I'm bored. Entertain me.", "Hey. Hey. Look at me.", "You've been ignoring me for ages. Rude.", "Pay attention to me or I start clicking things.", "Knock knock. It's your favourite gremlin.", "Choom. I'm bored out of my many minds." }" => "{ "Psst. Hey. Still here, ya know.", "Ugh. Bored. Do somethin' fun, will ya?", "Hey. Hey. Over here.", "You've been ignorin' me for ages. Rude.", "Pay attention or I start clickin' stuff. Kidding! ...Mostly.", "Knock knock. Guess who. Duh.", "Choomie. I'm bored. Like, so bored.", "Whatcha doin'? Looks boring.", "Counted your desktop icons. Twice. Gonk hobby, huh?", "This is me bein' patient. Goin' great, right?" }"
+
+# Her section of the Mainframe is called CAPRI on Mac and Linux, where Windows calls it "CAPRI >" (names.txt).
+"Section("CAPRI", " => "Section("TALIA", "
+"band.Text == "CAPRI")" => "band.Text == "TALIA")"
+
+# The Mac and Linux self-test's checks of those section names (cross/Smoke.cs), like her checks.txt does on Windows.
+""BRAIN VOICE CAPRI"" => ""BRAIN VOICE TALIA""
+""CAPRI VOICE BRAIN"" => ""TALIA VOICE BRAIN""
+"" CAPRI WATCH BRAIN HABITS"" => "" TALIA WATCH BRAIN HABITS""
+"last == "CAPRI"" => "last == "TALIA""

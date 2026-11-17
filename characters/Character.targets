@@ -1,0 +1,23 @@
+<Project>
+  <!-- dotnet build -p:Character=talia on Mac and Linux: before compiling, characters/use-character.py makes a copy of the code with
+       her name, lines and personality in it, the way characters/Use-Character.ps1 does on Windows, and the build compiles the copy.
+       cross/Capri.Cross.csproj imports this with one line, so Capri's updates keep merging. A plain build never runs it.
+       Compiler errors point at the copy, in cross/obj/<configuration>/<framework>/character-<name>/. -->
+  <Target Name="WearCharacter" BeforeTargets="CoreCompile" Condition="'$(Character)' != ''">
+    <PropertyGroup>
+      <_CharacterRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</_CharacterRoot>
+      <_CharacterCopy>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)character-$(Character)'))</_CharacterCopy>
+      <_CharacterPython Condition="'$(OS)' == 'Windows_NT'">python</_CharacterPython>
+      <_CharacterPython Condition="'$(OS)' != 'Windows_NT'">python3</_CharacterPython>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_CharacterCopy).in.txt" Lines="@(Compile->'%(FullPath)')" Overwrite="true" />
+    <Exec Command="$(_CharacterPython) -I &quot;$(MSBuildThisFileDirectory)use-character.py&quot; $(Character) &quot;$(_CharacterRoot)&quot; &quot;$(_CharacterCopy).in.txt&quot; &quot;$(_CharacterCopy)&quot; &quot;$(_CharacterCopy).out.txt&quot;" />
+    <ReadLinesFromFile File="$(_CharacterCopy).out.txt">
+      <Output TaskParameter="Lines" ItemName="_WornCompile" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <Compile Remove="@(Compile)" />
+      <Compile Include="@(_WornCompile)" />
+    </ItemGroup>
+  </Target>
+</Project>

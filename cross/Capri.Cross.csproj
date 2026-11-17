@@ -73,4 +73,6 @@
     <EmbeddedResource Include="@(CharacterSprite)" LogicalName="Capri.Sprite.%(Filename)%(Extension)" />
     <EmbeddedResource Include="@(CharacterVoice)" LogicalName="Capri.Voice.%(Filename)%(Extension)" />
   </ItemGroup>
+  <!-- Her name, lines and personality go into a copy of the code (characters/use-character.py) -->
+  <Import Project="../characters/Character.targets" Condition="'$(Character)' != ''" />
 </Project>
