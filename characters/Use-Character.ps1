@@ -41,6 +41,9 @@ $swap = {
     if (-not $resource.Success) { return $argument }
     $folder = if ($resource.Groups[2].Value -eq 'Sprite') { 'sprites' } else { 'voice' }
     $own = Join-Path $characterRoot ($folder + '\' + $resource.Groups[3].Value)
+    # The Legacy stand setting (Capri 0.9.0) swaps in Capri's old standing art. A character's own standing sheet is already
+    # drawn the old way, so it stands in for that too, or the setting would bring Capri back.
+    if ($resource.Groups[3].Value -eq 'idle_legacy.png' -and -not (Test-Path -LiteralPath $own)) { $own = Join-Path $characterRoot 'sprites\idle.png' }
     $hasOwn = Test-Path -LiteralPath $own
     if ($folder -eq 'sprites') {
         # Her frame counts and sizes are set in the code, so a sheet of another size would cut her frames wrong.
