@@ -12,7 +12,7 @@ These aren't matters of taste. They're places where the app contradicts what you
 
 **1. Done, nothing to change.** The "good boy" lines in the game and stream instructions stay, as you said.
 
-**2. Parts of the app tell her she *is* Capri.** *Memory is done (4 Nov): each character now has her own, and her memory instructions use her name. The rest of this table isn't changed.* Her name swap only covers things you see, not instructions sent to the AI. These all still say Capri:
+**2. Done (17 Nov), apart from the wording below.** *Memory was done on 4 Nov. The rest of this table, plus the same kind of line in the board games, chess, the Claude and ChatGPT plan brains, voice calls and watch-alongs, now says Talia in her build, from `prompts.txt`. Only the name changed: "cocky little gremlin" and "sharp, playful" are still Lachy's words. Still Capri on purpose: "Hey Capri", "Capri Mainframe" (15), and the prompt that translates her fixed lines, which describes Capri's voice. Mac and Linux still say Capri.* Her name swap only covered things you see, not instructions sent to the AI. These all said Capri:
 
 | Where | What it says | When |
 | --- | --- | --- |
@@ -29,6 +29,12 @@ This is worse for her than for Lucy, because Talia knows Capri as a separate per
 - [ ] Also rewrite "cocky little gremlin having the time of her life", which needs your wording. Mine would be "bored, sarcastic and pretending not to enjoy it"
 
 **3. Done (4 Nov), untested with real art.** Capri's 15 `_flipped` sheets are drawn separately and aren't mirrors: her artist swaps her red and black limbs so they stay on the correct sides. So once a character has her own sheet, Capri's flipped one now leaves the build and the app mirrors hers. Only real sheets will test it. If she has chrome on one side, that side will swap when she faces left, unless you draw a `_flipped` sheet too.
+
+**2b. New from Capri 0.9.0 (17 Nov).**
+- **Legacy stand**, a setting that swapped in Capri's old standing art: done. In her build it now uses her own `idle.png` once that exists, which is already drawn the old way, so the setting changes nothing she'd notice. Until then, all her art is Capri's anyway.
+- **Installer and startup text** that still said Capri: done, it says Edgerunners Desktop (`characters/app.txt`). The Apps list now shows "Edgerunners fan project" as the publisher, in place of "Capri fan project". Change it if you'd like other words.
+- **`form.png`**, 9 drawings of Capri forming out of her red and green ribbons. 0.9.0 has her travel across the screen as ribbons and form from these where she lands. It belongs with number 6, so it's waiting for that decision. Turning the ribbons off would mean changing Lachy's self-test too.
+- **`click.png`**, a 20-frame red and green burst where her own pointer clicks when she uses your mouse. It isn't her body, and colour mods already recolour it. It still needs your call: keep it, recolour it, or draw her own (20 frames of 144×144, 2880×144 in all). Neither it nor `form` has a Krita file yet.
 
 ## Decide before you draw
 
