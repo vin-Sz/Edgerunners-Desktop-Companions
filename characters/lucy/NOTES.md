@@ -29,7 +29,7 @@ The folder is named `characters/lucy` so other characters (even Capri) could sit
 - [x] A GitHub Action (`.github/workflows/sync-upstream.yml`) that merges capri-desktop into `main` when it updates
 
 **Step 2: art and voice**
-- [x] Build script: `ci/build-windows.ps1 -Character lucy` (Mac/Linux: `dotnet build -p:Character=lucy`) takes each file in `sprites/` and `voice/` here, and `icon.ico`, when it's there and Capri's otherwise, so sprites can be swapped one at a time. A sheet of the wrong size stops the build with a message (`characters/Use-Character.ps1`). Not yet: the installer's `chip.png`, and the Mac/Linux icon
+- [x] Build script: `ci/build-windows.ps1 -Character lucy` (Mac/Linux: `dotnet build -p:Character=lucy`, which also puts in her name, lines and personality through `characters/use-character.py`, without the app's own identity yet) takes each file in `sprites/` and `voice/` here, and `icon.ico`, when it's there and Capri's otherwise, so sprites can be swapped one at a time. A sheet of the wrong size stops the build with a message (`characters/Use-Character.ps1`). Not yet: the installer's `chip.png`, and the Mac/Linux icon
 - [x] Check the sprite list and sizes again after the patch: the perch is new (60 frames, narrower frames) and `perch_music` was added. `ART.md` and the templates are updated
 - [x] Again for 0.7.7: `perch_talk` and seven `laydown_*` sheets (372 or 440 × 250 px). `ART.md` and the templates are updated
 - [ ] Lucy's art, voice and icon
