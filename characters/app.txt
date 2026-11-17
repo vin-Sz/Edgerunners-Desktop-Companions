@@ -47,3 +47,11 @@
 "REMOVE CAPRI" => "REMOVE EDGERUNNERS DESKTOP"
 "CAPRI COULDN'T INSTALL" => "EDGERUNNERS DESKTOP COULDN'T INSTALL"
 ""CAPRI\n" => ""EDGERUNNERS DESKTOP\n"
+
+# Installer and startup text that came with Capri 0.9.0
+""Capri fan project"" => ""Edgerunners fan project""
+"The Capri install marker could not be verified." => "The Edgerunners Desktop install marker could not be verified."
+"Capri is running as administrator, so setup can't close her." => "Edgerunners Desktop is running as administrator, so setup can't close her."
+"Windows has Capri turned off under Startup apps." => "Windows has Edgerunners Desktop turned off under Startup apps."
+"Windows wouldn't change Capri's startup task." => "Windows wouldn't change Edgerunners Desktop's startup task."
+"Capri doesn't know the package manager " => "Edgerunners Desktop doesn't know the package manager "

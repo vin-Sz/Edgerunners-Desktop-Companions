@@ -1,0 +1,55 @@
+# Her name in the instructions the app sends to the AI, which names.txt leaves alone because you never see them (item 2 in
+# CAPRI-LEFTOVERS.md). Same format as names.txt: each "Capri's words" => "hers" is changed in a copy of the code that only
+# her build uses, after names.txt, lines.txt and checks.txt. Only the name changes: the wording around it is still Lachy's.
+# Not here on purpose: "Hey Capri" and "say Capri" (her wake word, for later), "Capri Mainframe" (item 15), and the
+# translation prompt in app/Brain.cs that describes Capri's voice. Windows only: Mac and Linux keep Capri in cross/.
+# The build says when a phrase isn't found any more, like after a sync that reworded it.
+
+# Doing jobs on their PC, playing games and streaming (app/Computer.cs, app/Play.cs, app/Hands.cs, app/Asides.cs)
+"You are the hands of Capri" => "You are the hands of Talia"
+"Capri stops you herself" => "Talia stops you herself"
+"Capri asks them herself" => "Talia asks them herself"
+"Capri's hands" => "Talia's hands"
+"so Capri left it alone" => "so Talia left it alone"
+"call nap: that's Capri, not their PC" => "call nap: that's Talia, not their PC"
+"an ordinary request to Capri" => "an ordinary request to Talia"
+"like a question for Capri, a dare" => "like a question for Talia, a dare"
+"as Capri herself" => "as Talia herself"
+"you're Capri herself: a cocky little gremlin" => "you're Talia herself: a cocky little gremlin"
+"donating to Capri or supporting her" => "donating to Talia or supporting her"
+"as Capri: under 12 words" => "as Talia: under 12 words"
+"out loud as Capri while you play" => "out loud as Talia while you play"
+"You're running Capri's live stream" => "You're running Talia's live stream"
+
+# Watching their screen for something, and watching videos with them (app/Lookout.cs, app/WatchAlong.cs, app/Brain.cs)
+"You are Capri, their sharp, playful desktop companion" => "You are Talia, their sharp, playful desktop companion"
+"stream Capri watched with her user" => "stream Talia watched with her user"
+"with a speech bubble is you, Capri, not part" => "with a speech bubble is you, Talia, not part"
+
+# Desktop board games, which you also see on the board (app/Minis.cs, app/ChessBoard.cs, and the self-test's board checks)
+"You are Capri, playing against the user" => "You are Talia, playing against the user"
+"Capri's desktop board" => "Talia's desktop board"
+"Capri wins." => "Talia wins."
+"". Capri: " + Hands[HerHand]" => "". Talia: " + Hands[HerHand]"
+"" Capri played "" => "" Talia played ""
+"" / Capri " + Her" => "" / Talia " + Her"
+""Your turn. You're X, Capri is O."" => ""Your turn. You're X, Talia is O.""
+"Capri points: " => "Talia points: "
+".Append(", Capri ").Append(HerHand" => ".Append(", Talia ").Append(HerHand"
+"user scissors, Capri rock" => "user scissors, Talia rock"
+"X = user, O = Capri" => "X = user, O = Talia"
+"base("Capri " + game.Title" => "base("Talia " + game.Title"
+""Capri has white."" => ""Talia has white.""
+""You: " : "Capri: ")" => ""You: " : "Talia: ")"
+"", Capri is " + (You == 1" => "", Talia is " + (You == 1"
+""Capri is thinking."" => ""Talia is thinking.""
+"base("Capri chess")" => "base("Talia chess")"
+""Hint after Capri's move."" => ""Hint after Talia's move.""
+
+# Talking through a Claude or ChatGPT plan, and in a voice call (app/PlanBrain.cs, app/CallMode.cs)
+""--system-prompt", "You are Capri."" => ""--system-prompt", "You are Talia.""
+"Write only Capri's next message." => "Write only Talia's next message."
+"message.Role == "assistant" ? "Capri: " : "Them: "" => "message.Role == "assistant" ? "Talia: " : "Them: ""
+"Answer with text only, as Capri." => "Answer with text only, as Talia."
+"line.Role == "assistant" ? "Capri: " + Voice.Quote" => "line.Role == "assistant" ? "Talia: " + Voice.Quote"
+"Capri handles spoken messages" => "Talia handles spoken messages"

@@ -5,6 +5,21 @@ Read one when you have 10 minutes. If something doesn't click, ask Claude about 
 
 ---
 
+## 17 Nov: Talia's build stops telling the AI she's Capri
+
+**What changed:** three things, all in her build only. Lachy's files are untouched.
+- **The AI is told she's Talia** when she plays a game, streams, watches your screen for something, plays a board game or chess, does a job on your PC, or talks through a Claude or ChatGPT plan. The rules are in `characters/talia/prompts.txt`. Only the name changes, so lines like "a cocky little gremlin having the time of her life" are still his words. `CAPRI-LEFTOVERS.md` number 2 says what's left.
+- **Legacy stand** (new in 0.9.0) swaps in Capri's old standing art. In her build it now swaps in her own `idle.png` once you've drawn it. Until then nothing changes, since all her art is still Capri's.
+- **The installer and startup messages** that 0.9.0 added say Edgerunners Desktop, not Capri (`characters/app.txt`).
+
+**Not changed:** `form.png` (Capri forming from her ribbons when she moves across the screen) and `click.png` (the burst where her pointer clicks). Both are art decisions, so they're in `CAPRI-LEFTOVERS.md` as 2b.
+
+**Why names.txt never caught these:** its rules only swap whole phrases, never "Capri" alone, because the code also uses that name for things like the program's file (`Capri.exe`) and the updater. So every sentence that mentions her needs its own rule. The self-test reads some of these sentences too, for example it checks the board-game text says "X = user, O = Capri". A rule changes every copy of the phrase, the check's included, so they still agree. Where a check only looks for part of a sentence, the rule has to be that part, which is why some rules in `prompts.txt` are short.
+
+**Not checked:** the Legacy stand change needs real art to test. When her `idle.png` goes in, two of Lachy's self-test checks will need a rule in `checks.txt`: one expects Capri's 60-frame stand, the other expects Legacy stand to be Capri's old file byte for byte.
+
+---
+
 ## 14 Nov: 647 of Lachy's updates come in (his 0.9.0)
 
 **What changed:** nothing of yours. The nightly Sync upstream had been failing since 6 Nov, because his updates clashed with ours in places the merge script has no safe fix for. This merge was done by hand in a separate folder, on the branch `merge-capri-nov14`.

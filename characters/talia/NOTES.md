@@ -11,6 +11,7 @@ Everything Talia-specific lives in this folder, the same way as `characters/lucy
 | `lines.md` | Her versions of Capri's fixed lines that skip the AI, and how she talks across season 2. The app doesn't read it |
 | `lines.txt` | Those lines, swapped into a copy of Lachy's code when her build is made. Same format as `names.txt`. Windows only |
 | `names.txt` | Her name where you see it, and her installer's name |
+| `prompts.txt` | Her name in the instructions the app sends to the AI, for jobs, games, streams, screen watching and board games. Same format as `names.txt`. Windows only |
 | `checks.txt` | The self-test's checks of Capri's personality, changed in a copy of the code to fit Talia's text |
 | `CAPRI-LEFTOVERS.md` | What she inherited from Capri that may not suit her, with decisions waiting. Read it before drawing |
 | `krita/` | One ready-to-draw `.kra` per animation. Remake with `powershell -File characters\lucy\make-krita-files.ps1 -Out characters\talia\krita -Character Talia` |
